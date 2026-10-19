@@ -17,7 +17,7 @@ public sealed class BatteryVisual : Control
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, OnPercentChanged));
     public static readonly DependencyProperty DisplayStyleProperty = DependencyProperty.Register(
         nameof(DisplayStyle), typeof(string), typeof(BatteryVisual),
-        new FrameworkPropertyMetadata("Ocean", FrameworkPropertyMetadataOptions.AffectsRender, OnMotionModeChanged));
+        new FrameworkPropertyMetadata("Ring", FrameworkPropertyMetadataOptions.AffectsRender, OnMotionModeChanged));
     public static readonly DependencyProperty AnimationsEnabledProperty = DependencyProperty.Register(
         nameof(AnimationsEnabled), typeof(bool), typeof(BatteryVisual),
         new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender, OnAnimationChanged));
@@ -27,6 +27,14 @@ public sealed class BatteryVisual : Control
     public static readonly DependencyProperty IsChargingProperty = DependencyProperty.Register(
         nameof(IsCharging), typeof(bool), typeof(BatteryVisual),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender, OnMotionModeChanged));
+    public static readonly DependencyProperty FillOpacityProperty = DependencyProperty.Register(
+        nameof(FillOpacity), typeof(double), typeof(BatteryVisual),
+        new FrameworkPropertyMetadata(.85, FrameworkPropertyMetadataOptions.AffectsRender, null,
+            (_, value) => double.IsFinite((double)value) ? Math.Clamp((double)value, .1, 1) : .85));
+    public static readonly DependencyProperty AnimationIntensityProperty = DependencyProperty.Register(
+        nameof(AnimationIntensity), typeof(double), typeof(BatteryVisual),
+        new FrameworkPropertyMetadata(1.6, FrameworkPropertyMetadataOptions.AffectsRender, null,
+            (_, value) => double.IsFinite((double)value) ? Math.Clamp((double)value, .5, 3) : 1.6));
 
     private static readonly Point Center = new(35, 35);
     private static readonly Geometry OceanClip = Frozen(new EllipseGeometry(Center, 26.5, 26.5));
@@ -71,6 +79,8 @@ public sealed class BatteryVisual : Control
     public bool AnimationsEnabled { get => (bool)GetValue(AnimationsEnabledProperty); set => SetValue(AnimationsEnabledProperty, value); }
     public Brush TrackBrush { get => (Brush)GetValue(TrackBrushProperty); set => SetValue(TrackBrushProperty, value); }
     public bool IsCharging { get => (bool)GetValue(IsChargingProperty); set => SetValue(IsChargingProperty, value); }
+    public double FillOpacity { get => (double)GetValue(FillOpacityProperty); set => SetValue(FillOpacityProperty, value); }
+    public double AnimationIntensity { get => (double)GetValue(AnimationIntensityProperty); set => SetValue(AnimationIntensityProperty, value); }
     private bool HasPercent => Percent is >= 0 and <= 100;
     private static double Now => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
 
@@ -168,6 +178,8 @@ public sealed class BatteryVisual : Control
     {
         context.DrawEllipse(null, _trackPen, Center, 28, 28);
         if (!HasPercent || percent <= 0) return;
+        var breathing = AnimationsEnabled && IsCharging ? (Math.Sin(_phase * 1.5) + 1) / 2 : 1;
+        context.PushOpacity(1 - .16 * AnimationIntensity * (1 - breathing));
         if (percent >= .9999) context.DrawEllipse(null, _accentPen, Center, 28, 28);
         else
         {
@@ -178,10 +190,12 @@ public sealed class BatteryVisual : Control
             }
             context.DrawGeometry(null, _accentPen, _ringArc);
         }
+        context.Pop();
         var angle = percent * Math.PI * 2 - Math.PI / 2;
-        context.PushOpacity(.35 + .1 * Math.Sin(_phase));
+        var highlight = AnimationsEnabled && IsCharging ? .3 * AnimationIntensity * breathing : 0;
+        context.PushOpacity(.35 + highlight / 3);
         context.DrawEllipse(Brushes.White, null,
-            new Point(35 + Math.Cos(angle) * 28, 35 + Math.Sin(angle) * 28), 1, 1);
+            new Point(35 + Math.Cos(angle) * 28, 35 + Math.Sin(angle) * 28), 1 + highlight, 1 + highlight);
         context.Pop();
     }
 
@@ -198,15 +212,16 @@ public sealed class BatteryVisual : Control
         if (!HasPercent || percent <= 0) return;
         context.PushClip(BarClip);
         context.PushClip(new RectangleGeometry(new Rect(9, 26, 47 * percent, 18)));
-        context.PushOpacity(.38);
+        context.PushOpacity(FillOpacity);
         context.DrawGeometry(Foreground, null, BarSegments);
         context.Pop();
         if (AnimationsEnabled)
         {
             var x = 2 + ((_phase * 10) % 74);
-            context.PushOpacity(IsCharging ? .35 : .17);
+            var width = 5 * AnimationIntensity;
+            context.PushOpacity(FillOpacity * (IsCharging ? .55 : .35));
             context.DrawGeometry(Brushes.White, null, Polygon(
-                new Point(x - 8, 25), new Point(x - 3, 25), new Point(x - 10, 45), new Point(x - 15, 45)));
+                new Point(x - width, 25), new Point(x, 25), new Point(x - 7, 45), new Point(x - width - 7, 45)));
             context.Pop();
         }
         context.Pop();
@@ -221,19 +236,39 @@ public sealed class BatteryVisual : Control
         context.DrawGeometry(null, _thinTrackPen, SandVessel);
         context.DrawLine(_trackPen, new Point(20, 8), new Point(50, 8));
         context.DrawLine(_trackPen, new Point(20, 62), new Point(50, 62));
-        if (!HasPercent || percent <= 0) return;
-        var surface = 57 - 44 * percent;
+        if (!HasPercent) return;
+        // Remaining charge occupies the upper chamber; spent charge collects beneath it.
+        var upperSurface = 13 + 20 * (1 - percent);
+        var lowerSurface = 57 - 20 * (1 - percent);
         context.PushClip(SandVessel);
-        context.PushOpacity(.38);
-        context.DrawGeometry(Foreground, null, Wave(surface, _phase, percent >= .9999 ? 0 : .6));
-        context.Pop();
-        if (AnimationsEnabled && surface > 37)
+        context.PushOpacity(FillOpacity);
+        if (percent > 0)
         {
-            context.PushOpacity(.65);
-            for (var index = 0; index < 3; index++)
+            context.PushClip(new RectangleGeometry(new Rect(23, 13, 24, 22)));
+            context.DrawGeometry(Foreground, null, Wave(upperSurface, _phase * .7,
+                AnimationsEnabled ? Math.Min(.6 * AnimationIntensity, 5 * Math.Min(percent, 1 - percent)) : 0));
+            context.Pop();
+        }
+        if (percent < 1)
+        {
+            var sway = AnimationsEnabled ? Math.Sin(_phase * .8) * .3 * AnimationIntensity : 0;
+            context.DrawGeometry(Foreground, null, Polygon(new Point(23, 58), new Point(47, 58),
+                new Point(45, Math.Min(57, lowerSurface + 5)), new Point(35 + sway, lowerSurface),
+                new Point(25, Math.Min(57, lowerSurface + 5))));
+        }
+        context.Pop();
+        if (AnimationsEnabled && percent > .01 && lowerSurface > 37)
+        {
+            context.PushOpacity(FillOpacity * .65);
+            context.DrawLine(_wavePen, new Point(35, 33.5), new Point(35, lowerSurface));
+            context.Pop();
+            context.PushOpacity(FillOpacity);
+            for (var index = 0; index < 5; index++)
             {
-                var progress = (_phase * .55 + index / 3d) % 1;
-                context.DrawEllipse(Foreground, null, new Point(35, 34 + (surface - 34) * progress), .65, .85);
+                var progress = (_phase * .7 + index / 5d) % 1;
+                var spread = Math.Sin(_phase * 2 + index) * .3 * AnimationIntensity * progress;
+                context.DrawEllipse(Foreground, null, new Point(35 + spread, 34 + (lowerSurface - 34) * progress),
+                    .55 + .2 * AnimationIntensity, .85 + .2 * AnimationIntensity);
             }
             context.Pop();
         }
@@ -252,26 +287,27 @@ public sealed class BatteryVisual : Control
         context.DrawEllipse(null, _thinTrackPen, Center, 29, 29);
         if (!HasPercent || percent <= 0) return;
         var surface = 61.5 - 53 * percent;
-        var amplitude = Math.Min(1.7, 18 * Math.Min(percent, 1 - percent));
+        var amplitude = AnimationsEnabled ? Math.Min(2.5 * AnimationIntensity, 25 * Math.Min(percent, 1 - percent)) : 0;
         context.PushClip(OceanClip);
-        context.PushOpacity(.14);
+        context.PushOpacity(FillOpacity * .4);
         context.DrawGeometry(Foreground, null, Wave(surface - .7, -_phase * .85, amplitude));
         context.Pop();
         var frontWave = Wave(surface, _phase, amplitude);
-        context.PushOpacity(.3);
+        context.PushOpacity(FillOpacity);
         context.DrawGeometry(Foreground, null, frontWave);
         context.Pop();
-        context.PushOpacity(.65);
+        context.PushOpacity(FillOpacity);
         context.DrawGeometry(null, _wavePen, frontWave);
         context.Pop();
-        context.PushOpacity(.26);
-        for (var index = 0; index < 3; index++)
+        context.PushOpacity(FillOpacity * .6);
+        for (var index = 0; AnimationsEnabled && index < 3; index++)
         {
             var progress = (_phase * .11 + index / 3d) % 1;
             var y = 61 - progress * 48;
             if (y <= surface + 4) continue;
             context.DrawEllipse(null, GlintPen,
-                new Point(24 + index * 10 + Math.Sin(_phase + index) * 1.5, y), 1 + index * .2, 1 + index * .2);
+                new Point(24 + index * 10 + Math.Sin(_phase + index) * 1.5 * AnimationIntensity, y),
+                1 + index * .2, 1 + index * .2);
         }
         context.Pop();
         context.PushOpacity(.28);

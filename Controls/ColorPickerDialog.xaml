@@ -1,0 +1,83 @@
+<Window x:Class="PowerHub.Controls.ColorPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PowerHub.Controls"
+        Width="468" SizeToContent="Height" WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="True" Background="Transparent" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" FontFamily="Microsoft YaHei UI" FontSize="12"
+        Foreground="{DynamicResource TextPrimary}" UseLayoutRounding="True">
+    <Window.Resources>
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+        <Style x:Key="HueSlider" TargetType="Slider">
+            <Setter Property="IsMoveToPointEnabled" Value="True"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+                <Grid Height="28" Margin="7,0">
+                    <Border Height="12" CornerRadius="6" VerticalAlignment="Center">
+                        <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#FF0000" Offset="0"/><GradientStop Color="#FFFF00" Offset="0.16667"/>
+                            <GradientStop Color="#00FF00" Offset="0.33333"/><GradientStop Color="#00FFFF" Offset="0.5"/>
+                            <GradientStop Color="#0000FF" Offset="0.66667"/><GradientStop Color="#FF00FF" Offset="0.83333"/>
+                            <GradientStop Color="#FF0000" Offset="1"/>
+                        </LinearGradientBrush></Border.Background>
+                    </Border>
+                    <Track x:Name="PART_Track" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                           Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                        <Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
+                        <Track.Thumb><Thumb Width="20" Height="24"><Thumb.Template><ControlTemplate TargetType="Thumb"><Grid><Ellipse Width="19" Height="19" Fill="{DynamicResource Surface}" Stroke="#70000000" StrokeThickness="1"/><Ellipse Width="11" Height="11" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Slider}}"/></Grid></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+                        <Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
+                    </Track>
+                </Grid>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </Window.Resources>
+    <Border Margin="8" Padding="23" CornerRadius="19" Background="{DynamicResource Surface}"
+            BorderBrush="{DynamicResource Stroke}" BorderThickness="1">
+        <StackPanel>
+            <Grid Margin="0,0,0,6" MouseLeftButtonDown="OnHeaderMouseDown">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock x:Name="Heading" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Width="28" Height="28" Padding="0" Style="{StaticResource QuietButton}" Click="OnCancel" ToolTip="关闭" AutomationProperties.Name="关闭颜色选择器">
+                    <Path Data="M 0,0 L 10,10 M 10,0 L 0,10" Stroke="{DynamicResource TextSecondary}" StrokeThickness="1.5"/>
+                </Button>
+            </Grid>
+            <TextBlock Text="找到适合你的颜色" Style="{StaticResource Caption}" Margin="0,0,0,14"/>
+            <controls:ColorSelectionPlane x:Name="ColorPlane" Height="196" Focusable="True" Cursor="Cross"
+                                          AutomationProperties.Name="饱和度与亮度，使用方向键调整"/>
+            <Slider x:Name="HueSlider" Style="{StaticResource HueSlider}" Minimum="0" Maximum="360" SmallChange="1" LargeChange="15"
+                    Margin="0,6,0,16" ValueChanged="OnHueChanged" AutomationProperties.Name="色相"/>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="当前颜色" Style="{StaticResource Caption}"/>
+                    <Border x:Name="OriginalSwatch" Height="38" Margin="0,7,12,0" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource Stroke}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="新的颜色" Style="{StaticResource Caption}"/>
+                    <Border x:Name="NewSwatch" Height="38" Margin="0,7,18,0" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource Stroke}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="HEX 颜色值" Style="{StaticResource Caption}"/>
+                    <TextBox x:Name="HexInput" Height="38" Margin="0,7,0,0" MaxLength="7" CharacterCasing="Upper" FontFamily="Consolas" FontSize="14"
+                             TextChanged="OnHexChanged" AutomationProperties.Name="HEX 颜色值"/>
+                </StackPanel>
+            </Grid>
+            <Grid Height="27" Margin="0,4,0,12">
+                <TextBlock x:Name="RgbText" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                <TextBlock x:Name="InputError" Text="请输入 #RRGGBB 颜色值" Foreground="{DynamicResource Danger}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"/>
+            </Grid>
+            <TextBlock Text="常用颜色" Style="{StaticResource Caption}" Margin="0,0,0,9"/>
+            <UniformGrid x:Name="Swatches" Rows="1" Margin="-3,0,-3,0"/>
+            <Border Height="1" Background="{DynamicResource Stroke}" Margin="0,21,0,18"/>
+            <Grid>
+                <TextBlock Text="Enter 确认 · Esc 取消" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="取消" Width="72" Margin="0,0,8,0" IsCancel="True" Click="OnCancel"/>
+                    <Button x:Name="ConfirmButton" Content="使用颜色" Width="94" Style="{StaticResource AccentButton}" IsDefault="True" Click="OnConfirm"/>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

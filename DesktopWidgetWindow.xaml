@@ -157,8 +157,8 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Grid.Style>
-                                        <controls:BatteryVisual Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
-                                        <TextBlock Text="{Binding BatteryLabel}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold">
+                                        <controls:BatteryVisual Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
+                                        <TextBlock Text="{Binding BatteryLabel}" Visibility="{Binding BatteryPercentageVisibility}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="FontSize" Value="12"/>

@@ -40,14 +40,14 @@ public sealed class AppController : IDisposable
         Plugins = new PluginHost(Program.PluginDirectory, Settings);
         monitor = new BatteryMonitorService(Plugins);
         if (!previewMode) Settings.StartWithWindows = startupEnabled = StartupService.IsEnabled();
-        themes.Apply(Settings.Theme, Plugins.ActiveTheme);
+        ApplyTheme();
         BatteryPalette.Apply(Settings);
         themes.SystemThemeChanged += OnSystemThemeChanged;
         if (Store.LastError is { } error) Diagnostics.Add(error);
         if (!previewMode) tray = new TrayService(() => ShowPanel(), () => _ = RefreshAsync(), Exit, () => ShowPanel("widgets"), () => ShowPanel("settings"), Settings, () => ApplySettings());
         Updates.UpdateAvailable += version =>
         {
-            if (Settings.NotificationsEnabled) tray?.ShowPluginNotification("PowerHub 有新版本", $"v{version} 已发布，可在提醒与外观页查看更新。");
+            if (Settings.NotificationsEnabled) tray?.ShowPluginNotification("PowerHub 有新版本", $"v{version} 已发布，可在设置的通用选项中查看更新。");
         };
         timer.Tick += (_, _) => _ = RefreshAsync();
         saveTimer.Tick += (_, _) => { saveTimer.Stop(); SaveSettings(); };
@@ -158,7 +158,7 @@ public sealed class AppController : IDisposable
     public void ApplySettings(bool persist = true)
     {
         Settings.Normalize();
-        themes.Apply(Settings.Theme, Plugins.ActiveTheme);
+        ApplyTheme();
         BatteryPalette.Apply(Settings);
         ViewRevision++;
         timer.Interval = TimeSpan.FromSeconds(Settings.PollIntervalSeconds);
@@ -177,6 +177,14 @@ public sealed class AppController : IDisposable
         }
         if (persist && !previewMode) { saveTimer.Stop(); saveTimer.Start(); }
         Changed?.Invoke();
+    }
+
+    private void ApplyTheme()
+    {
+        var selectedTheme = Plugins.ActiveTheme;
+        if (Settings.Theme.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase) && selectedTheme is null)
+            Settings.Theme = "System";
+        themes.Apply(Settings.Theme, selectedTheme);
     }
 
     private void OnSystemThemeChanged()

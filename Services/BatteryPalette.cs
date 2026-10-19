@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using PowerHub.Models;
 using Brush = System.Windows.Media.Brush;
@@ -10,33 +11,25 @@ namespace PowerHub.Services;
 
 public static class BatteryPalette
 {
-    private readonly record struct PaletteConfiguration(int Low, int Medium, bool Gradient,
-        string LowStart, string LowEnd, string MediumStart, string MediumEnd, string HighStart, string HighEnd);
+    private static BatteryColorConfiguration defaultColors = new AppSettings().GetBatteryColors(null);
+    private static readonly ConditionalWeakTable<BatteryColorConfiguration, Palette> Palettes = new();
 
-    private static PaletteConfiguration? _configuration;
-    private static int _low = 20;
-    private static int _medium = 50;
-    private static Brush _lowBrush = CreateBrush("#F19AAB", "#D95073", true);
-    private static Brush _mediumBrush = CreateBrush("#F2C27B", "#D59A3D", true);
-    private static Brush _highBrush = CreateBrush("#8FE4C5", "#39BFA0", true);
+    public static void Apply(AppSettings settings) => defaultColors = settings.GetBatteryColors(null);
 
-    public static void Apply(AppSettings settings)
+    public static Brush GetBrush(int? percent) => GetBrush(defaultColors, percent);
+
+    public static Brush GetBrush(BatteryColorConfiguration colors, int? percent)
     {
-        var next = new PaletteConfiguration(settings.LowColorThreshold, settings.MediumColorThreshold,
-            settings.BatteryGradientEnabled, settings.LowColorStart, settings.LowColorEnd,
-            settings.MediumColorStart, settings.MediumColorEnd, settings.HighColorStart, settings.HighColorEnd);
-        if (_configuration == next) return;
-        _low = Math.Clamp(next.Low, 0, 99);
-        _medium = Math.Clamp(next.Medium, _low + 1, 100);
-        _lowBrush = CreateBrush(next.LowStart, next.LowEnd, next.Gradient);
-        _mediumBrush = CreateBrush(next.MediumStart, next.MediumEnd, next.Gradient);
-        _highBrush = CreateBrush(next.HighStart, next.HighEnd, next.Gradient);
-        _configuration = next;
+        if (percent is not (>= 0 and <= 100))
+            return System.Windows.Application.Current?.TryFindResource("TextSecondary") as Brush ?? Brushes.Gray;
+        var palette = Palettes.GetValue(colors, configuration => new Palette(configuration));
+        if (!palette.Matches(colors))
+        {
+            Palettes.Remove(colors);
+            palette = Palettes.GetValue(colors, configuration => new Palette(configuration));
+        }
+        return palette.GetBrush(percent.Value);
     }
-
-    public static Brush GetBrush(int? percent) => percent is not (>= 0 and <= 100)
-        ? System.Windows.Application.Current?.TryFindResource("TextSecondary") as Brush ?? Brushes.Gray
-        : percent <= _low ? _lowBrush : percent <= _medium ? _mediumBrush : _highBrush;
 
     public static bool TryParseColor(string? text, out Color color)
     {
@@ -47,12 +40,75 @@ public static class BatteryPalette
         return true;
     }
 
-    private static Brush CreateBrush(string start, string end, bool gradient)
+    private sealed class Palette
     {
-        if (!TryParseColor(start, out var first)) first = Colors.Gray;
-        if (!TryParseColor(end, out var last)) last = first;
-        Brush brush = gradient ? new LinearGradientBrush(first, last, new Point(0, 1), new Point(1, 0)) : new SolidColorBrush(first);
-        brush.Freeze();
-        return brush;
+        private readonly BatteryColorConfiguration original;
+        private readonly BatteryColorConfiguration normalized;
+        private readonly Color[] colors;
+        private readonly Brush?[] brushes = new Brush[101];
+
+        public Palette(BatteryColorConfiguration configuration)
+        {
+            original = configuration.Clone();
+            normalized = configuration.Clone();
+            normalized.Normalize();
+            colors = normalized.Stops.Select(stop =>
+            {
+                TryParseColor(stop.Color, out var color);
+                return color;
+            }).ToArray();
+        }
+
+        public bool Matches(BatteryColorConfiguration configuration) =>
+            original.GradientByBatteryLevel == configuration.GradientByBatteryLevel &&
+            original.GradientWithinShape == configuration.GradientWithinShape && configuration.Stops is not null &&
+            original.Stops.Count == configuration.Stops.Count && original.Stops.Zip(configuration.Stops).All(pair =>
+                pair.Second is not null && pair.First.Position.Equals(pair.Second.Position) && pair.First.Color == pair.Second.Color &&
+                pair.First.InterpolateToNext == pair.Second.InterpolateToNext);
+
+        public Brush GetBrush(int percent)
+        {
+            if (brushes[percent] is { } cached) return cached;
+            Brush brush;
+            var limit = normalized.GradientByBatteryLevel ? percent : 100;
+            if (!normalized.GradientWithinShape || limit == 0)
+                brush = new SolidColorBrush(ColorAt(percent, normalized.GradientByBatteryLevel));
+            else
+            {
+                var stops = new GradientStopCollection { new(ColorAt(0, true), 0) };
+                var left = 0;
+                for (var index = 0; index < normalized.Stops.Count; index++)
+                {
+                    var stop = normalized.Stops[index];
+                    if (stop.Position <= 0) { left = index; continue; }
+                    if (stop.Position > limit) break;
+                    var offset = stop.Position / limit;
+                    if (!normalized.Stops[left].InterpolateToNext) stops.Add(new GradientStop(colors[left], offset));
+                    stops.Add(new GradientStop(colors[index], offset));
+                    left = index;
+                }
+                stops.Add(new GradientStop(ColorAt(limit, true), 1));
+                brush = new LinearGradientBrush(stops, new Point(0, 1), new Point(0, 0));
+            }
+            brush.Freeze();
+            brushes[percent] = brush;
+            return brush;
+        }
+
+        private Color ColorAt(double percent, bool interpolate)
+        {
+            var left = 0;
+            while (left + 1 < normalized.Stops.Count && normalized.Stops[left + 1].Position <= percent) left++;
+            if (percent <= normalized.Stops[0].Position || left + 1 == normalized.Stops.Count ||
+                !interpolate || !normalized.Stops[left].InterpolateToNext) return colors[left];
+            var next = left + 1;
+            var amount = Math.Clamp((percent - normalized.Stops[left].Position) /
+                (normalized.Stops[next].Position - normalized.Stops[left].Position), 0, 1);
+            var from = colors[left];
+            var to = colors[next];
+            return Color.FromRgb((byte)Math.Round(from.R + (to.R - from.R) * amount),
+                (byte)Math.Round(from.G + (to.G - from.G) * amount),
+                (byte)Math.Round(from.B + (to.B - from.B) * amount));
+        }
     }
 }

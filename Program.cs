@@ -84,7 +84,20 @@ public static class Program
             showSignal!.Set();
             return 0;
         }
-        var dataDirectory = ArgumentValue(args, "--data-dir") ?? Path.Combine(FindWorkspaceRoot(), capturing ? ".tools/preview" : "artifacts/data");
+        string dataDirectory;
+        try
+        {
+            var executableDirectory = string.Equals(Path.GetFileNameWithoutExtension(Environment.ProcessPath), "PowerHub", StringComparison.OrdinalIgnoreCase)
+                ? Path.GetDirectoryName(Environment.ProcessPath)! : AppContext.BaseDirectory;
+            dataDirectory = AppPaths.ResolveDataDirectory(ArgumentValue(args, "--data-dir"), capturing, FindWorkspaceRoot(),
+                executableDirectory, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            if (capturing) Console.Error.WriteLine(error.Message);
+            else System.Windows.MessageBox.Show($"无法准备设置目录：{error.Message}", "PowerHub", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            return 1;
+        }
         var application = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
         application.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary { Source = new Uri("/PowerHub;component/Themes/Controls.xaml", UriKind.Relative) });
         using var themes = new ThemeService();

@@ -17,6 +17,7 @@ public sealed class ThemeService : IDisposable
 
     public void Apply(string theme, PowerHub.Plugins.PluginTheme? pluginTheme = null)
     {
+        if (!theme.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase)) pluginTheme = null;
         var darkMode = theme is "Dark" or "Ocean" or "Forest" || theme == "System" && !SystemUsesLightTheme();
         if (pluginTheme is not null) darkMode = pluginTheme.IsDark;
         if (initialized && mode == theme && IsDark == darkMode && ReferenceEquals(extension, pluginTheme)) return;

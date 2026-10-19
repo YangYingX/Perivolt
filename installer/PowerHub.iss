@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.0.1"
 #endif
 
 [Setup]
@@ -11,7 +11,8 @@ AppPublisher=PowerHub
 AppComments=Windows 外设电量中心
 VersionInfoVersion={#AppVersion}
 VersionInfoDescription=PowerHub 安装程序
-DefaultDirName={localappdata}\Programs\PowerHub
+DefaultDirName={code:DefaultInstallDirectory}
+DisableDirPage=no
 DefaultGroupName=PowerHub
 DisableProgramGroupPage=yes
 AllowNoIcons=yes
@@ -52,6 +53,69 @@ Name: "{userdesktop}\PowerHub"; Filename: "{app}\PowerHub.exe"; WorkingDir: "{ap
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "PowerHub"; ValueData: """{app}\PowerHub.exe"" --startup"; Tasks: startup; Flags: uninsdeletevalue
 
 [Code]
+function GetDriveType(RootPath: string): Integer;
+  external 'GetDriveTypeW@kernel32.dll stdcall';
+
+function RecommendedDirectory: string;
+var
+  Letter: Integer;
+  Root: string;
+begin
+  Result := '';
+  for Letter := Ord('D') to Ord('Z') do
+  begin
+    Root := Chr(Letter) + ':\';
+    if (CompareText(Root, AddBackslash(ExpandConstant('{sd}'))) <> 0) and
+       (GetDriveType(Root) = 3) and DirExists(Root) then
+    begin
+      Result := Root + 'Apps\PowerHub';
+      Exit;
+    end;
+  end;
+end;
+
+function DefaultInstallDirectory(Param: string): string;
+begin
+  Result := RecommendedDirectory;
+end;
+
+function HasExplicitDirectory: Boolean;
+var
+  Index: Integer;
+begin
+  Result := False;
+  for Index := 1 to ParamCount do
+    if CompareText(Copy(ParamStr(Index), 1, 5), '/DIR=') = 0 then
+      Result := True;
+end;
+
+procedure InitializeWizard;
+var
+  PreviousDrive: string;
+begin
+  if not HasExplicitDirectory then
+  begin
+    PreviousDrive := ExtractFileDrive(WizardForm.DirEdit.Text);
+    if (CompareText(PreviousDrive, 'C:') = 0) or
+       (CompareText(PreviousDrive, ExpandConstant('{sd}')) = 0) then
+      WizardForm.DirEdit.Text := RecommendedDirectory;
+  end;
+  WizardForm.SelectDirLabel.Caption := '请选择 PowerHub 的安装位置。优先推荐非系统盘，安装前可自由更改。';
+  if WizardForm.DirEdit.Text = '' then
+    WizardForm.SelectDirLabel.Caption := '未找到可用的非系统固定磁盘，请手动选择安装目录后继续。';
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = wpSelectDir) and (Trim(WizardForm.DirEdit.Text) = '') then
+  begin
+    Result := False;
+    if WizardSilent then Log('No non-system drive is available. Specify /DIR explicitly.')
+    else MsgBox('请选择安装目录后继续。PowerHub 不会自动安装到 C 盘。', mbInformation, MB_OK);
+  end;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then

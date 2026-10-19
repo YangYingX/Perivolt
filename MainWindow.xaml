@@ -71,7 +71,8 @@
                 </ControlTemplate.Triggers>
             </ControlTemplate></Setter.Value></Setter>
         </Style>
-    </Window.Resources>
+        <Style x:Key="CompactNumber" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}"><Setter Property="Width" Value="60"/><Setter Property="Height" Value="34"/><Setter Property="Padding" Value="7,0"/><Setter Property="FontSize" Value="13"/><Setter Property="TextAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="MaxLength" Value="3"/></Style>
+        <Style x:Key="BatteryPercentage" TargetType="TextBlock"><Setter Property="Visibility" Value="{Binding BatteryPercentageVisibility}"/></Style>    </Window.Resources>
     <Border BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="14">
         <Grid>
             <Grid.RowDefinitions><RowDefinition Height="50"/><RowDefinition Height="*"/></Grid.RowDefinitions>
@@ -84,9 +85,9 @@
                     <TextBlock Text="外设电量中心" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="18,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Content="—" Width="44" Style="{StaticResource QuietButton}" Click="OnMinimize" ToolTip="最小化"/>
-                    <Button Content="□" Width="44" Style="{StaticResource QuietButton}" Click="OnMaximize" ToolTip="最大化或还原"/>
-                    <Button Content="×" FontSize="20" Width="46" Style="{StaticResource QuietButton}" Click="OnClose" ToolTip="关闭面板，继续在托盘运行"/>
+                    <Button Width="44" Style="{StaticResource QuietButton}" Click="OnMinimize" ToolTip="最小化到托盘" AutomationProperties.Name="最小化到托盘"><Path Data="M0,5 H12" Width="12" Height="10" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2"/></Button>
+                    <Button Width="44" Style="{StaticResource QuietButton}" Click="OnMaximize" ToolTip="最大化或还原" AutomationProperties.Name="最大化或还原"><Path x:Name="MaximizeIcon" Data="M1,1 H11 V11 H1 Z" Width="12" Height="12" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2"/></Button>
+                    <Button Width="46" Style="{StaticResource QuietButton}" Click="OnClose" ToolTip="关闭面板，继续在托盘运行" AutomationProperties.Name="关闭面板"><Path Data="M1,1 L11,11 M11,1 L1,11" Width="12" Height="12" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2"/></Button>
                 </StackPanel>
             </Grid>
             <Grid Grid.Row="1">
@@ -94,27 +95,19 @@
                 <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="0,0,1,0">
                     <Grid Margin="14,25,14,20">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <TextBlock Text="工作空间" Foreground="{DynamicResource TextSecondary}" FontSize="10" Margin="14,0,0,13"/>
+
                         <Button x:Name="DevicesNav" Grid.Row="1" Style="{StaticResource SidebarButton}" Click="OnDevicesNav">
                             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE80F;" Style="{StaticResource SidebarIcon}"/><TextBlock Grid.Column="1" Text="设备概览" VerticalAlignment="Center"/></Grid>
                         </Button>
                         <StackPanel Grid.Row="2">
                             <Button x:Name="SettingsNav" Style="{StaticResource SidebarButton}" Click="OnSettingsNav">
-                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE713;" Style="{StaticResource SidebarIcon}"/><TextBlock Grid.Column="1" Text="提醒与外观" VerticalAlignment="Center"/></Grid>
-                            </Button>
-                            <Button x:Name="WidgetNav" Style="{StaticResource SidebarButton}" Click="OnWidgetNav">
-                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE8A9;" Style="{StaticResource SidebarIcon}"/><TextBlock Grid.Column="1" Text="桌面卡片" VerticalAlignment="Center"/></Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE713;" Style="{StaticResource SidebarIcon}"/><TextBlock Grid.Column="1" Text="设置" VerticalAlignment="Center"/></Grid>
                             </Button>
                             <Button x:Name="PluginsNav" Style="{StaticResource SidebarButton}" Click="OnPluginsNav">
                                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE8D7;" Style="{StaticResource SidebarIcon}"/><TextBlock Grid.Column="1" Text="插件" VerticalAlignment="Center"/></Grid>
                             </Button>
                         </StackPanel>
-                        <Border Grid.Row="4" Padding="13" CornerRadius="12" Background="{DynamicResource AccentSoft}">
-                            <StackPanel>
-                                <TextBlock Text="轻轻留在托盘" Foreground="{DynamicResource Accent}" FontSize="11" FontWeight="SemiBold"/>
-                                <TextBlock Text="关掉面板，充电提醒&#x0a;也会继续守候。" Foreground="{DynamicResource TextSecondary}" FontSize="10" LineHeight="18" Margin="0,7,0,0"/>
-                            </StackPanel>
-                        </Border>
+                        <TextBlock Grid.Row="4" Text="关闭面板后，&#x0a;充电提醒继续在托盘运行。" Foreground="{DynamicResource TextSecondary}" FontSize="10" LineHeight="18" Margin="14,0,10,0"/>
                     </Grid>
                 </Border>
                 <Grid Grid.Column="1">
@@ -141,7 +134,7 @@
                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="15" Padding="19" Margin="6,0,6,12">
+                                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="15" Padding="19" Margin="6,0,6,12" AllowDrop="True" DragOver="OnDeviceDragOver" Drop="OnDeviceDrop">
                                             <StackPanel>
                                                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                                     <StackPanel Margin="0,0,9,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="{Binding IconGeometry, Mode=OneWay}" Style="{StaticResource DeviceTypeIcon}"/><TextBlock Grid.Column="1" Text="{Binding Name, Mode=OneWay}" Foreground="{Binding NameBrush, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" VerticalAlignment="Center"/></Grid><TextBlock Text="{Binding Subtitle, Mode=OneWay}" Foreground="{DynamicResource TextSecondary}" FontSize="10" Margin="26,6,0,0" TextTrimming="CharacterEllipsis"/></StackPanel>
@@ -149,14 +142,14 @@
                                                 </Grid>
                                                 <Grid Margin="0,19,0,18">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                                    <Grid Width="70" Height="70" HorizontalAlignment="Left">
-                                                        <controls:BatteryVisual Percent="{Binding Status.BatteryPercent, Mode=OneWay}" DisplayStyle="{Binding DisplayStyle, Mode=OneWay}" AnimationsEnabled="{Binding AnimationsEnabled, Mode=OneWay}" IsCharging="{Binding IsCharging, Mode=OneWay}" Foreground="{Binding BatteryBrush, Mode=OneWay}" TrackBrush="{DynamicResource RingTrack}"/>
-                                                        <TextBlock Text="{Binding Status.BatteryText, Mode=OneWay}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold"/>
+                                                    <Grid Width="70" Height="70" HorizontalAlignment="Left" ToolTip="{Binding Status.BatteryText}" AutomationProperties.Name="{Binding Status.BatteryText}">
+                                                        <controls:BatteryVisual Percent="{Binding Status.BatteryPercent, Mode=OneWay}" DisplayStyle="{Binding DisplayStyle, Mode=OneWay}" AnimationsEnabled="{Binding AnimationsEnabled, Mode=OneWay}" IsCharging="{Binding IsCharging, Mode=OneWay}" FillOpacity="{Binding FillOpacity, Mode=OneWay}" AnimationIntensity="{Binding AnimationIntensity, Mode=OneWay}" Foreground="{Binding BatteryBrush, Mode=OneWay}" TrackBrush="{DynamicResource RingTrack}"/>
+                                                        <TextBlock Style="{StaticResource BatteryPercentage}" Text="{Binding Status.BatteryText, Mode=OneWay}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold"/>
                                                     </Grid>
                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0"><TextBlock Text="{Binding ReminderText, Mode=OneWay}" FontSize="12" FontWeight="SemiBold"/><TextBlock Text="{Binding Note, Mode=OneWay}" Style="{StaticResource Caption}" FontSize="10" Margin="0,7,0,0" LineHeight="16"/></StackPanel>
                                                 </Grid>
                                                 <Border BorderBrush="{DynamicResource Stroke}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
-                                                    <Grid><TextBlock Text="{Binding Status.UpdatedText, Mode=OneWay, StringFormat=读取于 {0}}" Foreground="{DynamicResource TextSecondary}" FontSize="10" VerticalAlignment="Center"/><Button Content="{Binding PinLabel, Mode=OneWay}" Style="{StaticResource QuietButton}" Padding="8,5" HorizontalAlignment="Right" FontSize="11" Foreground="{DynamicResource Accent}" Click="OnPinDevice" Tag="{Binding Id}"/></Grid>
+                                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Tag="{Binding Id}" Width="20" Height="22" Background="Transparent" Cursor="SizeAll" ToolTip="拖动调整设备顺序" PreviewMouseLeftButtonDown="OnDeviceDragStart" PreviewMouseMove="OnDeviceDragMove"><Path Data="M0,0 H2 V2 H0 Z M5,0 H7 V2 H5 Z M0,5 H2 V7 H0 Z M5,5 H7 V7 H5 Z M0,10 H2 V12 H0 Z M5,10 H7 V12 H5 Z" Fill="{DynamicResource TextSecondary}" Width="7" Height="12" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center"/></Border><TextBlock Text="{Binding Status.UpdatedText, Mode=OneWay, StringFormat=读取于 {0}}" Foreground="{DynamicResource TextSecondary}" FontSize="10" VerticalAlignment="Center"/></StackPanel><Button Grid.Column="1" Content="设置" Style="{StaticResource QuietButton}" Padding="7,5" FontSize="11" Click="OnDeviceSettings" Tag="{Binding Id}" ToolTip="设置此设备的提醒与外观"/><Button Grid.Column="2" Content="{Binding PinLabel, Mode=OneWay}" Style="{StaticResource QuietButton}" Padding="7,5" FontSize="11" Foreground="{DynamicResource Accent}" Click="OnPinDevice" Tag="{Binding Id}"/></Grid>
                                                 </Border>
                                             </StackPanel>
                                         </Border>
@@ -167,52 +160,90 @@
                             <TextBlock Text="仅显示当前已连接的外设；未提供电量的设备显示为未知。" Style="{StaticResource Caption}" Margin="2,5,0,0"/>
                         </StackPanel>
                     </ScrollViewer>
-                    <ScrollViewer x:Name="SettingsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="32,28,30,28">
-                        <StackPanel>
-                            <TextBlock Text="提醒与外观" FontSize="27" FontWeight="SemiBold"/><TextBlock Text="让提醒按你的节奏发生，让桌面保持你的风格。" Style="{StaticResource Caption}" Margin="0,8,0,24"/>
-                            <Border Style="{StaticResource SectionCard}"><StackPanel>
-                                <Grid><TextBlock Text="每台设备，独立提醒" Style="{StaticResource SectionTitle}"/><Border Background="{DynamicResource AccentSoft}" CornerRadius="6" Padding="8,4" HorizontalAlignment="Right" VerticalAlignment="Top"><TextBlock Text="按设备设置" Foreground="{DynamicResource Accent}" FontSize="10"/></Border></Grid>
-                                <TextBlock Text="点名称可重命名，如「办公鼠标」；清空恢复原名。阈值输入 1–100，留空跟随默认值。" Style="{StaticResource Caption}" Margin="0,0,0,20"/>
-                                <Grid Margin="0,0,0,9"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="122"/><ColumnDefinition Width="88"/><ColumnDefinition Width="94"/></Grid.ColumnDefinitions><TextBlock Text="设备名称" Style="{StaticResource Caption}" FontSize="10"/><TextBlock Grid.Column="1" Text="名称颜色" Style="{StaticResource Caption}" FontSize="10"/><TextBlock Grid.Column="2" Text="充电提醒" Style="{StaticResource Caption}" FontSize="10"/><TextBlock Grid.Column="3" Text="专属阈值" Style="{StaticResource Caption}" FontSize="10" HorizontalAlignment="Center"/></Grid>
-                                <ItemsControl x:Name="DeviceSettingsItems"><ItemsControl.ItemTemplate><DataTemplate>
-                                    <Border BorderBrush="{DynamicResource Stroke}" BorderThickness="0,1,0,0" Padding="0,14">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="122"/><ColumnDefinition Width="88"/><ColumnDefinition Width="94"/></Grid.ColumnDefinitions>
-                                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="{Binding IconGeometry, Mode=OneWay}" Style="{StaticResource DeviceTypeIcon}"/><TextBox x:Name="DeviceNameEditor" Grid.Column="1" Text="{Binding Name, Mode=OneWay}" Foreground="{Binding NameBrush, Mode=OneWay}" FontSize="12" Padding="8,7" MaxLength="80" Tag="{Binding Id}" LostFocus="OnDeviceNameLostFocus" KeyDown="OnDeviceNameKeyDown" ToolTip="自定义名称，如 办公鼠标；清空恢复原名。" AutomationProperties.Name="设备自定义名称"/></Grid><TextBlock Text="{Binding ReminderText, Mode=OneWay}" Style="{StaticResource Caption}" Margin="26,5,0,0"/></StackPanel>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Width="32" Height="30" Padding="0" Tag="{Binding Id}" Click="OnNameColorClick" ToolTip="选择这个设备的名称颜色" AutomationProperties.Name="选择设备名称颜色"><Border Width="15" Height="15" CornerRadius="4" Background="{Binding NameBrush, Mode=OneWay}"/></Button>
-                                                <Button Content="自动" Style="{StaticResource QuietButton}" FontSize="10" Padding="8,7" Margin="3,0,0,0" Tag="{Binding Id}" Click="OnResetNameColor" ToolTip="恢复名称颜色跟随主题"/>
-                                            </StackPanel>
-                                            <CheckBox Grid.Column="2" Content="提醒" IsChecked="{Binding AlertsEnabled, Mode=OneWay}" Tag="{Binding Id}" Click="OnDeviceAlertClick" VerticalAlignment="Center"/>
-                                            <Grid Grid.Column="3"><TextBox Text="{Binding ThresholdOverride, Mode=OneWay}" Tag="{Binding Id}" LostFocus="OnDeviceThresholdLostFocus" KeyDown="OnDeviceThresholdKeyDown" Padding="10,8,23,8" TextAlignment="Center" ToolTip="仅此设备的提醒阈值：输入 1–100，留空使用默认值" AutomationProperties.Name="设备专属提醒阈值"/><TextBlock Text="%" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False"/></Grid>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                                <TextBlock x:Name="NoDeviceSettings" Text="连接外设后，即可在这里分别设置充电提醒。" Style="{StaticResource Caption}" Margin="0,12,0,0"/>
-                                <TextBlock x:Name="ThresholdErrorText" Foreground="{DynamicResource Danger}" FontSize="11" Margin="0,5,0,0" Visibility="Collapsed"/>
-                            </StackPanel></Border>
-                            <Border Style="{StaticResource SectionCard}"><StackPanel>
-                                <Grid><StackPanel Margin="0,0,190,0"><TextBlock Text="安心充电提醒" Style="{StaticResource SectionTitle}"/><TextBlock Text="电量到达阈值时提醒；充电中和离线时暂停提醒。" Style="{StaticResource Caption}"/></StackPanel><CheckBox x:Name="NotificationsBox" Content="开启充电提醒" Click="OnNotificationsClick" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid>
-                                <Grid Margin="0,23,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="106"/></Grid.ColumnDefinitions>
-                                    <StackPanel Margin="0,0,25,0"><Grid><TextBlock Text="新设备默认阈值" FontSize="12"/><TextBlock x:Name="ThresholdText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" HorizontalAlignment="Right"/></Grid><TextBlock Text="已设置专属阈值的设备不受影响" Style="{StaticResource Caption}" FontSize="10" Margin="0,6,0,0"/><Slider x:Name="ThresholdSlider" Minimum="1" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,13,0,8" ValueChanged="OnThresholdChanged"/><Grid><TextBlock Text="1% · 更晚提醒" Style="{StaticResource Caption}"/><TextBlock Text="100% · 更早提醒" Style="{StaticResource Caption}" HorizontalAlignment="Right"/></Grid></StackPanel>
-                                    <Grid Grid.Column="1" Width="76" Height="76"><controls:BatteryRing x:Name="ThresholdRing" StrokeThickness="6" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock x:Name="ThresholdPreview" FontWeight="SemiBold" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid>
-                                </Grid>
-                                <Border Height="1" Background="{DynamicResource Stroke}" Margin="0,22,0,18"/>
-                                <Grid><StackPanel><TextBlock Text="重复提醒间隔" FontSize="12"/><TextBlock Text="设备持续低电时，按此间隔再次提醒。" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel><ComboBox x:Name="RepeatCombo" HorizontalAlignment="Right" VerticalAlignment="Center" SelectionChanged="OnRepeatChanged" DisplayMemberPath="Label" SelectedValuePath="Value"/></Grid>
-                            </StackPanel></Border>
-                            <Border x:Name="DisplayStyleSection" Style="{StaticResource SectionCard}"><StackPanel>
-                                <TextBlock Text="电量，也可以有自己的样子" Style="{StaticResource SectionTitle}"/>
-                                <TextBlock Text="为设备卡片和桌面卡片选择展示方式。以下为效果预览。" Style="{StaticResource Caption}" Margin="0,0,0,18"/>
+                                        <Grid x:Name="SettingsPage" Visibility="Collapsed" Margin="32,28,30,18">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <StackPanel Margin="0,0,0,20"><TextBlock Text="设置" FontSize="27" FontWeight="SemiBold"/><TextBlock Text="从默认配置开始，也能为每台设备保留自己的习惯。" Style="{StaticResource Caption}" Margin="0,8,0,0"/></StackPanel>
+                        <Grid Grid.Row="1" Margin="0,0,0,16"><Grid.ColumnDefinitions><ColumnDefinition Width="270"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <ComboBox x:Name="SettingsDeviceSelector" DisplayMemberPath="Label" SelectedValuePath="Id" SelectionChanged="OnSettingsDeviceChanged" AutomationProperties.Name="选择要设置的设备"/>
+                            <TextBlock x:Name="ScopeHint" Grid.Column="1" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="18,0,0,0"/>
+                        </Grid>
+                        <Border Grid.Row="2" Background="{DynamicResource SurfaceAlt}" CornerRadius="11" Padding="4" Margin="0,0,0,18">
+                            <Grid x:Name="SettingsTabBar" Height="38" SizeChanged="OnSettingsTabSizeChanged">
+                                <Border x:Name="SettingsTabIndicator" HorizontalAlignment="Left" Background="{DynamicResource Surface}" CornerRadius="8" BorderBrush="{DynamicResource Stroke}" BorderThickness="1"><Border.RenderTransform><TranslateTransform x:Name="SettingsTabTranslation"/></Border.RenderTransform></Border>
                                 <UniformGrid Columns="4">
-                                    <RadioButton x:Name="RingStyle" GroupName="DisplayStyle" Style="{StaticResource ThemeChoice}" Tag="Ring" Click="OnDisplayStyleClick" Margin="0,0,6,0"><StackPanel><Grid Height="65" Margin="0,0,0,11"><controls:BatteryVisual x:Name="RingPreview" Width="63" Height="63" Percent="65" DisplayStyle="Ring" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock Text="65%" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="经典圆环" FontSize="11" HorizontalAlignment="Center"/></StackPanel></RadioButton>
-                                    <RadioButton x:Name="BarStyle" GroupName="DisplayStyle" Style="{StaticResource ThemeChoice}" Tag="Bar" Click="OnDisplayStyleClick" Margin="3,0"><StackPanel><Grid Height="65" Margin="0,0,0,11"><controls:BatteryVisual x:Name="BarPreview" Width="76" Height="63" Percent="65" DisplayStyle="Bar" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock Text="65%" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="简约电池" FontSize="11" HorizontalAlignment="Center"/></StackPanel></RadioButton>
-                                    <RadioButton x:Name="HourglassStyle" GroupName="DisplayStyle" Style="{StaticResource ThemeChoice}" Tag="Hourglass" Click="OnDisplayStyleClick" Margin="3,0"><StackPanel><Grid Height="65" Margin="0,0,0,11"><controls:BatteryVisual x:Name="HourglassPreview" Width="63" Height="63" Percent="65" DisplayStyle="Hourglass" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock Text="65%" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="流动沙漏" FontSize="11" HorizontalAlignment="Center"/></StackPanel></RadioButton>
-                                    <RadioButton x:Name="OceanStyle" GroupName="DisplayStyle" Style="{StaticResource ThemeChoice}" Tag="Ocean" Click="OnDisplayStyleClick" Margin="6,0,0,0"><StackPanel><Grid Height="65" Margin="0,0,0,11"><controls:BatteryVisual x:Name="OceanPreview" Width="63" Height="63" Percent="65" DisplayStyle="Ocean" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock Text="65%" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="海洋波浪" FontSize="11" HorizontalAlignment="Center"/></StackPanel></RadioButton>
+                                    <Button x:Name="ReminderTabButton" Content="充电提醒" Tag="reminders" Style="{StaticResource QuietButton}" Padding="6,4" Click="OnSettingsTabClick"/>
+                                    <Button x:Name="AppearanceTabButton" Content="设备外观" Tag="appearance" Style="{StaticResource QuietButton}" Padding="6,4" Click="OnSettingsTabClick"/>
+                                    <Button x:Name="DesktopTabButton" Content="桌面卡片" Tag="desktop" Style="{StaticResource QuietButton}" Padding="6,4" Click="OnSettingsTabClick"/>
+                                    <Button x:Name="GeneralTabButton" Content="通用" Tag="general" Style="{StaticResource QuietButton}" Padding="6,4" Click="OnSettingsTabClick"/>
                                 </UniformGrid>
-                                <CheckBox x:Name="AnimationsBox" Content="启用电量动效" Click="OnAnimationsClick" Margin="0,20,0,0"/>
-                            </StackPanel></Border>
-                            <controls:BatteryColorSettings x:Name="BatteryColorPanel"/>
-                            <Border Style="{StaticResource SectionCard}"><StackPanel>
+                            </Grid>
+                        </Border>
+                        <Grid Grid.Row="3">
+                            <ScrollViewer x:Name="RemindersTab" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,5,0">
+                                <StackPanel>
+                                    <Border Style="{StaticResource SectionCard}"><StackPanel>
+                                        <Grid><StackPanel Margin="0,0,150,0"><TextBlock Text="安心充电提醒" Style="{StaticResource SectionTitle}"/><TextBlock x:Name="ReminderScopeText" Style="{StaticResource Caption}"/></StackPanel><CheckBox x:Name="NotificationsBox" Content="启用提醒" HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnNotificationsClick"/></Grid>
+                                        <TextBlock x:Name="GlobalReminderHint" Foreground="{DynamicResource Warning}" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed"/>
+                                        <Grid Margin="0,26,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="92"/></Grid.ColumnDefinitions>
+                                            <StackPanel Margin="0,0,24,0"><TextBlock Text="电量达到多少时提醒" FontSize="13" FontWeight="SemiBold"/><Grid Margin="0,13,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="60"/><ColumnDefinition Width="18"/></Grid.ColumnDefinitions><Slider x:Name="ThresholdSlider" Minimum="1" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnThresholdChanged" VerticalAlignment="Center" Margin="0,0,15,0" AutomationProperties.Name="充电提醒阈值"/><TextBox x:Name="ThresholdBox" Grid.Column="1" Style="{StaticResource CompactNumber}" TextChanged="OnThresholdInput" LostFocus="OnThresholdInputLostFocus" KeyDown="OnThresholdInputKeyDown" AutomationProperties.Name="提醒阈值百分比"/><TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" HorizontalAlignment="Right"/></Grid><TextBlock x:Name="ThresholdText" Style="{StaticResource Caption}" Margin="0,8,0,0"/><TextBlock x:Name="ThresholdErrorText" Foreground="{DynamicResource Danger}" FontSize="11" Margin="0,7,0,0" Visibility="Collapsed"/></StackPanel>
+                                            <Grid Grid.Column="1" Width="76" Height="76"><controls:BatteryRing x:Name="ThresholdRing" StrokeThickness="6" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock x:Name="ThresholdPreview" FontWeight="SemiBold" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid>
+                                        </Grid>
+                                        <Border Height="1" Background="{DynamicResource Stroke}" Margin="0,24,0,20"/>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="160"/></Grid.ColumnDefinitions><StackPanel Margin="0,0,20,0"><TextBlock Text="重复提醒间隔" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="持续低电时，按此间隔再次提醒。" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel><ComboBox x:Name="RepeatCombo" Grid.Column="1" DisplayMemberPath="Label" SelectedValuePath="Value" SelectionChanged="OnRepeatChanged" VerticalAlignment="Center"/></Grid>
+                                        <Button x:Name="ResetRemindersButton" Content="恢复默认提醒" Click="OnResetReminders" HorizontalAlignment="Left" Style="{StaticResource QuietButton}" Foreground="{DynamicResource Accent}" Margin="0,18,0,0" Padding="0,6"/>
+                                    </StackPanel></Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <ScrollViewer x:Name="AppearanceTab" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,5,0">
+                                <StackPanel>
+                                    <Border x:Name="DeviceIdentityCard" Style="{StaticResource SectionCard}"><StackPanel>
+                                        <TextBlock Text="认出你的设备" Style="{StaticResource SectionTitle}"/><TextBlock Text="自定义名称和文字颜色会随设备保存，重新连接后恢复。" Style="{StaticResource Caption}" Margin="0,0,0,16"/>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="DeviceNameBox" Height="36" Padding="10,0" FontSize="13" MaxLength="80" VerticalContentAlignment="Center" Margin="0,0,14,0" LostFocus="OnDeviceNameLostFocus" KeyDown="OnDeviceNameKeyDown" AutomationProperties.Name="自定义设备名称"/><Button Grid.Column="1" Click="OnNameColorClick" Padding="8,6"><StackPanel Orientation="Horizontal"><Border x:Name="NameColorSwatch" Width="16" Height="16" CornerRadius="5" Margin="0,0,8,0"/><TextBlock Text="名称颜色" FontSize="12" VerticalAlignment="Center"/></StackPanel></Button><Button Grid.Column="2" Content="恢复" Style="{StaticResource QuietButton}" Padding="10,6" Click="OnResetIdentity" ToolTip="恢复设备原名和主题文字颜色"/></Grid>
+                                    </StackPanel></Border>
+                                    <Border Style="{StaticResource SectionCard}"><controls:AnimatedExpander x:Name="StyleExpander" Header="电量样式" IsExpanded="True"><StackPanel>
+                                        <TextBlock Text="设备概览与桌面卡片会同步使用所选样式。" Style="{StaticResource Caption}" Margin="0,0,0,16"/><Border Background="{DynamicResource SurfaceAlt}" CornerRadius="10" Padding="13" Margin="0,0,0,16"><StackPanel><TextBlock x:Name="AppearancePreviewName" FontSize="13" FontWeight="SemiBold"/><TextBlock x:Name="AppearancePreviewHint" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel></Border>
+<UniformGrid Columns="4">
+                                    <RadioButton x:Name="RingStyle" GroupName="DisplayStyle" Style="{StaticResource ThemeChoice}" Tag="Ring" Click="OnDisplayStyleClick" Margin="0,0,6,0"><StackPanel><Grid Height="65" Margin="0,0,0,11"><controls:BatteryVisual x:Name="RingPreview" Width="63" Height="63" Percent="65" DisplayStyle="Ring" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock x:Name="RingPreviewNumber" Text="65%" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="经典圆环" FontSize="11" HorizontalAlignment="Center"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="BarStyle" GroupName="DisplayStyle" Style="{StaticResource ThemeChoice}" Tag="Bar" Click="OnDisplayStyleClick" Margin="3,0"><StackPanel><Grid Height="65" Margin="0,0,0,11"><controls:BatteryVisual x:Name="BarPreview" Width="76" Height="63" Percent="65" DisplayStyle="Bar" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock x:Name="BarPreviewNumber" Text="65%" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="简约电池" FontSize="11" HorizontalAlignment="Center"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="HourglassStyle" GroupName="DisplayStyle" Style="{StaticResource ThemeChoice}" Tag="Hourglass" Click="OnDisplayStyleClick" Margin="3,0"><StackPanel><Grid Height="65" Margin="0,0,0,11"><controls:BatteryVisual x:Name="HourglassPreview" Width="63" Height="63" Percent="65" DisplayStyle="Hourglass" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock x:Name="HourglassPreviewNumber" Text="65%" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="流动沙漏" FontSize="11" HorizontalAlignment="Center"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="OceanStyle" GroupName="DisplayStyle" Style="{StaticResource ThemeChoice}" Tag="Ocean" Click="OnDisplayStyleClick" Margin="6,0,0,0"><StackPanel><Grid Height="65" Margin="0,0,0,11"><controls:BatteryVisual x:Name="OceanPreview" Width="63" Height="63" Percent="65" DisplayStyle="Ocean" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock x:Name="OceanPreviewNumber" Text="65%" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="海洋波浪" FontSize="11" HorizontalAlignment="Center"/></StackPanel></RadioButton>
+                                </UniformGrid>
+                                                                                <StackPanel x:Name="OpacityControls" Margin="0,20,0,0"><TextBlock x:Name="OpacityTitle" Text="填充透明度" FontSize="13"/><Grid Margin="0,9,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="60"/><ColumnDefinition Width="18"/></Grid.ColumnDefinitions><Slider x:Name="OpacitySlider" Minimum="10" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnVisualOptionSliderChanged" Margin="0,0,15,0" VerticalAlignment="Center"/><TextBox x:Name="OpacityBox" Grid.Column="1" Style="{StaticResource CompactNumber}" TextChanged="OnVisualOptionInput" LostFocus="OnVisualOptionLostFocus" KeyDown="OnVisualOptionKeyDown"/><TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" HorizontalAlignment="Right"/></Grid></StackPanel>
+                                        <StackPanel Margin="0,18,0,0"><TextBlock Text="动效幅度" FontSize="13"/><Grid Margin="0,9,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="60"/><ColumnDefinition Width="18"/></Grid.ColumnDefinitions><Slider x:Name="IntensitySlider" Minimum="50" Maximum="300" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="OnVisualOptionSliderChanged" Margin="0,0,15,0" VerticalAlignment="Center"/><TextBox x:Name="IntensityBox" Grid.Column="1" Style="{StaticResource CompactNumber}" TextChanged="OnVisualOptionInput" LostFocus="OnVisualOptionLostFocus" KeyDown="OnVisualOptionKeyDown"/><TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" HorizontalAlignment="Right"/></Grid><TextBlock Text="调整波浪、沙流和充电呼吸的明显程度。" Style="{StaticResource Caption}" Margin="0,7,0,0"/></StackPanel>
+                                        <TextBlock x:Name="VisualOptionError" Foreground="{DynamicResource Danger}" FontSize="11" Margin="0,8,0,0" Visibility="Collapsed"/><Grid Margin="0,20,0,0"><CheckBox x:Name="AnimationsBox" Content="电量动效" Click="OnAnimationsClick"/><CheckBox x:Name="PercentageBox" Content="显示电量百分比" HorizontalAlignment="Right" Click="OnPercentageClick"/></Grid>
+                                    </StackPanel></controls:AnimatedExpander></Border>
+                                    <Border Style="{StaticResource SectionCard}"><controls:AnimatedExpander x:Name="ColorsExpander" Header="电量配色" IsExpanded="True"><controls:BatteryColorSettings x:Name="BatteryColorPanel"/></controls:AnimatedExpander></Border>
+                                    <Button x:Name="ResetAppearanceButton" Content="恢复默认电量外观" Click="OnResetAppearance" HorizontalAlignment="Left" Margin="0,0,0,18"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <ScrollViewer x:Name="DesktopTab" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,5,0">
+                                <StackPanel>
+                                    <Border Style="{StaticResource SectionCard}"><Grid><StackPanel Margin="0,0,160,0"><TextBlock Text="固定所选设备" Style="{StaticResource SectionTitle}"/><TextBlock x:Name="PinScopeText" Style="{StaticResource Caption}"/></StackPanel><CheckBox x:Name="SelectedDevicePinBox" Content="显示在桌面" Click="OnSelectedDevicePin" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid></Border>
+<Border Style="{StaticResource SectionCard}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="230"/></Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,28,0">
+                                        <TextBlock Text="桌面显示与位置" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock Text="以下选项作用于整个桌面卡片容器。" Style="{StaticResource Caption}"/>
+                                        <CheckBox x:Name="WidgetBox" Content="启用桌面卡片" Style="{StaticResource SettingSwitch}" Click="OnWidgetClick" Margin="0,19,0,0"/>
+                                        <Border Height="1" Background="{DynamicResource Stroke}" Margin="0,22,0,18"/>
+                                        <Grid Margin="0,0,0,18"><StackPanel Margin="0,0,55,0"><TextBlock Text="始终置顶" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="在其他窗口上方显示" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="TopmostBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnTopmostClick" AutomationProperties.Name="始终置顶"/></Grid>
+                                        <Grid Margin="0,0,0,18"><StackPanel Margin="0,0,55,0"><TextBlock Text="锁定位置" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="防止拖动时误移卡片" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="LockedBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnLockedClick" AutomationProperties.Name="锁定卡片位置"/></Grid>
+                                        <Grid Margin="0,0,0,18"><StackPanel Margin="0,0,55,0"><TextBlock Text="简洁模式" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="收起说明，保留设备与电量" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="WidgetCompactBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnWidgetCompactClick" AutomationProperties.Name="简洁模式"/></Grid>
+                                        <Grid><StackPanel Margin="0,0,55,0"><TextBlock Text="透明背景" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="让卡片轻轻融入桌面" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="WidgetTransparentBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnWidgetTransparentClick" AutomationProperties.Name="透明背景"/></Grid>
+                                    </StackPanel>
+                                                                        <Border Grid.Column="1" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="13" Padding="12" VerticalAlignment="Center"><StackPanel><TextBlock Text="桌面实时预览" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,12"/><Grid Height="250"><Rectangle x:Name="WidgetLivePreview"><Rectangle.Fill><VisualBrush x:Name="WidgetMirrorBrush" Stretch="Uniform" AlignmentY="Top"/></Rectangle.Fill></Rectangle><TextBlock x:Name="WidgetPreviewEmptyText" Text="启用桌面卡片后，&#x0a;这里显示真实卡片的实时镜像。" Style="{StaticResource Caption}" TextAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="设备、布局与透明度和桌面同步" Style="{StaticResource Caption}" FontSize="10" Margin="0,10,0,0"/></StackPanel></Border>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource SectionCard}">
+                                <Grid><StackPanel Margin="0,0,130,0"><TextBlock Text="找不到卡片？" Style="{StaticResource SectionTitle}"/><TextBlock Text="启用卡片并移回主屏右上角，同时解锁位置。外观与置顶设置会保留。" Style="{StaticResource Caption}" TextWrapping="Wrap"/></StackPanel><Button Content="找回卡片" HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnRecoverWidget"/></Grid>
+                            </Border>
+
+                                </StackPanel>
+                            </ScrollViewer>
+                            <ScrollViewer x:Name="GeneralTab" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,5,0">
+                                <StackPanel>
+<Border Style="{StaticResource SectionCard}"><StackPanel>
                                 <TextBlock Text="为桌面选一种心情" Style="{StaticResource SectionTitle}"/><TextBlock Text="面板与桌面卡片会一起切换主题。" Style="{StaticResource Caption}" Margin="0,0,0,18"/>
                                 <UniformGrid Columns="3">
                                     <RadioButton x:Name="SystemTheme" GroupName="Theme" Style="{StaticResource ThemeChoice}" Tag="System" Click="OnThemeClick" Margin="0,0,8,0"><StackPanel><Grid Height="43" Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Border Background="#EFF3F7" CornerRadius="5,0,0,5"/><Border Grid.Column="1" Background="#202838" CornerRadius="0,5,5,0"/><Border Background="#8FE4C5" Height="5" Margin="10,0" VerticalAlignment="Center"/></Grid><TextBlock Text="跟随系统" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="自然适应你的环境" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel></RadioButton>
@@ -226,7 +257,7 @@
                                     <RadioButton x:Name="ForestTheme" GroupName="Theme" Style="{StaticResource ThemeChoice}" Tag="Forest" Click="OnThemeClick" Margin="6,0,0,0"><StackPanel><Border Height="43" Background="#182D27" CornerRadius="5" Margin="0,0,0,12"><Border Background="#A6D491" Height="5" Margin="10,0" VerticalAlignment="Center"/></Border><TextBlock Text="森林绿" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="深色 · 自然绿调" Style="{StaticResource Caption}" FontSize="10" Margin="0,5,0,0"/></StackPanel></RadioButton>
                                 </UniformGrid>
                             </StackPanel></Border>
-                            <Border Style="{StaticResource SectionCard}"><StackPanel>
+                                                        <Border x:Name="PluginThemeCard" Style="{StaticResource SectionCard}"><StackPanel><TextBlock Text="插件主题" Style="{StaticResource SectionTitle}"/><TextBlock Text="启用主题插件后，在这里选择是否使用。" Style="{StaticResource Caption}" Margin="0,0,0,12"/><ItemsControl x:Name="PluginThemeItems"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><RadioButton GroupName="Theme" Style="{StaticResource ThemeChoice}" Content="{Binding Label}" Tag="{Binding Value}" IsChecked="{Binding Selected, Mode=OneWay}" Click="OnThemeClick" Margin="0,0,8,0"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></Border><Border Style="{StaticResource SectionCard}"><StackPanel>
                                 <TextBlock Text="轻量运行" Style="{StaticResource SectionTitle}"/><TextBlock Text="按需更新，安静地待在托盘。" Style="{StaticResource Caption}" Margin="0,0,0,20"/>
                                 <Grid><StackPanel><TextBlock Text="电量扫描间隔" FontSize="12"/><TextBlock Text="较长间隔可以减少设备查询。" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel><ComboBox x:Name="PollCombo" DisplayMemberPath="Label" SelectedValuePath="Value" HorizontalAlignment="Right" VerticalAlignment="Center" SelectionChanged="OnPollChanged"/></Grid>
                                 <CheckBox x:Name="StartWithWindowsBox" Content="开机启动 PowerHub" Click="OnStartWithWindowsClick" Margin="0,22,0,0"/>
@@ -235,60 +266,12 @@
                                 <Grid><StackPanel Margin="0,0,150,0"><TextBlock Text="兼容性诊断" FontSize="12"/><TextBlock Text="导出设备信息，帮助后续适配。" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel><Button x:Name="ExportButton" Content="导出诊断" HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnExport"/></Grid>
                             </StackPanel></Border>
                             <controls:UpdateSettings x:Name="UpdatePanel"/>
-                            <TextBlock x:Name="SettingsStatusText" Text="设置会自动保存。" Style="{StaticResource Caption}" Margin="2,0,0,10"/>
-                        </StackPanel>
-                    </ScrollViewer>
-                    <ScrollViewer x:Name="WidgetsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="32,28,30,28">
-                        <StackPanel>
-                            <TextBlock Text="桌面卡片" FontSize="27" FontWeight="SemiBold"/>
-                            <TextBlock Text="把常用设备留在桌面一角，电量和充电状态一眼可见。" Style="{StaticResource Caption}" Margin="0,8,0,24"/>
-                            <Border Style="{StaticResource SectionCard}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="230"/></Grid.ColumnDefinitions>
-                                    <StackPanel Margin="0,0,28,0">
-                                        <TextBlock Text="桌面电量卡片" Style="{StaticResource SectionTitle}"/>
-                                        <TextBlock Text="关闭主面板后，卡片仍会继续显示。" Style="{StaticResource Caption}"/>
-                                        <CheckBox x:Name="WidgetBox" Content="启用桌面卡片" Style="{StaticResource SettingSwitch}" Click="OnWidgetClick" Margin="0,19,0,0"/>
-                                        <Border Height="1" Background="{DynamicResource Stroke}" Margin="0,22,0,18"/>
-                                        <Grid Margin="0,0,0,18"><StackPanel Margin="0,0,55,0"><TextBlock Text="始终置顶" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="在其他窗口上方显示" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="TopmostBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnTopmostClick" AutomationProperties.Name="始终置顶"/></Grid>
-                                        <Grid Margin="0,0,0,18"><StackPanel Margin="0,0,55,0"><TextBlock Text="锁定位置" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="防止拖动时误移卡片" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="LockedBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnLockedClick" AutomationProperties.Name="锁定卡片位置"/></Grid>
-                                        <Grid Margin="0,0,0,18"><StackPanel Margin="0,0,55,0"><TextBlock Text="简洁模式" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="收起说明，保留设备与电量" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="WidgetCompactBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnWidgetCompactClick" AutomationProperties.Name="简洁模式"/></Grid>
-                                        <Grid><StackPanel Margin="0,0,55,0"><TextBlock Text="透明背景" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="让卡片轻轻融入桌面" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="WidgetTransparentBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnWidgetTransparentClick" AutomationProperties.Name="透明背景"/></Grid>
-                                    </StackPanel>
-                                    <Border Grid.Column="1" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="13" Padding="20" VerticalAlignment="Center">
-                                        <StackPanel>
-                                            <Grid><TextBlock Text="桌面卡片" FontSize="12" FontWeight="SemiBold"/><TextBlock Text="效果预览" Style="{StaticResource Caption}" FontSize="9" HorizontalAlignment="Right"/></Grid>
-                                            <Grid Width="98" Height="98" Margin="0,23,0,16">
-                                                <controls:BatteryVisual x:Name="WidgetPreviewVisual" Percent="65" DisplayStyle="Ocean" Foreground="{DynamicResource Accent}" TrackBrush="{DynamicResource RingTrack}"/>
-                                                <TextBlock Text="65%" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Grid>
-                                            <TextBlock Text="设备电量" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                                            <TextBlock x:Name="WidgetStyleText" Text="海洋球 · 动效已开启" Style="{StaticResource Caption}" FontSize="10" HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
-                            </Border>
-                            <Border Style="{StaticResource SectionCard}">
-                                <Grid><StackPanel Margin="0,0,130,0"><TextBlock Text="卡片外观" Style="{StaticResource SectionTitle}"/><TextBlock Text="圆环、条形、沙漏或海洋球；与设备面板使用同一套风格。" Style="{StaticResource Caption}"/></StackPanel><Button Content="调整外观" HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnWidgetAppearance"/></Grid>
-                            </Border>
-                            <Border Style="{StaticResource SectionCard}"><StackPanel>
-                                <Grid Margin="0,0,0,5"><TextBlock Text="选择显示的设备" Style="{StaticResource SectionTitle}"/><TextBlock x:Name="WidgetSelectionSummary" Style="{StaticResource Caption}" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid>
-                                <TextBlock Text="固定需要关注的在线设备。断开后自动隐藏，重新连接时恢复。" Style="{StaticResource Caption}" Margin="0,0,0,16"/>
-                                <ItemsControl x:Name="WidgetDeviceItems"><ItemsControl.ItemTemplate><DataTemplate>
-                                    <Border BorderBrush="{DynamicResource Stroke}" BorderThickness="0,1,0,0" Padding="0,15">
-                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                            <Grid Width="42" Height="42" HorizontalAlignment="Left"><controls:BatteryVisual Percent="{Binding Status.BatteryPercent, Mode=OneWay}" DisplayStyle="{Binding DisplayStyle, Mode=OneWay}" AnimationsEnabled="{Binding AnimationsEnabled, Mode=OneWay}" IsCharging="{Binding IsCharging, Mode=OneWay}" Foreground="{Binding BatteryBrush, Mode=OneWay}" TrackBrush="{DynamicResource RingTrack}"/><TextBlock Text="{Binding Status.BatteryText, Mode=OneWay}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid>
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="{Binding IconGeometry, Mode=OneWay}" Style="{StaticResource DeviceTypeIcon}"/><TextBlock Grid.Column="1" Text="{Binding Name, Mode=OneWay}" Foreground="{Binding NameBrush, Mode=OneWay}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></Grid><TextBlock Text="{Binding Subtitle, Mode=OneWay}" Style="{StaticResource Caption}" Margin="26,4,0,0"/></StackPanel>
-                                            <Button Grid.Column="2" Content="{Binding PinLabel, Mode=OneWay}" Style="{StaticResource QuietButton}" Foreground="{DynamicResource Accent}" Padding="10,8" Tag="{Binding Id}" Click="OnPinDevice" VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                                <Border x:Name="NoWidgetDevices" Background="{DynamicResource SurfaceAlt}" CornerRadius="10" Padding="20" Margin="0,4,0,0"><StackPanel><TextBlock Text="暂时没有可固定的在线设备" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="连接外设后，在设备概览中刷新电量。" Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,7,0,0"/></StackPanel></Border>
-                            </StackPanel></Border>
-                            <TextBlock x:Name="WidgetStatusText" Text="设置会自动保存。" Style="{StaticResource Caption}" Margin="2,0,0,10"/>
-                        </StackPanel>
-                    </ScrollViewer>
-                    <ScrollViewer x:Name="PluginsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="32,28,30,28">
+
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                        <TextBlock x:Name="SettingsStatusText" Grid.Row="4" Text="设置会自动保存。" Style="{StaticResource Caption}" Margin="2,8,0,0"/>
+                    </Grid><ScrollViewer x:Name="PluginsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="32,28,30,28">
                         <controls:PluginSettings x:Name="PluginPanel"/>
                     </ScrollViewer>
                 </Grid>

@@ -29,7 +29,7 @@ public sealed class ReminderPolicy
                 continue;
 
             if (lastNotified.TryGetValue(device.Id, out var notifiedAt)
-                && now - notifiedAt < TimeSpan.FromMinutes(Math.Clamp(settings.RepeatReminderMinutes, 5, 1440)))
+                && now - notifiedAt < TimeSpan.FromMinutes(settings.GetRepeatReminderMinutes(device.Id)))
                 continue;
 
             lastNotified[device.Id] = now;

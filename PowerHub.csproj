@@ -11,7 +11,7 @@
     <AssemblyName>PowerHub</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/powerhub.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Description>Windows 外设电量中心</Description>
   </PropertyGroup>
   <ItemGroup>

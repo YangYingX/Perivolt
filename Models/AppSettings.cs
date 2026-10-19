@@ -5,8 +5,15 @@ namespace PowerHub.Models;
 public sealed class AppSettings
 {
     public string Theme { get; set; } = "System";
-    public string DisplayStyle { get; set; } = "Ocean";
+    public string DisplayStyle { get; set; } = "Ring";
     public bool AnimationsEnabled { get; set; } = true;
+    public bool ShowBatteryPercentage { get; set; } = true;
+    public double BarOpacity { get; set; } = .85;
+    public double HourglassOpacity { get; set; } = .85;
+    public double OceanOpacity { get; set; } = .85;
+    public double AnimationIntensity { get; set; } = 1.6;
+    public List<string> DeviceOrder { get; set; } = [];
+    public BatteryColorConfiguration BatteryColors { get; set; } = null!;
     public int LowColorThreshold { get; set; } = 20;
     public int MediumColorThreshold { get; set; } = 50;
     public string LowColorStart { get; set; } = "#F19AAB";
@@ -40,12 +47,21 @@ public sealed class AppSettings
         Theme = Theme?.Trim().ToLowerInvariant() switch
         {
             "dark" => "Dark", "light" => "Light", "ocean" => "Ocean", "lavender" => "Lavender",
-            "sunset" => "Sunset", "forest" => "Forest", _ => "System"
+            "sunset" => "Sunset", "forest" => "Forest",
+            var plugin when plugin is { Length: > 7 and <= 87 } && plugin.StartsWith("plugin:", StringComparison.Ordinal) &&
+                !string.IsNullOrWhiteSpace(plugin[7..]) => plugin,
+            _ => "System"
         };
         DisplayStyle = DisplayStyle?.Trim().ToLowerInvariant() switch
         {
-            "ring" => "Ring", "bar" => "Bar", "hourglass" => "Hourglass", _ => "Ocean"
+            "bar" => "Bar", "hourglass" => "Hourglass", "ocean" => "Ocean", _ => "Ring"
         };
+        BarOpacity = ClampFinite(BarOpacity, .1, 1, .85);
+        HourglassOpacity = ClampFinite(HourglassOpacity, .1, 1, .85);
+        OceanOpacity = ClampFinite(OceanOpacity, .1, 1, .85);
+        AnimationIntensity = ClampFinite(AnimationIntensity, .5, 3, 1.6);
+        DeviceOrder = (DeviceOrder ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         LowBatteryThreshold = Math.Clamp(LowBatteryThreshold, 1, 100);
         LowColorThreshold = Math.Clamp(LowColorThreshold, 0, 99);
         MediumColorThreshold = Math.Clamp(MediumColorThreshold, LowColorThreshold + 1, 100);
@@ -55,6 +71,8 @@ public sealed class AppSettings
         MediumColorEnd = NormalizeHexColor(MediumColorEnd) ?? "#D59A3D";
         HighColorStart = NormalizeHexColor(HighColorStart) ?? "#8FE4C5";
         HighColorEnd = NormalizeHexColor(HighColorEnd) ?? "#39BFA0";
+        BatteryColors ??= CreateLegacyColors();
+        BatteryColors.Normalize();
         RepeatReminderMinutes = Math.Clamp(RepeatReminderMinutes, 5, 1440);
         PollIntervalSeconds = Math.Clamp(PollIntervalSeconds, 30, 900);
         if (WidgetLeft is double left && !double.IsFinite(left)) WidgetLeft = null;
@@ -75,6 +93,17 @@ public sealed class AppSettings
                 if (preference.DisplayName.Length > 256) preference.DisplayName = preference.DisplayName[..256];
                 if (preference.LowBatteryThreshold is int threshold)
                     preference.LowBatteryThreshold = Math.Clamp(threshold, 1, 100);
+                if (preference.RepeatReminderMinutes is int repeat)
+                    preference.RepeatReminderMinutes = Math.Clamp(repeat, 5, 1440);
+                preference.DisplayStyle = preference.DisplayStyle?.Trim().ToLowerInvariant() switch
+                {
+                    "ring" => "Ring", "bar" => "Bar", "hourglass" => "Hourglass", "ocean" => "Ocean", _ => null
+                };
+                preference.BatteryColors?.Normalize();
+                preference.BarOpacity = NormalizeOptionalNumber(preference.BarOpacity, .1, 1);
+                preference.HourglassOpacity = NormalizeOptionalNumber(preference.HourglassOpacity, .1, 1);
+                preference.OceanOpacity = NormalizeOptionalNumber(preference.OceanOpacity, .1, 1);
+                preference.AnimationIntensity = NormalizeOptionalNumber(preference.AnimationIntensity, .5, 3);
                 devices[id] = preference;
             }
         }
@@ -84,6 +113,71 @@ public sealed class AppSettings
     public int GetThreshold(string id) => Math.Clamp(
         Devices.TryGetValue(id, out var preference) && preference.LowBatteryThreshold is int threshold
             ? threshold : LowBatteryThreshold, 1, 100);
+
+    public int GetRepeatReminderMinutes(string? id) => Math.Clamp(
+        id is not null && Devices.TryGetValue(id, out var preference) && preference.RepeatReminderMinutes is int repeat
+            ? repeat : RepeatReminderMinutes, 5, 1440);
+
+    public string GetDisplayStyle(string? id) => id is not null && Devices.TryGetValue(id, out var preference) &&
+        preference.DisplayStyle is { } style ? style : DisplayStyle;
+
+    public bool GetAnimationsEnabled(string? id) => id is not null && Devices.TryGetValue(id, out var preference) &&
+        preference.AnimationsEnabled is bool enabled ? enabled : AnimationsEnabled;
+
+    public bool GetShowBatteryPercentage(string? id) => id is not null && Devices.TryGetValue(id, out var preference) &&
+        preference.ShowBatteryPercentage is bool enabled ? enabled : ShowBatteryPercentage;
+
+    public BatteryColorConfiguration GetBatteryColors(string? id) => id is not null && Devices.TryGetValue(id, out var preference) &&
+        preference.BatteryColors is { } colors ? colors : (BatteryColors ??= CreateLegacyColors());
+
+    public double GetFillOpacity(string? id, string style)
+    {
+        DevicePreference? preference = null;
+        if (id is not null) Devices.TryGetValue(id, out preference);
+        return style switch
+        {
+            "Bar" => ClampFinite(preference?.BarOpacity ?? BarOpacity, .1, 1, .85),
+            "Hourglass" => ClampFinite(preference?.HourglassOpacity ?? HourglassOpacity, .1, 1, .85),
+            "Ocean" => ClampFinite(preference?.OceanOpacity ?? OceanOpacity, .1, 1, .85),
+            _ => 1
+        };
+    }
+
+    public double GetAnimationIntensity(string? id) => ClampFinite(
+        id is not null && Devices.TryGetValue(id, out var preference) && preference.AnimationIntensity is double intensity
+            ? intensity : AnimationIntensity, .5, 3, 1.6);
+
+    public int GetDeviceOrder(string id)
+    {
+        var index = DeviceOrder.FindIndex(saved => string.Equals(saved, id, StringComparison.OrdinalIgnoreCase));
+        return index < 0 ? int.MaxValue : index;
+    }
+
+    private static double ClampFinite(double value, double minimum, double maximum, double fallback) =>
+        double.IsFinite(value) ? Math.Clamp(value, minimum, maximum) : fallback;
+
+    private static double? NormalizeOptionalNumber(double? value, double minimum, double maximum) =>
+        value is double number && double.IsFinite(number) ? Math.Clamp(number, minimum, maximum) : null;
+
+    private BatteryColorConfiguration CreateLegacyColors()
+    {
+        var colors = new BatteryColorConfiguration
+        {
+            GradientByBatteryLevel = true,
+            GradientWithinShape = BatteryGradientEnabled,
+            Stops =
+            [
+                new() { Position = 0, Color = LowColorStart, InterpolateToNext = BatteryGradientEnabled },
+                new() { Position = LowColorThreshold, Color = LowColorEnd, InterpolateToNext = false },
+                new() { Position = LowColorThreshold + 1, Color = MediumColorStart, InterpolateToNext = BatteryGradientEnabled },
+                new() { Position = MediumColorThreshold, Color = MediumColorEnd, InterpolateToNext = false },
+                new() { Position = Math.Min(100, MediumColorThreshold + 1), Color = HighColorStart, InterpolateToNext = BatteryGradientEnabled },
+                new() { Position = 100, Color = HighColorEnd }
+            ]
+        };
+        colors.Normalize();
+        return colors;
+    }
 
     public bool IsPinned(string id) => Devices.TryGetValue(id, out var preference) && preference.Pinned;
 
@@ -119,4 +213,60 @@ public sealed class DevicePreference
     public bool Pinned { get; set; }
     public bool NotificationsEnabled { get; set; } = true;
     public int? LowBatteryThreshold { get; set; }
+    public int? RepeatReminderMinutes { get; set; }
+    public string? DisplayStyle { get; set; }
+    public bool? AnimationsEnabled { get; set; }
+    public bool? ShowBatteryPercentage { get; set; }
+    public double? BarOpacity { get; set; }
+    public double? HourglassOpacity { get; set; }
+    public double? OceanOpacity { get; set; }
+    public double? AnimationIntensity { get; set; }
+    public BatteryColorConfiguration? BatteryColors { get; set; }
+}
+
+public sealed class BatteryColorConfiguration
+{
+    public bool GradientByBatteryLevel { get; set; } = true;
+    public bool GradientWithinShape { get; set; } = true;
+    public List<BatteryColorStop> Stops { get; set; } =
+    [
+        new() { Position = 0, Color = "#F19AAB" },
+        new() { Position = 50, Color = "#F2C27B" },
+        new() { Position = 100, Color = "#8FE4C5" }
+    ];
+
+    public BatteryColorConfiguration Clone() => new()
+    {
+        GradientByBatteryLevel = GradientByBatteryLevel,
+        GradientWithinShape = GradientWithinShape,
+        Stops = (Stops ?? []).Where(stop => stop is not null).Select(stop => new BatteryColorStop
+        {
+            Position = stop.Position, Color = stop.Color, InterpolateToNext = stop.InterpolateToNext
+        }).ToList()
+    };
+
+    public void Normalize()
+    {
+        var stops = (Stops ?? []).Where(stop => stop is not null).ToList();
+        foreach (var stop in stops)
+        {
+            stop.Position = double.IsFinite(stop.Position) ? Math.Clamp(stop.Position, 0, 100) : 0;
+            stop.Color = AppSettings.NormalizeHexColor(stop.Color) ?? "#8FE4C5";
+        }
+        stops = stops.OrderBy(stop => stop.Position).Take(10).ToList();
+        if (stops.Count == 0) stops = new BatteryColorConfiguration().Stops;
+        if (stops.Count == 1) stops.Add(new BatteryColorStop
+        {
+            Position = stops[0].Position <= 50 ? 100 : 0, Color = stops[0].Color,
+            InterpolateToNext = stops[0].InterpolateToNext
+        });
+        Stops = stops.OrderBy(stop => stop.Position).ToList();
+    }
+}
+
+public sealed class BatteryColorStop
+{
+    public double Position { get; set; }
+    public string Color { get; set; } = "#8FE4C5";
+    public bool InterpolateToNext { get; set; } = true;
 }

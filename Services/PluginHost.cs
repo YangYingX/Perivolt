@@ -15,6 +15,7 @@ public sealed class PluginHost : IDisposable
     private bool disposed;
     public string DirectoryPath { get; }
     public IReadOnlyList<PluginEntry> Entries { get { lock (gate) return states.Values.Select(state => state.Entry).ToArray(); } }
+    public IReadOnlyList<PluginEntry> AvailableThemes => Snapshot("theme").Select(state => state.Entry).ToArray();
 
     public PluginHost(string directory, AppSettings settings)
     {
@@ -104,8 +105,11 @@ public sealed class PluginHost : IDisposable
     {
         get
         {
+            if (!settings.Theme.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase)) return null;
+            var selectedId = settings.Theme[7..];
             foreach (var state in Snapshot("theme"))
             {
+                if (!state.Entry.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase)) continue;
                 var runtime = Acquire(state);
                 if (runtime is null) continue;
                 try

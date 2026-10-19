@@ -15,6 +15,8 @@ namespace PowerHub;
 
 public partial class DesktopWidgetWindow : Window
 {
+    private static readonly Geometry LockedIcon = (Geometry)Geometry.Parse("M2,6 H10 V13 H2 Z M3,6 V4 A3,3 0 0 1 9,4 V6 M6,9 V11").GetAsFrozen();
+    private static readonly Geometry UnlockedIcon = (Geometry)Geometry.Parse("M2,6 H10 V13 H2 Z M3,6 V4 A3,3 0 0 1 9,4 M6,9 V11").GetAsFrozen();
     private readonly AppSettings _settings;
     private readonly Action _settingsChanged;
     private readonly Action _openDashboard;
@@ -103,6 +105,10 @@ public partial class DesktopWidgetWindow : Window
             Topmost = _settings.WidgetTopmost;
             DragHeader.Cursor = _settings.WidgetLocked ? Cursors.Arrow : Cursors.SizeAll;
             OpenDashboardButton.IsEnabled = HideWidgetButton.IsEnabled = !_settings.WidgetLocked;
+            LockStateIcon.Data = _settings.WidgetLocked ? LockedIcon : UnlockedIcon;
+            ToggleLockButton.SetResourceReference(System.Windows.Controls.Control.ForegroundProperty, _settings.WidgetLocked ? "Accent" : "TextSecondary");
+            ToggleLockButton.ToolTip = _settings.WidgetLocked ? "解锁位置" : "锁定位置";
+            System.Windows.Automation.AutomationProperties.SetName(ToggleLockButton, (string)ToggleLockButton.ToolTip);
             TopmostMenuItem.IsChecked = _settings.WidgetTopmost;
             LockedMenuItem.IsChecked = _settings.WidgetLocked;
             FooterText.Text = $"PowerHub · {(_settings.NotificationsEnabled ? "充电提醒已开启" : "充电提醒已关闭")}";
@@ -259,6 +265,12 @@ public partial class DesktopWidgetWindow : Window
     {
         _settings.WidgetLocked = LockedMenuItem.IsChecked;
         DragHeader.Cursor = _settings.WidgetLocked ? Cursors.Arrow : Cursors.SizeAll;
+        _settingsChanged();
+    }
+
+    private void OnToggleLock(object sender, RoutedEventArgs e)
+    {
+        _settings.WidgetLocked = !_settings.WidgetLocked;
         _settingsChanged();
     }
 

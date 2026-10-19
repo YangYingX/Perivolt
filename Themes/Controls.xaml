@@ -29,14 +29,18 @@
             <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger></ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
+    <Style x:Key="CheckBoxKeyboardFocus" TargetType="Control">
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control">
+            <Border Width="24" Height="24" Margin="-3,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" CornerRadius="8" BorderBrush="{DynamicResource Accent}" BorderThickness="1" IsHitTestVisible="False"/>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="Cursor" Value="Hand"/><Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Setter Property="UseLayoutRounding" Value="True"/><Setter Property="SnapsToDevicePixels" Value="True"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="UseLayoutRounding" Value="True"/><Setter Property="SnapsToDevicePixels" Value="True"/><Setter Property="FocusVisualStyle" Value="{StaticResource CheckBoxKeyboardFocus}"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
             <Border x:Name="CheckRoot" Background="Transparent" Padding="{TemplateBinding Padding}">
                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Grid Width="18" Height="18" VerticalAlignment="Center">
-                        <Border x:Name="FocusRing" Margin="-3" CornerRadius="8" BorderBrush="{DynamicResource Accent}" BorderThickness="1" Visibility="Collapsed" IsHitTestVisible="False"/>
                         <Border x:Name="Box" CornerRadius="5" Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1"/>
                         <Path x:Name="Check" Width="12" Height="10" Stretch="Uniform" Data="M 1,5 L 4,9 L 11,1" Stroke="{DynamicResource AccentText}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         <Border x:Name="Indeterminate" Width="8" Height="2" CornerRadius="1" Background="{DynamicResource AccentText}" Visibility="Collapsed" VerticalAlignment="Center" HorizontalAlignment="Center"/>
@@ -47,7 +51,6 @@
             <ControlTemplate.Triggers>
                 <Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}"/><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="Check" Property="Visibility" Value="Visible"/></Trigger>
                 <Trigger Property="IsChecked" Value="{x:Null}"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}"/><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="Indeterminate" Property="Visibility" Value="Visible"/></Trigger>
-                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusRing" Property="Visibility" Value="Visible"/></Trigger>
                 <Trigger Property="IsEnabled" Value="False"><Setter TargetName="CheckRoot" Property="Opacity" Value="0.4"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
             </ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>

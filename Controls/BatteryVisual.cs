@@ -31,6 +31,10 @@ public sealed class BatteryVisual : Control
         nameof(FillOpacity), typeof(double), typeof(BatteryVisual),
         new FrameworkPropertyMetadata(.85, FrameworkPropertyMetadataOptions.AffectsRender, null,
             (_, value) => double.IsFinite((double)value) ? Math.Clamp((double)value, .1, 1) : .85));
+    public static readonly DependencyProperty ColorOpacityProperty = DependencyProperty.Register(
+        nameof(ColorOpacity), typeof(double), typeof(BatteryVisual),
+        new FrameworkPropertyMetadata(1d, FrameworkPropertyMetadataOptions.AffectsRender, OnMotionModeChanged,
+            (_, value) => double.IsFinite((double)value) ? Math.Clamp((double)value, 0, 1) : 1d));
     public static readonly DependencyProperty AnimationIntensityProperty = DependencyProperty.Register(
         nameof(AnimationIntensity), typeof(double), typeof(BatteryVisual),
         new FrameworkPropertyMetadata(1.6, FrameworkPropertyMetadataOptions.AffectsRender, null,
@@ -80,6 +84,7 @@ public sealed class BatteryVisual : Control
     public Brush TrackBrush { get => (Brush)GetValue(TrackBrushProperty); set => SetValue(TrackBrushProperty, value); }
     public bool IsCharging { get => (bool)GetValue(IsChargingProperty); set => SetValue(IsChargingProperty, value); }
     public double FillOpacity { get => (double)GetValue(FillOpacityProperty); set => SetValue(FillOpacityProperty, value); }
+    public double ColorOpacity { get => (double)GetValue(ColorOpacityProperty); set => SetValue(ColorOpacityProperty, value); }
     public double AnimationIntensity { get => (double)GetValue(AnimationIntensityProperty); set => SetValue(AnimationIntensityProperty, value); }
     private bool HasPercent => Percent is >= 0 and <= 100;
     private static double Now => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
@@ -115,7 +120,7 @@ public sealed class BatteryVisual : Control
 
     private void UpdateRendering()
     {
-        if (IsLoaded && IsVisible && AnimationsEnabled && HasPercent &&
+        if (IsLoaded && IsVisible && ColorOpacity > 0 && AnimationsEnabled && HasPercent &&
             (DisplayStyle != "Ring" || IsCharging || Now - _transitionStarted < .55))
         {
             if (_subscribed) return;
@@ -157,13 +162,14 @@ public sealed class BatteryVisual : Control
     protected override void OnRender(DrawingContext context)
     {
         base.OnRender(context);
-        if (ActualWidth <= 0 || ActualHeight <= 0) return;
+        if (ActualWidth <= 0 || ActualHeight <= 0 || ColorOpacity <= 0) return;
         _accentPen ??= new Pen(Foreground, 4.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         _trackPen ??= new Pen(TrackBrush, 4.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         _thinTrackPen ??= new Pen(TrackBrush, 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         _wavePen ??= new Pen(Foreground, .9);
         var percent = HasPercent ? Math.Clamp(_displayed, 0, 1) : 0;
         context.PushTransform(_layoutTransform);
+        context.PushOpacity(ColorOpacity);
         switch (DisplayStyle)
         {
             case "Ring": DrawRing(context, percent); break;
@@ -171,6 +177,7 @@ public sealed class BatteryVisual : Control
             case "Hourglass": DrawHourglass(context, percent); break;
             default: DrawOcean(context, percent); break;
         }
+        context.Pop();
         context.Pop();
     }
 

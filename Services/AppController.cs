@@ -190,6 +190,7 @@ public sealed class AppController : IDisposable
     private void OnSystemThemeChanged()
     {
         ViewRevision++;
+        widget?.ApplySettings();
         widget?.UpdateDevices(Devices);
         Changed?.Invoke();
     }

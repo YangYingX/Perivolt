@@ -22,9 +22,16 @@ public partial class BatteryColorSettings : UserControl
     private List<NodeRow> _rows = [];
     private bool _updating;
     private bool _dirty;
+    private bool _colorsDirty;
+    private bool _opacityDirty;
+    private double _opacityDraft = 1;
+    private double _loadedOpacity = 1;
     private bool _committing;
     private string _loadedSignature = "";
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(240) };
+    public event EventHandler? PreviewChanged;
+    public Brush PreviewBrush => LowPreview.Foreground;
+    public double PreviewColorOpacity => _opacityDraft;
 
     public BatteryColorSettings()
     {
@@ -39,11 +46,11 @@ public partial class BatteryColorSettings : UserControl
         if (!force && id == _deviceId) return;
         CommitPending(); _deviceId = id; LoadDraft();
     }
-    public void DiscardPending() { _dirty = false; _saveTimer.Stop(); }
+    public void DiscardPending() { _dirty = _colorsDirty = _opacityDirty = false; _saveTimer.Stop(); }
     public void Refresh()
     {
         if (_controller is null || _updating || _committing) return;
-        if (!_dirty && !IsKeyboardFocusWithin && Signature(_controller.Settings.GetBatteryColors(_deviceId)) != _loadedSignature) LoadDraft();
+        if (!_dirty && !IsKeyboardFocusWithin && (Signature(_controller.Settings.GetBatteryColors(_deviceId)) != _loadedSignature || _controller.Settings.GetBatteryColorOpacity(_deviceId) != _loadedOpacity)) LoadDraft();
         else UpdatePreview();
     }
     private static string Signature(BatteryColorConfiguration colors) => $"{colors.GradientByBatteryLevel}/{colors.GradientWithinShape}/" +
@@ -54,9 +61,13 @@ public partial class BatteryColorSettings : UserControl
         _updating = true;
         try
         {
-            _saveTimer.Stop(); _dirty = false;
+            _saveTimer.Stop(); _dirty = _colorsDirty = _opacityDirty = false;
             _draft = _controller.Settings.GetBatteryColors(_deviceId).Clone();
             _loadedSignature = Signature(_draft);
+            _opacityDraft = _loadedOpacity = _controller.Settings.GetBatteryColorOpacity(_deviceId);
+            ColorOpacitySlider.Value = Math.Round(_opacityDraft * 100);
+            ColorOpacityBox.Text = ((int)ColorOpacitySlider.Value).ToString();
+            OpacityErrorText.Visibility = Visibility.Collapsed;
             LevelGradientBox.IsChecked = _draft.GradientByBatteryLevel;
             ShapeGradientBox.IsChecked = _draft.GradientWithinShape;
             BuildRows();
@@ -82,11 +93,32 @@ public partial class BatteryColorSettings : UserControl
     private void OnDraftChanged()
     {
         if (_updating) return;
-        _dirty = true;
+        _dirty = _colorsDirty = true;
         if (_rows.All(row => row.IsPositionValid)) ErrorText.Visibility = Visibility.Collapsed;
         UpdateNodeLabels();
         UpdatePreview();
         _saveTimer.Stop(); _saveTimer.Start();
+    }
+    private void OnColorOpacityChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_updating || ColorOpacityBox is null) return;
+        _updating = true; ColorOpacityBox.Text = ((int)Math.Round(ColorOpacitySlider.Value)).ToString(); _updating = false;
+        OnOpacityDraftChanged();
+    }
+    private void OnColorOpacityInput(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (_updating || ColorOpacitySlider is null) return;
+        _saveTimer.Stop(); _dirty = _opacityDirty = true;
+        if (!int.TryParse(ColorOpacityBox.Text, out var value) || value is < 0 or > 100) { OpacityErrorText.Visibility = Visibility.Visible; return; }
+        _updating = true; ColorOpacitySlider.Value = value; _updating = false;
+        OnOpacityDraftChanged();
+    }
+    private void OnOpacityDraftChanged()
+    {
+        _opacityDraft = ColorOpacitySlider.Value / 100;
+        _dirty = _opacityDirty = true;
+        OpacityErrorText.Visibility = Visibility.Collapsed;
+        UpdatePreview(); _saveTimer.Stop(); _saveTimer.Start();
     }
     private void UpdatePreview()
     {
@@ -98,33 +130,40 @@ public partial class BatteryColorSettings : UserControl
         LowPreview.Percent = percent;
         LowPreview.Foreground = BatteryPalette.GetBrush(_draft, percent);
         LowPreview.DisplayStyle = style;
+        LowPreview.Width = style == "Hourglass" ? 36 : 68;
+        LowPreview.HorizontalAlignment = style == "Hourglass" ? System.Windows.HorizontalAlignment.Left : System.Windows.HorizontalAlignment.Center;
         LowPreview.FillOpacity = settings.GetFillOpacity(_deviceId, style);
+        LowPreview.ColorOpacity = _opacityDraft;
         LowPreview.AnimationIntensity = settings.GetAnimationIntensity(_deviceId);
         LowPreview.AnimationsEnabled = settings.GetAnimationsEnabled(_deviceId);
         LowPreview.IsCharging = device?.IsCharging == true;
         LowPreviewNumber.Text = _deviceId is null ? "65%" : device?.BatteryText ?? "—";
+        LowPreviewNumber.HorizontalAlignment = style == "Hourglass" ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Center;
+        LowPreviewNumber.FontSize = style == "Hourglass" ? 11 : 12;
         LowPreviewNumber.Visibility = percent is null || settings.GetShowBatteryPercentage(_deviceId) ? Visibility.Visible : Visibility.Collapsed;
         ColorPreviewName.Text = device is null ? "默认外观" : settings.GetDeviceName(device);
         ColorPreviewName.Foreground = device is null ? TryFindResource("TextPrimary") as Brush : new DeviceCard(device, settings).NameBrush;
         ColorPreviewCaption.Text = _deviceId is null ? "示例电量 65% · 预览当前配色" : "真实设备电量 · 配色随编辑即时预览";
-        var band = _draft.Clone(); band.GradientByBatteryLevel = false; band.GradientWithinShape = true;
-        ColorBand.Background = BatteryPalette.GetBrush(band, 100);
+        ColorBand.Background = BatteryPalette.GetScaleBrush(_draft);
         ModeHint.Text = (_draft.GradientByBatteryLevel, _draft.GradientWithinShape) switch
         {
-            (true,true) => "两者开启：从低电节点渐变到当前电量对应颜色。关闭某一段的过渡可保留清晰的颜色分界。",
-            (true,false) => "当前图形使用单一颜色，随电量在相邻节点间平滑变化。",
-            (false,true) => "图形始终使用完整的 0–100% 色带；每段可选择平滑或直接换色。",
-            _ => "按节点位置分段使用纯色，到达下一个节点时直接换色。"
+            (true,true) => "平滑区间显示渐变；关闭区间过渡后，用该区间上界颜色纯色显示。",
+            (true,false) => "随电量在节点间变色；关闭过渡后使用上界档位颜色。",
+            (false,true) => "平滑区间铺开完整色带；关闭过渡的区间显示该档纯色。",
+            _ => "按上界分档使用纯色：默认 ≤20% 低电色、21–60% 中电色、61–100% 高电色。"
         };
-        ResetColorsButton.Visibility = _deviceId is null ? Visibility.Collapsed : Visibility.Visible;
+        ResetColorsButton.Content = _deviceId is null ? "重置配色" : "重置为默认配色";
         InheritanceHint.Text = _deviceId is null ? "正在编辑默认配色；节点位置独立于充电提醒阈值。" :
-            _dirty || settings.Devices.TryGetValue(_deviceId, out var preference) && preference.BatteryColors is not null
+            _dirty || settings.Devices.TryGetValue(_deviceId, out var preference) && (preference.BatteryColors is not null || preference.BatteryColorOpacity is not null)
                 ? "此设备已使用独立配色，修改不会影响其他设备。" : "正在跟随默认配色；编辑任意节点后会保存为此设备的独立配色。";
+        PreviewChanged?.Invoke(this, EventArgs.Empty);
     }
     public void CommitPending()
     {
         _saveTimer.Stop();
         if (_controller is null || _updating || !_dirty) return;
+        if (!int.TryParse(ColorOpacityBox.Text, out var opacity) || opacity is < 0 or > 100)
+        { OpacityErrorText.Visibility = Visibility.Visible; return; }
         if (_rows.Any(row => !row.IsPositionValid))
         {
             ErrorText.Text = "节点位置须为 0–100 的数字，本次无效输入尚未保存。";
@@ -132,12 +171,25 @@ public partial class BatteryColorSettings : UserControl
             return;
         }
         var saved = _draft.Clone(); saved.Normalize();
+        var colorsChanged = _colorsDirty;
+        var opacityChanged = _opacityDirty;
+        _colorsDirty = _opacityDirty = false;
         _dirty = false; _committing = true;
         try
         {
-            if (_deviceId is null) _controller.Settings.BatteryColors = saved;
-            else _controller.GetPreference(_deviceId).BatteryColors = saved;
+            if (_deviceId is null)
+            {
+                if (colorsChanged) _controller.Settings.BatteryColors = saved;
+                if (opacityChanged) _controller.Settings.BatteryColorOpacity = _opacityDraft;
+            }
+            else
+            {
+                var preference = _controller.GetPreference(_deviceId);
+                if (colorsChanged) preference.BatteryColors = saved;
+                if (opacityChanged) preference.BatteryColorOpacity = _opacityDraft;
+            }
             _loadedSignature = Signature(saved);
+            _loadedOpacity = _opacityDraft;
             _controller.ApplySettings();
             ErrorText.Visibility = Visibility.Collapsed;
         }
@@ -187,8 +239,10 @@ public partial class BatteryColorSettings : UserControl
     }
     private void OnResetColors(object sender, RoutedEventArgs e)
     {
-        if (_controller is null || _deviceId is null) return;
-        DiscardPending(); _controller.GetPreference(_deviceId).BatteryColors = null;
+        if (_controller is null) return;
+        DiscardPending();
+        if (_deviceId is null) { _controller.Settings.BatteryColors = new BatteryColorConfiguration(); _controller.Settings.BatteryColorOpacity = 1; }
+        else { var preference = _controller.GetPreference(_deviceId); preference.BatteryColors = null; preference.BatteryColorOpacity = null; }
         _controller.ApplySettings(); LoadDraft();
     }
 
@@ -231,7 +285,7 @@ public partial class BatteryColorSettings : UserControl
         public bool CanRemove { get; private set; }
         public void UpdateLabel(int number, double? next, bool canRemove)
         {
-            Label = number.ToString(); TransitionLabel = next.HasValue ? $"平滑过渡至 {next.Value:0.##}% 节点" : "";
+            Label = number.ToString(); TransitionLabel = next.HasValue ? $"{Position:0.##}–{next.Value:0.##}% 区间平滑过渡" : "";
             TransitionVisibility = next.HasValue ? Visibility.Visible : Visibility.Collapsed; CanRemove = canRemove;
             Notify(nameof(Label)); Notify(nameof(TransitionLabel)); Notify(nameof(TransitionVisibility)); Notify(nameof(CanRemove));
         }

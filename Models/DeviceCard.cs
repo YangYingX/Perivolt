@@ -13,6 +13,7 @@ public sealed class DeviceCard(DeviceStatus status, AppSettings settings)
     public bool AnimationsEnabled => settings.GetAnimationsEnabled(Id) && Status.ConnectionKnown && Status.IsConnected;
     public bool ShowBatteryPercentage => settings.GetShowBatteryPercentage(Id);
     public double FillOpacity => settings.GetFillOpacity(Id, DisplayStyle);
+    public double ColorOpacity => settings.GetBatteryColorOpacity(Id);
     public double AnimationIntensity => settings.GetAnimationIntensity(Id);
     public System.Windows.Visibility BatteryPercentageVisibility => Status.BatteryPercent.HasValue && !ShowBatteryPercentage
         ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
@@ -36,6 +37,7 @@ public sealed class DeviceCard(DeviceStatus status, AppSettings settings)
     public string Subtitle => $"{Status.Connection} · {Status.ConnectionText}";
     public string Note => Status.IsCharging == true ? "正在充电，提醒已暂停" : !Status.HasBattery ? "暂未提供可读取的电量" : "电量低时会按你的设置提醒";
     public string PinLabel => settings.IsPinned(Id) ? "✓ 已固定" : "+ 固定桌面";
+    public bool IsPinned => settings.IsPinned(Id);
     public bool AlertsEnabled => !settings.Devices.TryGetValue(Id, out var preference) || preference.NotificationsEnabled;
     public string ThresholdOverride => settings.Devices.TryGetValue(Id, out var preference) ? preference.LowBatteryThreshold?.ToString() ?? "" : "";
     public string ReminderText => !settings.IsDeviceNotificationEnabled(Id) ? "提醒已关闭" : Status.BatteryPercent is null && Status.BatteryLevel is not null

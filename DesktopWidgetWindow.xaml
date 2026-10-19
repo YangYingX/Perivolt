@@ -36,6 +36,10 @@
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="ButtonSurface" Property="Background" Value="{DynamicResource AccentSoft}"/>
                             </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -74,11 +78,11 @@
                     <TextBlock x:Name="SummaryText" Text="随时留意你的设备" Margin="13,4,0,0"
                                Foreground="{DynamicResource TextSecondary}" FontSize="10"/>
                 </StackPanel>
-                <Button Grid.Column="1" Style="{StaticResource WidgetIconButton}" Click="OnOpenDashboard"
+                <Button x:Name="OpenDashboardButton" Grid.Column="1" Style="{StaticResource WidgetIconButton}" Click="OnOpenDashboard"
                         ToolTip="打开电量中心" AutomationProperties.Name="打开电量中心">
                     <TextBlock Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>
                 </Button>
-                <Button Grid.Column="2" Style="{StaticResource WidgetIconButton}" Click="OnHideWidget"
+                <Button x:Name="HideWidgetButton" Grid.Column="2" Style="{StaticResource WidgetIconButton}" Click="OnHideWidget"
                         ToolTip="隐藏桌面卡片" AutomationProperties.Name="隐藏桌面卡片">
                     <TextBlock Text="&#xE711;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
@@ -95,11 +99,11 @@
                                         <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding Compact}" Value="True">
-                                                <Setter Property="Padding" Value="9,8"/>
-                                                <Setter Property="Margin" Value="0,0,0,6"/>
+                                                <Setter Property="Padding" Value="9,3"/>
+                                                <Setter Property="Margin" Value="0,0,0,4"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Transparent}" Value="True">
-                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Background" Value="{DynamicResource WidgetRowBackdrop}"/>
                                                 <Setter Property="BorderBrush" Value="{DynamicResource Stroke}"/>
                                                 <Setter Property="BorderThickness" Value="1"/>
                                             </DataTrigger>
@@ -120,6 +124,9 @@
                                                 <Style TargetType="TextBlock">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Status}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Compact}" Value="True">
                                                             <Setter Property="Visibility" Value="Collapsed"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
@@ -143,22 +150,10 @@
                                             </TextBlock.Style>
                                         </TextBlock>
                                     </StackPanel>
-                                    <Grid Grid.Column="1" VerticalAlignment="Center"
+                                    <Grid Grid.Column="1" VerticalAlignment="Center" Width="{Binding BatteryAreaWidth}" Height="{Binding BatteryVisualSize}"
                                           ToolTip="{Binding BatteryDescription}" AutomationProperties.Name="{Binding BatteryDescription}">
-                                        <Grid.Style>
-                                            <Style TargetType="Grid">
-                                                <Setter Property="Width" Value="48"/>
-                                                <Setter Property="Height" Value="48"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Compact}" Value="True">
-                                                        <Setter Property="Width" Value="36"/>
-                                                        <Setter Property="Height" Value="36"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Grid.Style>
-                                        <controls:BatteryVisual Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
-                                        <TextBlock Text="{Binding BatteryLabel}" Visibility="{Binding BatteryPercentageVisibility}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold">
+                                        <controls:BatteryVisual Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}" HorizontalAlignment="{Binding BatteryVisualAlignment}" Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
+                                        <TextBlock Text="{Binding BatteryLabel}" Visibility="{Binding BatteryPercentageVisibility}" HorizontalAlignment="{Binding BatteryLabelAlignment}" VerticalAlignment="Center" FontWeight="SemiBold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="FontSize" Value="12"/>

@@ -45,6 +45,7 @@ public partial class MainWindow : Window
         _updating = true;
         InitializeComponent();
         BatteryColorPanel.Initialize(controller);
+        BatteryColorPanel.PreviewChanged += (_, _) => UpdateStylePreviews();
         UpdatePanel.Initialize(controller);
         PluginPanel.Initialize(controller);
         PollCombo.ItemsSource = new[] { 30, 60, 120, 300, 600 }.Select(value => new Choice(value, value < 60 ? $"每 {value} 秒" : $"每 {value / 60} 分钟"));
@@ -114,6 +115,7 @@ public partial class MainWindow : Window
                 _cards = devices.OrderBy(device => settings.GetDeviceOrder(device.Id)).ThenByDescending(device => device.HasBattery)
                     .Select(device => new DeviceCard(device, settings)).ToList();
                 _cardsRevision = _controller.ViewRevision;
+                DesktopDeviceItems.ItemsSource = _cards;
             }
             var search = DeviceSearch.Text.Trim();
             var batteryOnly = BatteryOnlyBox.IsChecked == true;
@@ -147,10 +149,12 @@ public partial class MainWindow : Window
         var settings = _controller.Settings;
         var preference = Preference;
         var device = _cards.FirstOrDefault(card => card.Id == _selectedDeviceId);
-        ScopeHint.Text = _settingsTab == "general" ? "通用设置对全部设备生效。" : _selectedDeviceId is null
+        var showDeviceScope = _settingsTab is "reminders" or "appearance";
+        SettingsScopeRow.Visibility = SettingsLivePreview.Visibility = showDeviceScope ? Visibility.Visible : Visibility.Collapsed;
+        SettingsTitle.Margin = new Thickness(0, 0, showDeviceScope ? 152 : 0, 20);
+        ScopeHint.Text = _selectedDeviceId is null
             ? "默认值适用于未单独配置的设备。" : "仅设置所选设备，断开连接后仍会记住。";
-        SettingsDeviceSelector.IsEnabled = _settingsTab != "general";
-        ReminderScopeText.Text = _selectedDeviceId is null ? "设置所有设备的提醒总开关与默认值。" : "为这台设备设置独立提醒；恢复默认后继续跟随默认配置。";
+        ReminderScopeText.Text = _selectedDeviceId is null ? "设置所有设备的提醒总开关与默认值。" : "为这台设备设置独立提醒；重置后继续跟随默认配置。";
         NotificationsBox.IsChecked = _selectedDeviceId is null ? settings.NotificationsEnabled : preference?.NotificationsEnabled ?? true;
         GlobalReminderHint.Text = "默认配置中的提醒总开关已关闭；此设备的提醒设置会保留。";
         GlobalReminderHint.Visibility = _selectedDeviceId is not null && !settings.NotificationsEnabled ? Visibility.Visible : Visibility.Collapsed;
@@ -195,9 +199,7 @@ public partial class MainWindow : Window
         LockedBox.IsChecked = settings.WidgetLocked;
         WidgetCompactBox.IsChecked = settings.WidgetCompact;
         WidgetTransparentBox.IsChecked = settings.WidgetTransparent;
-        SelectedDevicePinBox.IsEnabled = device is not null;
-        SelectedDevicePinBox.IsChecked = device is not null && settings.IsPinned(device.Id);
-        PinScopeText.Text = device is null ? "在左上选择在线设备，决定它是否显示在桌面。" : $"{device.Name} · 离线自动隐藏，重连恢复显示。";
+        DesktopDevicesEmptyText.Visibility = _cards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         PollCombo.SelectedValue = settings.PollIntervalSeconds;
         foreach (var (radio, theme) in new[] { (SystemTheme,"System"),(LightTheme,"Light"),(DarkTheme,"Dark"),(OceanTheme,"Ocean"),(LavenderTheme,"Lavender"),(SunsetTheme,"Sunset"),(ForestTheme,"Forest") }) radio.IsChecked = settings.Theme == theme;
         StartInTrayBox.IsChecked = settings.StartInTray;
@@ -219,7 +221,7 @@ public partial class MainWindow : Window
         var device = _cards.FirstOrDefault(card => card.Id == _selectedDeviceId);
         var percent = _selectedDeviceId is null ? 65 : device?.Status.BatteryPercent;
         var label = _selectedDeviceId is null ? "65%" : device?.Status.BatteryText ?? "—";
-        var brush = BatteryPalette.GetBrush(settings.GetBatteryColors(_selectedDeviceId), percent);
+        var brush = BatteryColorPanel.PreviewBrush;
         AppearancePreviewName.Text = device?.Name ?? "默认外观";
         AppearancePreviewName.Foreground = device?.NameBrush ?? TryFindResource("TextPrimary") as System.Windows.Media.Brush;
         AppearancePreviewHint.Text = _selectedDeviceId is null ? "示例电量 65% · 默认配置将应用于未单独设置的设备" : $"当前设备电量 {label} · 下方样式使用实时读数预览";
@@ -230,6 +232,7 @@ public partial class MainWindow : Window
             preview.IsCharging = device?.IsCharging == true;
             preview.AnimationsEnabled = settings.GetAnimationsEnabled(_selectedDeviceId);
             preview.FillOpacity = _visualOptionsDirty && _opacityStyle == style ? OpacitySlider.Value / 100 : settings.GetFillOpacity(_selectedDeviceId, style);
+            preview.ColorOpacity = BatteryColorPanel.PreviewColorOpacity;
             preview.AnimationIntensity = _visualOptionsDirty ? IntensitySlider.Value / 100 : settings.GetAnimationIntensity(_selectedDeviceId);
         }
         foreach (var number in new[] { RingPreviewNumber, BarPreviewNumber, HourglassPreviewNumber, OceanPreviewNumber })
@@ -237,6 +240,34 @@ public partial class MainWindow : Window
             number.Text = label;
             number.Visibility = percent is null || settings.GetShowBatteryPercentage(_selectedDeviceId) ? Visibility.Visible : Visibility.Collapsed;
         }
+        UpdateSettingsPreview();
+    }
+
+    private void UpdateSettingsPreview()
+    {
+        var settings = _controller.Settings;
+        var device = _cards.FirstOrDefault(card => card.Id == _selectedDeviceId);
+        var style = settings.GetDisplayStyle(_selectedDeviceId);
+        var percent = _selectedDeviceId is null ? 65 : device?.Status.BatteryPercent;
+        var label = _selectedDeviceId is null ? "65%" : device?.Status.HasBattery == true ? device.Status.BatteryText : "未知";
+        SettingsPreviewName.Text = device?.Name ?? "默认外观";
+        SettingsPreviewName.Foreground = device?.NameBrush ?? TryFindResource("TextPrimary") as System.Windows.Media.Brush;
+        SettingsPreviewVisual.Percent = percent;
+        SettingsPreviewVisual.DisplayStyle = style;
+        SettingsPreviewGraphic.Width = style == "Hourglass" ? 92 : 72;
+        SettingsPreviewVisual.Width = style == "Hourglass" ? 52 : 72;
+        SettingsPreviewVisual.HorizontalAlignment = style == "Hourglass" ? System.Windows.HorizontalAlignment.Left : System.Windows.HorizontalAlignment.Center;
+        SettingsPreviewVisual.Foreground = BatteryColorPanel.PreviewBrush;
+        SettingsPreviewVisual.IsCharging = device?.IsCharging == true;
+        SettingsPreviewVisual.AnimationsEnabled = settings.GetAnimationsEnabled(_selectedDeviceId);
+        SettingsPreviewVisual.FillOpacity = _visualOptionsDirty && _opacityStyle == style ? OpacitySlider.Value / 100 : settings.GetFillOpacity(_selectedDeviceId, style);
+        SettingsPreviewVisual.ColorOpacity = BatteryColorPanel.PreviewColorOpacity;
+        SettingsPreviewVisual.AnimationIntensity = _visualOptionsDirty ? IntensitySlider.Value / 100 : settings.GetAnimationIntensity(_selectedDeviceId);
+        SettingsPreviewNumber.Text = label;
+        SettingsPreviewNumber.HorizontalAlignment = style == "Hourglass" ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Center;
+        SettingsPreviewNumber.Visibility = percent is null || settings.GetShowBatteryPercentage(_selectedDeviceId) ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPreviewHint.Text = _selectedDeviceId is null ? "示例电量" : device?.IsCharging == true ? "正在充电" : "实时外观";
+        SettingsPreviewGraphic.ToolTip = $"{SettingsPreviewName.Text} · {label}";
     }
 
     private void Apply(Action<AppSettings> change)
@@ -463,11 +494,11 @@ public partial class MainWindow : Window
     {
         if (_selectedDeviceId is null) return;
         _visualOptionsDirty = _opacityDirty = _intensityDirty = false; _visualSaveTimer.Stop(); BatteryColorPanel.DiscardPending();
-        Apply(_ => { var preference = _controller.GetPreference(_selectedDeviceId); preference.DisplayStyle = null; preference.AnimationsEnabled = null; preference.ShowBatteryPercentage = null; preference.BatteryColors = null; preference.BarOpacity = null; preference.HourglassOpacity = null; preference.OceanOpacity = null; preference.AnimationIntensity = null; });
+        Apply(_ => { var preference = _controller.GetPreference(_selectedDeviceId); preference.DisplayStyle = null; preference.AnimationsEnabled = null; preference.ShowBatteryPercentage = null; preference.BatteryColors = null; preference.BatteryColorOpacity = null; preference.BarOpacity = null; preference.HourglassOpacity = null; preference.OceanOpacity = null; preference.AnimationIntensity = null; });
         BatteryColorPanel.SetDevice(_selectedDeviceId, true);
     }
 
-    private void OnSelectedDevicePin(object sender, RoutedEventArgs e) { if (!_updating && _selectedDeviceId is not null) _controller.TogglePin(_selectedDeviceId); }
+    private void OnDesktopDevicePin(object sender, RoutedEventArgs e) { if (!_updating && sender is System.Windows.Controls.CheckBox { Tag: string id }) _controller.TogglePin(id); }
     private void OnWidgetClick(object sender, RoutedEventArgs e) { if (!_updating) _controller.ToggleWidget(); }
     private void OnTopmostClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetTopmost = TopmostBox.IsChecked == true);
     private void OnLockedClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetLocked = LockedBox.IsChecked == true);

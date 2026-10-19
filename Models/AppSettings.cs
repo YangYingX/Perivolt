@@ -1,21 +1,23 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 
 namespace PowerHub.Models;
 
-public sealed class AppSettings
+public sealed class AppSettings : IJsonOnDeserializing
 {
     public string Theme { get; set; } = "System";
     public string DisplayStyle { get; set; } = "Ring";
     public bool AnimationsEnabled { get; set; } = true;
     public bool ShowBatteryPercentage { get; set; } = true;
+    public double BatteryColorOpacity { get; set; } = 1;
     public double BarOpacity { get; set; } = .85;
     public double HourglassOpacity { get; set; } = .85;
     public double OceanOpacity { get; set; } = .85;
     public double AnimationIntensity { get; set; } = 1.6;
     public List<string> DeviceOrder { get; set; } = [];
-    public BatteryColorConfiguration BatteryColors { get; set; } = null!;
+    public BatteryColorConfiguration BatteryColors { get; set; } = new();
     public int LowColorThreshold { get; set; } = 20;
-    public int MediumColorThreshold { get; set; } = 50;
+    public int MediumColorThreshold { get; set; } = 60;
     public string LowColorStart { get; set; } = "#F19AAB";
     public string LowColorEnd { get; set; } = "#D95073";
     public string MediumColorStart { get; set; } = "#F2C27B";
@@ -42,6 +44,9 @@ public sealed class AppSettings
     public bool HistoryEnabled { get; set; }
     public Dictionary<string, DevicePreference> Devices { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // Older settings have no BatteryColors property and still need their saved six-color palette migrated.
+    void IJsonOnDeserializing.OnDeserializing() => BatteryColors = null!;
+
     public void Normalize()
     {
         Theme = Theme?.Trim().ToLowerInvariant() switch
@@ -57,6 +62,7 @@ public sealed class AppSettings
             "bar" => "Bar", "hourglass" => "Hourglass", "ocean" => "Ocean", _ => "Ring"
         };
         BarOpacity = ClampFinite(BarOpacity, .1, 1, .85);
+        BatteryColorOpacity = ClampFinite(BatteryColorOpacity, 0, 1, 1);
         HourglassOpacity = ClampFinite(HourglassOpacity, .1, 1, .85);
         OceanOpacity = ClampFinite(OceanOpacity, .1, 1, .85);
         AnimationIntensity = ClampFinite(AnimationIntensity, .5, 3, 1.6);
@@ -100,6 +106,7 @@ public sealed class AppSettings
                     "ring" => "Ring", "bar" => "Bar", "hourglass" => "Hourglass", "ocean" => "Ocean", _ => null
                 };
                 preference.BatteryColors?.Normalize();
+                preference.BatteryColorOpacity = NormalizeOptionalNumber(preference.BatteryColorOpacity, 0, 1);
                 preference.BarOpacity = NormalizeOptionalNumber(preference.BarOpacity, .1, 1);
                 preference.HourglassOpacity = NormalizeOptionalNumber(preference.HourglassOpacity, .1, 1);
                 preference.OceanOpacity = NormalizeOptionalNumber(preference.OceanOpacity, .1, 1);
@@ -146,6 +153,10 @@ public sealed class AppSettings
     public double GetAnimationIntensity(string? id) => ClampFinite(
         id is not null && Devices.TryGetValue(id, out var preference) && preference.AnimationIntensity is double intensity
             ? intensity : AnimationIntensity, .5, 3, 1.6);
+
+    public double GetBatteryColorOpacity(string? id) => ClampFinite(
+        id is not null && Devices.TryGetValue(id, out var preference) && preference.BatteryColorOpacity is double opacity
+            ? opacity : BatteryColorOpacity, 0, 1, 1);
 
     public int GetDeviceOrder(string id)
     {
@@ -217,6 +228,7 @@ public sealed class DevicePreference
     public string? DisplayStyle { get; set; }
     public bool? AnimationsEnabled { get; set; }
     public bool? ShowBatteryPercentage { get; set; }
+    public double? BatteryColorOpacity { get; set; }
     public double? BarOpacity { get; set; }
     public double? HourglassOpacity { get; set; }
     public double? OceanOpacity { get; set; }
@@ -230,8 +242,8 @@ public sealed class BatteryColorConfiguration
     public bool GradientWithinShape { get; set; } = true;
     public List<BatteryColorStop> Stops { get; set; } =
     [
-        new() { Position = 0, Color = "#F19AAB" },
-        new() { Position = 50, Color = "#F2C27B" },
+        new() { Position = 20, Color = "#F19AAB" },
+        new() { Position = 60, Color = "#F2C27B" },
         new() { Position = 100, Color = "#8FE4C5" }
     ];
 

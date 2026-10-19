@@ -63,7 +63,7 @@ public partial class DesktopWidgetWindow : Window
             return new WidgetDevice(name, status, advice, percent, label,
                 percent.HasValue ? $"{name}，{label}，{status}" : $"{name}，电量未知，{status}",
                 needsCharge, needsCharge && percent is <= 10, appearance.DisplayStyle,
-                appearance.AnimationsEnabled, appearance.ShowBatteryPercentage, appearance.FillOpacity, appearance.AnimationIntensity,
+                appearance.AnimationsEnabled, appearance.ShowBatteryPercentage, appearance.FillOpacity, appearance.AnimationIntensity, appearance.ColorOpacity,
                 _settings.WidgetCompact, _settings.WidgetTransparent,
                 appearance.NameBrush, appearance.BatteryBrush, device.IsCharging == true, appearance.IconGeometry);
         }).ToList();
@@ -80,17 +80,18 @@ public partial class DesktopWidgetWindow : Window
         try
         {
             Width = _settings.WidgetCompact ? 260 : 312;
-            WidgetSurface.Padding = _settings.WidgetCompact ? new Thickness(12, 10, 12, 8) : new Thickness(16, 14, 16, 12);
-            DragHeader.Margin = new Thickness(0, 0, 0, _settings.WidgetCompact ? 8 : 12);
+            WidgetSurface.Padding = _settings.WidgetCompact ? new Thickness(12, 6, 12, 4) : new Thickness(16, 14, 16, 12);
+            DragHeader.Margin = new Thickness(0, 0, 0, _settings.WidgetCompact ? 4 : 12);
             SummaryText.Visibility = _settings.WidgetCompact ? Visibility.Collapsed : Visibility.Visible;
             FooterText.Visibility = _settings.WidgetCompact ? Visibility.Collapsed : Visibility.Visible;
             EmptyExplanation.Visibility = _settings.WidgetCompact ? Visibility.Collapsed : Visibility.Visible;
             EmptyState.Padding = _settings.WidgetCompact ? new Thickness(12, 14, 12, 10) : new Thickness(16, 20, 16, 20);
-            WidgetShadow.Opacity = _settings.WidgetTransparent ? 0 : 0.14;
+            WidgetShadow.Opacity = _settings.WidgetTransparent ? .07 : .14;
             if (_settings.WidgetTransparent)
             {
-                WidgetSurface.Background = System.Windows.Media.Brushes.Transparent;
-                EmptyState.Background = System.Windows.Media.Brushes.Transparent;
+                Resources["WidgetRowBackdrop"] = TranslucentBrush("SurfaceAlt", .4);
+                WidgetSurface.Background = TranslucentBrush("Surface", .78);
+                EmptyState.Background = (System.Windows.Media.Brush)Resources["WidgetRowBackdrop"];
             }
             else
             {
@@ -101,6 +102,7 @@ public partial class DesktopWidgetWindow : Window
             EmptyState.BorderThickness = new Thickness(_settings.WidgetTransparent ? 1 : 0);
             Topmost = _settings.WidgetTopmost;
             DragHeader.Cursor = _settings.WidgetLocked ? Cursors.Arrow : Cursors.SizeAll;
+            OpenDashboardButton.IsEnabled = HideWidgetButton.IsEnabled = !_settings.WidgetLocked;
             TopmostMenuItem.IsChecked = _settings.WidgetTopmost;
             LockedMenuItem.IsChecked = _settings.WidgetLocked;
             FooterText.Text = $"PowerHub · {(_settings.NotificationsEnabled ? "充电提醒已开启" : "充电提醒已关闭")}";
@@ -121,6 +123,15 @@ public partial class DesktopWidgetWindow : Window
         {
             _applyingSettings = false;
         }
+    }
+
+    private System.Windows.Media.Brush TranslucentBrush(string resource, double opacity)
+    {
+        var source = TryFindResource(resource) as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.White;
+        var brush = source.CloneCurrentValue();
+        brush.Opacity *= opacity;
+        brush.Freeze();
+        return brush;
     }
 
     public void CloseForExit()
@@ -272,11 +283,18 @@ public partial class DesktopWidgetWindow : Window
 
     private sealed record WidgetDevice(string Name, string Status, string Advice, int? Percent,
         string BatteryLabel, string BatteryDescription, bool NeedsCharge, bool IsCritical,
-        string DisplayStyle, bool AnimationsEnabled, bool ShowBatteryPercentage, double FillOpacity, double AnimationIntensity,
+        string DisplayStyle, bool AnimationsEnabled, bool ShowBatteryPercentage, double FillOpacity, double AnimationIntensity, double ColorOpacity,
         bool Compact, bool Transparent,
         System.Windows.Media.Brush NameBrush, System.Windows.Media.Brush BatteryBrush, bool IsCharging,
         System.Windows.Media.Geometry IconGeometry)
     {
         public Visibility BatteryPercentageVisibility => Percent.HasValue && !ShowBatteryPercentage ? Visibility.Collapsed : Visibility.Visible;
+        private bool LabelBesideVisual => DisplayStyle == "Hourglass" && Percent.HasValue && ShowBatteryPercentage;
+        public double BatteryVisualSize => Compact ? 28 : 48;
+        public double BatteryAreaWidth => BatteryVisualSize + (LabelBesideVisual ? 30 : 0);
+        public System.Windows.HorizontalAlignment BatteryVisualAlignment => LabelBesideVisual
+            ? System.Windows.HorizontalAlignment.Left : System.Windows.HorizontalAlignment.Center;
+        public System.Windows.HorizontalAlignment BatteryLabelAlignment => LabelBesideVisual
+            ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Center;
     }
 }

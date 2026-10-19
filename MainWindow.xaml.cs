@@ -36,6 +36,10 @@ public partial class MainWindow : Window
     private string _opacityStyle = "Ring";
     private Point _dragStart;
     private string? _dragDeviceId;
+    private bool _closingTransition;
+    private bool _closeImmediately;
+    private bool _closed;
+    private int _panelTransitionRevision;
     private readonly DispatcherTimer _thresholdSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(240) };
     private readonly DispatcherTimer _visualSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(240) };
 
@@ -60,6 +64,8 @@ public partial class MainWindow : Window
             ? "M3,1 H11 V9 H9 M1,3 H9 V11 H1 Z" : "M1,1 H11 V11 H1 Z");
         Closed += (_, _) =>
         {
+            _closed = true;
+            StopPanelTransition();
             controller.Changed -= UpdateView;
             CommitPending();
             _thresholdSaveTimer.Stop();
@@ -67,6 +73,91 @@ public partial class MainWindow : Window
         };
         UpdateView();
         Navigate("devices");
+    }
+
+    private bool PanelAnimationsEnabled => _controller.Settings.AnimationsEnabled && SystemParameters.ClientAreaAnimation;
+
+    public void ShowWithTransition()
+    {
+        if (_closed || _closeImmediately) return;
+        if (IsVisible && !_closingTransition)
+        {
+            WindowState = WindowState.Normal;
+            Activate();
+            return;
+        }
+        var opacity = IsVisible ? PanelSurface.Opacity : 0;
+        var scale = IsVisible ? PanelScale.ScaleX : .96;
+        _closingTransition = false;
+        StopPanelTransition();
+        PanelSurface.IsHitTestVisible = true;
+        PanelSurface.Opacity = PanelAnimationsEnabled ? opacity : 1;
+        PanelScale.ScaleX = PanelScale.ScaleY = PanelAnimationsEnabled ? scale : 1;
+        if (!IsVisible) Show();
+        WindowState = WindowState.Normal;
+        Activate();
+        if (PanelAnimationsEnabled) AnimatePanel(true, opacity, scale);
+    }
+
+    public void CloseImmediately()
+    {
+        if (_closed) return;
+        _closeImmediately = true;
+        _closingTransition = false;
+        StopPanelTransition();
+        CommitPending();
+        Close();
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closeImmediately || !IsVisible || !PanelAnimationsEnabled)
+        {
+            StopPanelTransition();
+            base.OnClosing(e);
+            return;
+        }
+        e.Cancel = true;
+        base.OnClosing(e);
+        if (_closingTransition) return;
+        var opacity = PanelSurface.Opacity;
+        var scale = PanelScale.ScaleX;
+        _closingTransition = true;
+        PanelSurface.IsHitTestVisible = false;
+        AnimatePanel(false, opacity, scale);
+    }
+
+    private void AnimatePanel(bool opening, double opacity, double scale)
+    {
+        StopPanelTransition();
+        var revision = _panelTransitionRevision;
+        var targetOpacity = opening ? 1 : 0;
+        var targetScale = opening ? 1 : .96;
+        PanelSurface.Opacity = targetOpacity;
+        PanelScale.ScaleX = PanelScale.ScaleY = targetScale;
+        var duration = TimeSpan.FromMilliseconds(180);
+        var easing = new CubicEase { EasingMode = opening ? EasingMode.EaseOut : EasingMode.EaseIn };
+        var fade = new DoubleAnimation(opacity, targetOpacity, duration) { EasingFunction = easing, FillBehavior = FillBehavior.Stop };
+        var resize = new DoubleAnimation(scale, targetScale, duration) { EasingFunction = easing, FillBehavior = FillBehavior.Stop };
+        Timeline.SetDesiredFrameRate(fade, 60);
+        Timeline.SetDesiredFrameRate(resize, 60);
+        fade.Completed += (_, _) =>
+        {
+            if (revision != _panelTransitionRevision) return;
+            if (opening) StopPanelTransition();
+            else CloseImmediately();
+        };
+        PanelSurface.BeginAnimation(OpacityProperty, fade);
+        PanelScale.BeginAnimation(ScaleTransform.ScaleXProperty, resize);
+        PanelScale.BeginAnimation(ScaleTransform.ScaleYProperty, resize);
+    }
+
+    private void StopPanelTransition()
+    {
+        _panelTransitionRevision++;
+        PanelSurface.BeginAnimation(OpacityProperty, null);
+        PanelScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        PanelScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
     }
 
     public void Navigate(string page)

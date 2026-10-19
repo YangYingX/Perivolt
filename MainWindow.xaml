@@ -76,7 +76,8 @@
         <Style x:Key="BatteryPercentage" TargetType="TextBlock"><Setter Property="Visibility" Value="{Binding BatteryPercentageVisibility}"/><Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="FontSize" Value="16"/><Style.Triggers><DataTrigger Binding="{Binding DisplayStyle}" Value="Hourglass"><Setter Property="HorizontalAlignment" Value="Right"/><Setter Property="FontSize" Value="12"/></DataTrigger></Style.Triggers></Style>
         <Style x:Key="OverviewBatteryShape" TargetType="controls:BatteryVisual"><Setter Property="Width" Value="70"/><Setter Property="Height" Value="70"/><Style.Triggers><DataTrigger Binding="{Binding DisplayStyle}" Value="Hourglass"><Setter Property="Width" Value="38"/><Setter Property="HorizontalAlignment" Value="Left"/></DataTrigger></Style.Triggers></Style>
     </Window.Resources>
-    <Border BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="14">
+    <Border x:Name="PanelSurface" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="14" RenderTransformOrigin="0.5,0.65">
+        <Border.RenderTransform><ScaleTransform x:Name="PanelScale"/></Border.RenderTransform>
         <Grid>
             <Grid.RowDefinitions><RowDefinition Height="50"/><RowDefinition Height="*"/></Grid.RowDefinitions>
             <Grid Background="{DynamicResource Surface}">

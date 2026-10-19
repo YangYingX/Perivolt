@@ -125,9 +125,7 @@ public sealed class AppController : IDisposable
             window.Closed += (_, _) => window = null;
         }
         window.Navigate(page);
-        window.Show();
-        window.WindowState = System.Windows.WindowState.Normal;
-        window.Activate();
+        window.ShowWithTransition();
         return window;
     }
 
@@ -235,6 +233,7 @@ public sealed class AppController : IDisposable
     {
         if (exiting) return;
         exiting = true;
+        window?.CloseImmediately();
         timer.Stop();
         saveTimer.Stop();
         lifetime.Cancel();
@@ -242,7 +241,6 @@ public sealed class AppController : IDisposable
         themes.SystemThemeChanged -= OnSystemThemeChanged;
         SaveSettings();
         widget?.CloseForExit();
-        window?.Close();
         tray?.Dispose();
         Plugins.Dispose();
     }

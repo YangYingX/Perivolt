@@ -301,12 +301,6 @@ public partial class DesktopWidgetWindow : Window
         System.Windows.Media.Geometry IconGeometry)
     {
         public Visibility BatteryPercentageVisibility => Percent.HasValue && !ShowBatteryPercentage ? Visibility.Collapsed : Visibility.Visible;
-        private bool LabelBesideVisual => DisplayStyle == "Hourglass" && Percent.HasValue && ShowBatteryPercentage;
         public double BatteryVisualSize => Compact ? 28 : 48;
-        public double BatteryAreaWidth => BatteryVisualSize + (LabelBesideVisual ? 30 : 0);
-        public System.Windows.HorizontalAlignment BatteryVisualAlignment => LabelBesideVisual
-            ? System.Windows.HorizontalAlignment.Left : System.Windows.HorizontalAlignment.Center;
-        public System.Windows.HorizontalAlignment BatteryLabelAlignment => LabelBesideVisual
-            ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Center;
     }
 }

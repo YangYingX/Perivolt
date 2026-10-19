@@ -155,10 +155,10 @@
                                             </TextBlock.Style>
                                         </TextBlock>
                                     </StackPanel>
-                                    <Grid Grid.Column="1" VerticalAlignment="Center" Width="{Binding BatteryAreaWidth}" Height="{Binding BatteryVisualSize}"
+                                    <Grid Grid.Column="1" VerticalAlignment="Center" Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}"
                                           ToolTip="{Binding BatteryDescription}" AutomationProperties.Name="{Binding BatteryDescription}">
-                                        <controls:BatteryVisual Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}" HorizontalAlignment="{Binding BatteryVisualAlignment}" Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
-                                        <TextBlock Text="{Binding BatteryLabel}" Visibility="{Binding BatteryPercentageVisibility}" HorizontalAlignment="{Binding BatteryLabelAlignment}" VerticalAlignment="Center" FontWeight="SemiBold">
+                                        <controls:BatteryVisual Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}" HorizontalAlignment="Center" Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
+                                        <TextBlock Text="{Binding BatteryLabel}" Visibility="{Binding BatteryPercentageVisibility}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="FontSize" Value="12"/>

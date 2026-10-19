@@ -345,9 +345,6 @@ public partial class MainWindow : Window
         SettingsPreviewName.Foreground = device?.NameBrush ?? TryFindResource("TextPrimary") as System.Windows.Media.Brush;
         SettingsPreviewVisual.Percent = percent;
         SettingsPreviewVisual.DisplayStyle = style;
-        SettingsPreviewGraphic.Width = style == "Hourglass" ? 92 : 72;
-        SettingsPreviewVisual.Width = style == "Hourglass" ? 52 : 72;
-        SettingsPreviewVisual.HorizontalAlignment = style == "Hourglass" ? System.Windows.HorizontalAlignment.Left : System.Windows.HorizontalAlignment.Center;
         SettingsPreviewVisual.Foreground = BatteryColorPanel.PreviewBrush;
         SettingsPreviewVisual.IsCharging = device?.IsCharging == true;
         SettingsPreviewVisual.AnimationsEnabled = settings.GetAnimationsEnabled(_selectedDeviceId);
@@ -355,7 +352,6 @@ public partial class MainWindow : Window
         SettingsPreviewVisual.ColorOpacity = BatteryColorPanel.PreviewColorOpacity;
         SettingsPreviewVisual.AnimationIntensity = _visualOptionsDirty ? IntensitySlider.Value / 100 : settings.GetAnimationIntensity(_selectedDeviceId);
         SettingsPreviewNumber.Text = label;
-        SettingsPreviewNumber.HorizontalAlignment = style == "Hourglass" ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Center;
         SettingsPreviewNumber.Visibility = percent is null || settings.GetShowBatteryPercentage(_selectedDeviceId) ? Visibility.Visible : Visibility.Collapsed;
         SettingsPreviewHint.Text = _selectedDeviceId is null ? "示例电量" : device?.IsCharging == true ? "正在充电" : "实时外观";
         SettingsPreviewGraphic.ToolTip = $"{SettingsPreviewName.Text} · {label}";

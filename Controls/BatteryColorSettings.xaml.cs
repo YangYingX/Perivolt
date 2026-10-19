@@ -130,16 +130,12 @@ public partial class BatteryColorSettings : UserControl
         LowPreview.Percent = percent;
         LowPreview.Foreground = BatteryPalette.GetBrush(_draft, percent);
         LowPreview.DisplayStyle = style;
-        LowPreview.Width = style == "Hourglass" ? 36 : 68;
-        LowPreview.HorizontalAlignment = style == "Hourglass" ? System.Windows.HorizontalAlignment.Left : System.Windows.HorizontalAlignment.Center;
         LowPreview.FillOpacity = settings.GetFillOpacity(_deviceId, style);
         LowPreview.ColorOpacity = _opacityDraft;
         LowPreview.AnimationIntensity = settings.GetAnimationIntensity(_deviceId);
         LowPreview.AnimationsEnabled = settings.GetAnimationsEnabled(_deviceId);
         LowPreview.IsCharging = device?.IsCharging == true;
         LowPreviewNumber.Text = _deviceId is null ? "65%" : device?.BatteryText ?? "—";
-        LowPreviewNumber.HorizontalAlignment = style == "Hourglass" ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Center;
-        LowPreviewNumber.FontSize = style == "Hourglass" ? 11 : 12;
         LowPreviewNumber.Visibility = percent is null || settings.GetShowBatteryPercentage(_deviceId) ? Visibility.Visible : Visibility.Collapsed;
         ColorPreviewName.Text = device is null ? "默认外观" : settings.GetDeviceName(device);
         ColorPreviewName.Foreground = device is null ? TryFindResource("TextPrimary") as Brush : new DeviceCard(device, settings).NameBrush;

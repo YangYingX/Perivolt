@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>PowerHub</title>
+  <defs>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#B7F5DE"/><stop offset="1" stop-color="#61D4AE"/></linearGradient>
+    <linearGradient id="battery" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#174D40"/><stop offset="1" stop-color="#0D332B"/></linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="58" fill="url(#mint)"/>
+  <rect x="9" y="9" width="238" height="238" rx="57" fill="none" stroke="#FFFFFF" stroke-opacity=".42" stroke-width="2"/>
+  <rect x="108" y="47" width="40" height="24" rx="6" fill="#174D40"/>
+  <rect x="72" y="64" width="112" height="151" rx="23" fill="url(#battery)"/>
+  <path d="M149 89 111 143H132L119 184 160 126H136L150 89Z" fill="#C6FFE6"/>
+</svg>

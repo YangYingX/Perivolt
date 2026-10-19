@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <StartupObject>PowerHub.Program</StartupObject>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PowerHub</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/powerhub.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Description>Windows 外设电量中心</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets/powerhub.ico;Assets/powerhub-32.png" />
+    <Compile Remove="Extensions/**/*.cs" />
+    <Compile Remove="Services/*BatteryReader.cs" />
+    <EmbeddedResource Remove="Extensions/**/*" />
+    <None Remove="Extensions/**/bin/**/*;Extensions/**/obj/**/*" />
+    <None Update="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Update="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
+</Project>

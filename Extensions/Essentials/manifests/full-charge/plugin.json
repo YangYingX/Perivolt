@@ -1,0 +1,10 @@
+{
+  "ApiVersion": 1,
+  "Id": "full-charge",
+  "Name": "充满电提醒",
+  "Description": "设备从未满电进入100%，或满电时充电结束后提醒；首次读取与重复扫描保持安静。",
+  "Version": "1.0.0",
+  "Assembly": "PowerHub.Essentials.dll",
+  "EntryType": "PowerHub.Extensions.FullChargePlugin",
+  "Kind": "utility"
+}

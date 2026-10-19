@@ -1,0 +1,110 @@
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Controls.Primitives;
+using System.Windows.Interop;
+using PowerHub.Models;
+using Forms = System.Windows.Forms;
+
+namespace PowerHub.Services;
+
+public sealed class TrayService : IDisposable
+{
+    private readonly Forms.NotifyIcon _icon;
+    private TrayMenu? _menu;
+    private IReadOnlyList<DeviceStatus> _devices = [];
+    private readonly Action<string> _command;
+    private readonly Action _settingsChanged;
+    private readonly AppSettings _settings;
+    private readonly ReminderPolicy _reminderPolicy = new();
+    private readonly Icon _batteryIcon;
+
+    public TrayService(Action show, Action refresh, Action exit, Action openWidgetSettings, Action openSettings, AppSettings settings, Action settingsChanged)
+    {
+        _settings = settings;
+        _settingsChanged = settingsChanged;
+        _command = command =>
+        {
+            switch (command)
+            {
+                case "show": show(); break;
+                case "widget-settings": openWidgetSettings(); break;
+                case "settings": openSettings(); break;
+                case "refresh": refresh(); break;
+                case "exit": exit(); break;
+            }
+        };
+        _batteryIcon = CreateBatteryIcon();
+        _icon = new Forms.NotifyIcon { Icon = _batteryIcon, Text = "PowerHub · 外设电量中心", Visible = true };
+        _icon.MouseClick += (_, args) =>
+        {
+            if (args.Button == Forms.MouseButtons.Left) show();
+            else if (args.Button == Forms.MouseButtons.Right) OpenMenu();
+        };
+        _icon.BalloonTipClicked += (_, _) => show();
+    }
+
+    private void OpenMenu()
+    {
+        if (_menu is not null) _menu.IsOpen = false;
+        _menu = new TrayMenu(_settings, _command, _settingsChanged);
+        _menu.Refresh(_devices);
+        _menu.Placement = PlacementMode.MousePoint;
+        _menu.IsOpen = true;
+        if (PresentationSource.FromVisual(_menu) is HwndSource source) SetForegroundWindow(source.Handle);
+        _menu.Focus();
+    }
+
+    public void ApplySettings() => _menu?.Refresh(_devices);
+
+    public void Update(ScanResult result, DateTimeOffset scanStartedAt, bool suppressReminders = false)
+    {
+        _devices = result.Devices;
+        ApplySettings();
+        var reminders = suppressReminders ? [] : _reminderPolicy.Evaluate(result, scanStartedAt, _settings, DateTimeOffset.Now);
+        if (reminders.Count > 0)
+        {
+            var message = string.Join("\n", reminders.Take(5).Select(device => $"{Shorten(DisplayName(device), 40)} · {device.BatteryText}，请充电"));
+            if (reminders.Count > 5) message += $"\n还有 {reminders.Count - 5} 个设备需要充电";
+            _icon.ShowBalloonTip(6000, "设备需要充电", message, Forms.ToolTipIcon.Warning);
+        }
+
+        var devices = result.Devices.Where(device => device.ConnectionKnown && device.IsConnected && device.HasBattery).Take(2).ToArray();
+        _icon.Text = devices.Length == 0 ? "PowerHub · 外设电量中心" : Shorten("PowerHub · " +
+            string.Join(" · ", devices.Select(device => $"{Shorten(DisplayName(device), 14)} {Shorten(device.BatteryText, 8)}")), 63);
+    }
+
+    public void ShowPluginNotification(string title, string message) =>
+        _icon.ShowBalloonTip(6000, Shorten(title, 63), Shorten(message, 250), Forms.ToolTipIcon.Info);
+
+    private string DisplayName(DeviceStatus device) => _settings.GetDeviceName(device);
+
+    private static string Shorten(string text, int length)
+    {
+        text = text.Replace('\r', ' ').Replace('\n', ' ');
+        if (text.Length <= length) return text;
+        var end = length - 1;
+        if (end > 0 && char.IsHighSurrogate(text[end - 1])) end--;
+        return text[..end] + "…";
+    }
+
+    private static Icon CreateBatteryIcon()
+    {
+        var resource = System.Windows.Application.GetResourceStream(new Uri("/PowerHub;component/Assets/powerhub.ico", UriKind.Relative));
+        using var stream = resource.Stream;
+        using var icon = new Icon(stream, Forms.SystemInformation.SmallIconSize);
+        return (Icon)icon.Clone();
+    }
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr handle);
+
+    public void Dispose()
+    {
+        if (_menu is not null) _menu.IsOpen = false;
+        _icon.Visible = false;
+        _icon.Dispose();
+        _batteryIcon.Dispose();
+    }
+}

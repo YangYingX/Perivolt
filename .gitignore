@@ -1,0 +1,7 @@
+.tools/
+**/bin/
+**/obj/
+dist/
+artifacts/
+.vs/
+*.user

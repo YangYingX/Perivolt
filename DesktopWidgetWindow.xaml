@@ -1,0 +1,195 @@
+<Window x:Class="PowerHub.DesktopWidgetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PowerHub.Controls"
+        Title="PowerHub 桌面卡片" Width="312" SizeToContent="Height" MaxHeight="600"
+        WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False" ShowActivated="False" FontFamily="Segoe UI, Microsoft YaHei UI"
+        Foreground="{DynamicResource TextPrimary}" UseLayoutRounding="True">
+    <Window.Resources>
+        <Style x:Key="DeviceTypeIcon" TargetType="Path">
+            <Setter Property="Width" Value="18"/><Setter Property="Height" Value="18"/>
+            <Setter Property="Stretch" Value="Uniform"/><Setter Property="Stroke" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="StrokeThickness" Value="1.7"/><Setter Property="StrokeStartLineCap" Value="Round"/>
+            <Setter Property="StrokeEndLineCap" Value="Round"/><Setter Property="StrokeLineJoin" Value="Round"/>
+            <Setter Property="VerticalAlignment" Value="Center"/><Setter Property="HorizontalAlignment" Value="Left"/>
+            <Style.Triggers><DataTrigger Binding="{Binding Compact}" Value="True"><Setter Property="Width" Value="16"/><Setter Property="Height" Value="16"/></DataTrigger></Style.Triggers>
+        </Style>
+        <Style x:Key="WidgetIconButton" TargetType="Button">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonSurface" Background="{TemplateBinding Background}" CornerRadius="7">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonSurface" Property="Background" Value="{DynamicResource AccentSoft}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ButtonSurface" Property="Background" Value="{DynamicResource AccentSoft}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Border x:Name="WidgetSurface" Margin="8" Padding="16,14,16,12" CornerRadius="20" Background="{DynamicResource Surface}"
+            BorderBrush="{DynamicResource Stroke}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect x:Name="WidgetShadow" Color="#000000" Opacity="0.14" BlurRadius="14" ShadowDepth="2"/>
+        </Border.Effect>
+        <Border.ContextMenu>
+            <ContextMenu Background="{DynamicResource Surface}" Foreground="{DynamicResource TextPrimary}"
+                         BorderBrush="{DynamicResource Stroke}" Opened="OnContextMenuOpened">
+                <MenuItem Header="打开电量中心" Click="OnOpenDashboard"/>
+                <Separator/>
+                <MenuItem x:Name="TopmostMenuItem" Header="始终置顶" IsCheckable="True" Click="OnTopmostClick"/>
+                <MenuItem x:Name="LockedMenuItem" Header="锁定位置" IsCheckable="True" Click="OnLockClick"/>
+                <Separator/>
+                <MenuItem Header="隐藏桌面卡片" Click="OnHideWidget"/>
+            </ContextMenu>
+        </Border.ContextMenu>
+        <StackPanel>
+            <Grid x:Name="DragHeader" MouseLeftButtonDown="OnHeaderMouseLeftButtonDown" Background="Transparent"
+                  Margin="0,0,0,12" Cursor="SizeAll">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" Margin="0,0,7,0"/>
+                        <TextBlock Text="桌面电量" FontSize="12" FontWeight="SemiBold"/>
+                    </StackPanel>
+                    <TextBlock x:Name="SummaryText" Text="随时留意你的设备" Margin="13,4,0,0"
+                               Foreground="{DynamicResource TextSecondary}" FontSize="10"/>
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource WidgetIconButton}" Click="OnOpenDashboard"
+                        ToolTip="打开电量中心" AutomationProperties.Name="打开电量中心">
+                    <TextBlock Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>
+                </Button>
+                <Button Grid.Column="2" Style="{StaticResource WidgetIconButton}" Click="OnHideWidget"
+                        ToolTip="隐藏桌面卡片" AutomationProperties.Name="隐藏桌面卡片">
+                    <TextBlock Text="&#xE711;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"/>
+                </Button>
+            </Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="440">
+                <ItemsControl x:Name="DeviceItems">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="13">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Padding" Value="12"/>
+                                        <Setter Property="Margin" Value="0,0,0,8"/>
+                                        <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Compact}" Value="True">
+                                                <Setter Property="Padding" Value="9,8"/>
+                                                <Setter Property="Margin" Value="0,0,0,6"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Transparent}" Value="True">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Stroke}"/>
+                                                <Setter Property="BorderThickness" Value="1"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="{Binding IconGeometry}" Style="{StaticResource DeviceTypeIcon}"/><TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="{Binding NameBrush}" FontSize="12" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" VerticalAlignment="Center"/></Grid>
+                                        <TextBlock Text="{Binding Status}" Margin="0,5,0,0" FontSize="10"
+                                                   Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding Advice}" Margin="0,4,0,0" FontSize="10">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Advice}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding NeedsCharge}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource Warning}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <Grid Grid.Column="1" VerticalAlignment="Center"
+                                          ToolTip="{Binding BatteryDescription}" AutomationProperties.Name="{Binding BatteryDescription}">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Width" Value="48"/>
+                                                <Setter Property="Height" Value="48"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Compact}" Value="True">
+                                                        <Setter Property="Width" Value="36"/>
+                                                        <Setter Property="Height" Value="36"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <controls:BatteryVisual Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
+                                        <TextBlock Text="{Binding BatteryLabel}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="FontSize" Value="12"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Compact}" Value="True">
+                                                            <Setter Property="FontSize" Value="10"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <Border x:Name="EmptyState" Padding="16,20" Margin="0,0,0,8" Background="{DynamicResource SurfaceAlt}" CornerRadius="13">
+                <StackPanel>
+                    <TextBlock Text="&#xE718;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="23"
+                               Foreground="{DynamicResource Accent}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="当前没有已连接的固定设备" Margin="0,12,0,0" FontSize="12" FontWeight="SemiBold" TextAlignment="Center"/>
+                    <TextBlock x:Name="EmptyExplanation" Text="连接外设后，在电量中心点击固定，&#x0a;就能在这里查看电量。" Margin="0,7,0,0"
+                               FontSize="11" LineHeight="18" Foreground="{DynamicResource TextSecondary}" TextAlignment="Center"/>
+                    <Button Content="选择设备  →" Click="OnOpenDashboard" Margin="0,12,0,0" Padding="8,6"
+                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Accent}" Cursor="Hand"/>
+                </StackPanel>
+            </Border>
+            <TextBlock x:Name="FooterText" Text="PowerHub · 充电提醒已开启" FontSize="9" Margin="1,2,0,0"
+                       Foreground="{DynamicResource TextSecondary}"/>
+        </StackPanel>
+    </Border>
+</Window>

@@ -77,8 +77,10 @@ public static class Program
         var screenshotPath = ArgumentValue(args, "--screenshot");
         var widgetScreenshot = ArgumentValue(args, "--widget-screenshot");
         var capturing = screenshotPath is not null || widgetScreenshot is not null;
-        using var showSignal = capturing ? null : new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\PowerHub.ShowPanel");
-        using var instanceMutex = capturing ? null : new Mutex(false, @"Local\PowerHub.TrayApp", out _);
+        var previewInstance = args.Contains("--preview");
+        var instancePrefix = previewInstance ? @"Local\PowerHub.Preview" : @"Local\PowerHub";
+        using var showSignal = capturing ? null : new EventWaitHandle(false, EventResetMode.AutoReset, instancePrefix + ".ShowPanel");
+        using var instanceMutex = capturing ? null : new Mutex(false, instancePrefix + ".TrayApp", out _);
         if (!capturing && !instanceMutex!.WaitOne(0))
         {
             showSignal!.Set();
@@ -118,7 +120,7 @@ public static class Program
             try
             {
                 MainWindow? panel = null;
-                if (capturing || args.Contains("--show") || !settings.StartInTray) panel = controller.ShowPanel(ArgumentValue(args, "--page") ?? "devices");
+                if (capturing || previewInstance || args.Contains("--show") || !settings.StartInTray) panel = controller.ShowPanel(ArgumentValue(args, "--page") ?? "devices");
                 await controller.StartAsync();
                 if (!capturing) return;
                 if (widgetScreenshot is not null)

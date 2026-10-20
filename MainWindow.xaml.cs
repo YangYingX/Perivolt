@@ -48,6 +48,7 @@ public partial class MainWindow : Window
         _controller = controller;
         _updating = true;
         InitializeComponent();
+        VersionBadge.Text = $"v{UpdateService.DisplayVersion}";
         LanguageCombo.ItemsSource = L.Languages;
         BatteryColorPanel.Initialize(controller);
         BatteryColorPanel.PreviewChanged += (_, _) => UpdateStylePreviews();
@@ -186,6 +187,7 @@ public partial class MainWindow : Window
         try
         {
             var settings = _controller.Settings;
+            Title = $"{L.AppName} · v{UpdateService.DisplayVersion}";
             var devices = _controller.Devices.Where(device => device.ConnectionKnown && device.IsConnected).ToList();
             var scopeChanged = _selectedDeviceId is not null && !devices.Any(device => device.Id == _selectedDeviceId);
             if (scopeChanged) { CommitPending(); _selectedDeviceId = null; }

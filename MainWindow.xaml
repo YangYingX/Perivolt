@@ -87,6 +87,7 @@
                         <Image Source="/PowerHub;component/Assets/powerhub-32.png" RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
                     <TextBlock Text="{loc:T 'AppName'}" FontWeight="Bold" FontSize="15" Margin="9,0,0,0" VerticalAlignment="Center"/>
+                    <Border Background="{DynamicResource AccentSoft}" CornerRadius="5" Padding="7,3" Margin="10,0,0,0" VerticalAlignment="Center"><TextBlock x:Name="VersionBadge" Foreground="{DynamicResource TextSecondary}" FontSize="10"/></Border>
                     <TextBlock Text="{loc:T '外设电量中心'}" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="18,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">

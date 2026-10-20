@@ -22,7 +22,7 @@ public partial class UpdateSettings : UserControl
     public void Refresh()
     {
         if (controller is null) return;
-        VersionText.Text = $"v{UpdateService.CurrentVersion}";
+        VersionText.Text = $"v{UpdateService.DisplayVersion}";
         EnabledBox.IsChecked = controller.Settings.AutoCheckUpdates;
         StatusText.Text = controller.Updates.Status;
         CheckButton.IsEnabled = controller.Updates.IsEnabled && !controller.Updates.IsChecking;

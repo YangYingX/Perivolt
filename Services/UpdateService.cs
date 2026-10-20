@@ -15,6 +15,8 @@ public sealed class UpdateService : IDisposable
     private bool disposed;
     private string? notifiedVersion;
     public static string CurrentVersion => typeof(Program).Assembly.GetName().Version!.ToString(3);
+    public static string DisplayVersion => typeof(Program).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? CurrentVersion;
     public bool IsEnabled { get; private set; }
     public bool IsChecking => request is not null;
     private string statusKey = "离线模式 · 更新检查已关闭";

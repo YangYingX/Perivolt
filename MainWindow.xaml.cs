@@ -385,7 +385,6 @@ public partial class MainWindow : Window
         SettingsPreviewVisual.ColorOpacity = BatteryColorPanel.PreviewColorOpacity;
         SettingsPreviewVisual.AnimationIntensity = _visualOptionsDirty ? IntensitySlider.Value / 100 : settings.GetAnimationIntensity(_selectedDeviceId);
         SettingsPreviewNumber.Text = label;
-        SettingsPreviewNumber.IsOutlined = style == "Fill";
         SettingsPreviewNumber.Visibility = percent is null || settings.GetShowBatteryPercentage(_selectedDeviceId) ? Visibility.Visible : Visibility.Collapsed;
         SettingsPreviewHint.Text = _selectedDeviceId is null ? L.T("示例电量") : device?.IsCharging == true ? L.T("正在充电") : L.T("实时外观");
         SettingsPreviewGraphic.ToolTip = $"{SettingsPreviewName.Text} · {label}";

@@ -229,7 +229,7 @@ public sealed class AppController : IDisposable
     private void SyncTaskbar()
     {
         if (previewMode) return;
-        if (!Settings.TaskbarEnabled) { taskbar?.Hide(); return; }
+        if (!Settings.TaskbarEnabled) { taskbar?.Suspend(); return; }
         taskbar ??= new TaskbarBatteryWindow(Settings);
         taskbar.UpdateDevices(Devices);
     }

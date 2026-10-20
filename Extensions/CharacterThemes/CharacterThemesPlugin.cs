@@ -11,7 +11,7 @@ public sealed class CharacterThemesPlugin : IPowerHubPlugin
     {
         using var stream = typeof(CharacterThemesPlugin).Assembly.GetManifestResourceStream("PowerHub.CharacterThemes.Themes.txt")!;
         using var reader = new StreamReader(stream);
-        var themes = new List<PluginTheme>(200);
+        var themes = new List<PluginTheme>(109);
         string game = "", prefix = "", motif = "";
         while (reader.ReadLine() is { } line)
         {

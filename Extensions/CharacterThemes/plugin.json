@@ -2,7 +2,7 @@
   "ApiVersion": 1,
   "Id": "character-themes",
   "Name": "群星映色 · 角色主题包",
-  "Description": "六款游戏、200 套角色灵感配色与原创几何装饰。按游戏筛选、按角色搜索，选中才应用；不含立绘，不联网。",
+  "Description": "四款游戏的角色灵感配色与原创几何装饰。按游戏筛选、按角色搜索，选中才应用；不含立绘，不联网。",
   "Version": "1.0.0",
   "Assembly": "PowerHub.CharacterThemes.dll",
   "EntryType": "PowerHub.Extensions.CharacterThemesPlugin",

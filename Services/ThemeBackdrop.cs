@@ -122,6 +122,12 @@ public sealed class ThemeBackdrop : IDisposable
             image.Freeze(); brush = image;
         }
         Application.Current.Resources["ThemeBackdrop"] = brush;
+        foreach (var (key, source, opacity) in new[] { ("ThemeChoiceSurface", "SurfaceAlt", .48), ("ThemeChoiceSelected", "AccentSoft", .62) })
+        {
+            if (Application.Current.Resources[source] is not SolidColorBrush color) continue;
+            var option = color.Clone(); option.Opacity = bitmap is null ? 1 : opacity; option.Freeze();
+            Application.Current.Resources[key] = option;
+        }
         if (Application.Current.Resources["Surface"] is SolidColorBrush surface)
         {
             var chrome = surface.Clone(); chrome.Opacity = bitmap is null ? 1 : .48; chrome.Freeze();

@@ -27,6 +27,10 @@ internal static class HidNative
         [FieldOffset(4)] public ushort InputReportByteLength;
         [FieldOffset(6)] public ushort OutputReportByteLength;
         [FieldOffset(8)] public ushort FeatureReportByteLength;
+        [FieldOffset(46)] public ushort NumberInputButtonCaps;
+        [FieldOffset(48)] public ushort NumberInputValueCaps;
+        [FieldOffset(52)] public ushort NumberOutputButtonCaps;
+        [FieldOffset(54)] public ushort NumberOutputValueCaps;
         [FieldOffset(58)] public ushort NumberFeatureButtonCaps;
         [FieldOffset(60)] public ushort NumberFeatureValueCaps;
     }

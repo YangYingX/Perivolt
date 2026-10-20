@@ -82,6 +82,40 @@ incorporated into PowerHub, and those projects are not relicensed by this notice
 - Valve's [SDL Steam Controller driver](https://github.com/libsdl-org/SDL/blob/main/src/joystick/hidapi/steam/controller_structs.h) and [HIDAPI Steam driver](https://github.com/libsdl-org/SDL/blob/main/src/joystick/hidapi/SDL_hidapi_steam.c): interface/status packet documentation.
 - [HaloBattery protocol documentation](https://github.com/HeyOkay/HaloBattery/blob/main/docs/protocols.md): additional exact Compx transport identifiers. Only hardware/protocol facts were consulted.
 - Microsoft Windows API documentation and USB-IF HID Usage Tables: Windows device enumeration, battery properties, GATT, HID and XInput contracts.
+- [MCHOSE's official driver](https://www.mchose.com.cn/): headset family identifiers, battery-query framing, charge and sleep fields. Only interoperability facts were consulted; proprietary driver source and assets are not included or relicensed.
+- [LANGTU's official site](https://www.langtucn.com/) and its linked [Shinetek keyboard driver](https://langtu.shinetek-ic.net/): shared keyboard device table, status-query fields and connection modes. Only interoperability facts were consulted; proprietary driver source and assets are not included or relicensed. Source snapshot hashes and validation scope are recorded in `docs/protocol-families.md`.
+- [HeadsetControl](https://github.com/Sapd/HeadsetControl): publicly documented hardware identifiers and Corsair headset status fields. No GPL implementation code or binaries are copied, linked or bundled.
+- Linux SteelSeries Arctis driver protocol documentation: Nova 7 connection, battery and charging report fields, including discrete versus percentage encoding. No kernel code or drivers are included.
+- [HyperHeadset](https://github.com/LennardKittner/HyperHeadset): Cloud-series hardware identifiers and read-only `66` protocol facts. No implementation code or binaries are copied, linked or bundled. Pinned research revisions and the unverified hardware boundaries are documented in `docs/protocol-families.md`.
+
+## MCHOSE V9 Pro protocol reference
+
+[mchose-v9-pro-battery-tray](https://github.com/rafagfran/mchose-v9-pro-battery-tray)
+provided the publicly documented V9 Pro HID descriptor and hardware packet capture
+used to cross-check the independently implemented family reader. Its MIT notice
+is retained here for attribution.
+
+MIT License
+
+Copyright (c) 2026 Rafael
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Microsoft .NET runtime
 

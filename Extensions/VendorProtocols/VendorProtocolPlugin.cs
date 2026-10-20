@@ -20,6 +20,9 @@ public sealed class VendorProtocolPlugin : IPowerHubPlugin
         var reading=WeishengBatteryReader.TryRead(path,device,caps,out detail);
         reading ??= RazerBatteryReader.TryRead(path,device,caps,out detail);
         reading ??= CompxBatteryReader.TryRead(path,device,caps,out detail);
+        reading ??= MchoseHeadsetBatteryReader.TryRead(path,device,caps,out detail);
+        reading ??= LangtuKeyboardBatteryReader.TryRead(path,device,caps,out detail);
+        reading ??= HeadsetFamilyBatteryReader.TryRead(path,device,caps,out detail);
         reading ??= AulaBatteryReader.TryRead(path,device,caps,out detail);
         reading ??= DualSenseBatteryReader.TryRead(path,device,caps,out detail);
         reading ??= SteamControllerBatteryReader.TryRead(path,device,caps,out detail);

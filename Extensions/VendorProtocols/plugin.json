@@ -2,10 +2,10 @@
   "ApiVersion": 1,
   "Id": "vendor-protocols",
   "Name": "多品牌设备协议包",
-  "Description": "内置罗技 HID++、雷蛇、VGN/Weisheng、Compx、AULA、PS5 和 Steam 电量协议。按硬件标识加载，关闭后仍保留系统、BLE 和标准 HID 读取。",
-  "Version": "1.0.0",
+  "Description": "内置罗技 HID++、雷蛇、VGN/Weisheng、Compx、AULA、迈从耳机、狼途键盘、赛睿 Nova 7、海盗船 VOID、HyperX Cloud、PS5 和 Steam 电量协议。按协议族与硬件接口匹配，关闭后仍保留系统、BLE 和标准 HID 读取。",
+  "Version": "1.0.2-dev",
   "Assembly": "PowerHub.VendorProtocols.dll",
   "EntryType": "PowerHub.Extensions.VendorProtocolPlugin",
   "Kind": "device",
-  "Vendors": [1133, 5426, 12815, 13652, 14139, 14096, 3141, 1356, 10462]
+  "Vendors": [1133, 5426, 12815, 13652, 14139, 14096, 3141, 1356, 10462, 10525, 14391, 6700, 4152, 6940, 1008]
 }

@@ -3,6 +3,8 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using PowerHub.Plugins;
 using PowerHub.Services;
+using PowerHub.Models;
+using System.Windows.Threading;
 using UserControl = System.Windows.Controls.UserControl;
 using ColorConverter = System.Windows.Media.ColorConverter;
 
@@ -15,9 +17,20 @@ public partial class ThemeCatalog : UserControl
     private List<ThemeRow> rows = [];
     private string language = "";
     private bool refreshing;
+    private readonly DispatcherTimer artworkTimer = new() { Interval = TimeSpan.FromMilliseconds(180) };
 
-    public ThemeCatalog() => InitializeComponent();
-    public void Initialize(AppController appController) { controller = appController; Refresh(); }
+    public ThemeCatalog()
+    {
+        InitializeComponent();
+        artworkTimer.Tick += (_, _) => { artworkTimer.Stop(); controller?.ApplySettings(); };
+        Unloaded += (_, _) => { if (artworkTimer.IsEnabled) { artworkTimer.Stop(); controller?.ApplySettings(); } };
+    }
+    public void Initialize(AppController appController)
+    {
+        controller = appController;
+        controller.Backdrop.Changed += RefreshArtwork;
+        Refresh();
+    }
 
     public void Refresh()
     {
@@ -39,8 +52,76 @@ public partial class ThemeCatalog : UserControl
                 Filter();
             }
             SelectCurrent();
+            RefreshArtwork();
         }
         finally { refreshing = false; }
+    }
+
+    private void RefreshArtwork()
+    {
+        if (controller is null) return;
+        var current = entries.FirstOrDefault(entry => entry.Value == controller.Settings.Theme);
+        ArtworkPanel.Visibility = current is null ? Visibility.Collapsed : Visibility.Visible;
+        if (current is null) return;
+        var previous = refreshing; refreshing = true;
+        try
+        {
+            var option = controller.Settings.ThemeArtwork.GetValueOrDefault(current.Value) ?? new();
+            ArtworkEnabledBox.IsChecked = option.Enabled;
+            ArtworkOpacitySlider.Value = option.Opacity * 100;
+            ArtworkOpacityText.Text = $"{Math.Round(option.Opacity * 100)}%";
+            ArtworkPositionCombo.ItemsSource = new[] { new GroupChoice("Left", L.T("左侧")), new GroupChoice("Center", L.T("居中")), new GroupChoice("Right", L.T("右侧")) };
+            ArtworkPositionCombo.SelectedValue = option.Position;
+            ArtworkStatusText.Text = L.T(string.IsNullOrEmpty(controller.Backdrop.Status) ? "当前主题未找到立绘。" : controller.Backdrop.Status);
+        }
+        finally { refreshing = previous; }
+    }
+
+    private ThemeArtworkPreference? ArtworkOption()
+    {
+        if (controller is null || !entries.Any(entry => entry.Value == controller.Settings.Theme)) return null;
+        if (!controller.Settings.ThemeArtwork.TryGetValue(controller.Settings.Theme, out var option))
+            controller.Settings.ThemeArtwork[controller.Settings.Theme] = option = new();
+        return option;
+    }
+    private void OnArtworkDirectory(object sender, RoutedEventArgs e)
+    {
+        if (controller is null) return;
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = L.T("选择立绘文件夹"), Multiselect = false };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        controller.Settings.ThemeArtworkDirectory = dialog.FolderName;
+        controller.Backdrop.Reload(); controller.ApplySettings(); RefreshArtwork();
+    }
+    private void OnArtworkFile(object sender, RoutedEventArgs e)
+    {
+        if (controller is null || ArtworkOption() is not { } option) return;
+        var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "PNG / JPEG|*.png;*.jpg;*.jpeg", CheckFileExists = true };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        option.Path = dialog.FileName; controller.Backdrop.Reload(); controller.ApplySettings(); RefreshArtwork();
+    }
+    private void OnArtworkReset(object sender, RoutedEventArgs e)
+    {
+        if (controller is null) return;
+        controller.Settings.ThemeArtwork.Remove(controller.Settings.Theme);
+        controller.Backdrop.Reload(); controller.ApplySettings(); RefreshArtwork();
+    }
+    private void OnArtworkChanged(object sender, RoutedEventArgs e)
+    {
+        if (refreshing || ArtworkOption() is not { } option) return;
+        option.Enabled = ArtworkEnabledBox.IsChecked == true; controller?.ApplySettings(); RefreshArtwork();
+    }
+    private void OnArtworkOpacity(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (refreshing || ArtworkOption() is not { } option) return;
+        option.Opacity = ArtworkOpacitySlider.Value / 100;
+        ArtworkOpacityText.Text = $"{Math.Round(ArtworkOpacitySlider.Value)}%";
+        if (controller is not null) controller.Backdrop.Apply(controller.Settings, controller.Plugins.ActiveTheme);
+        artworkTimer.Stop(); artworkTimer.Start();
+    }
+    private void OnArtworkPosition(object sender, SelectionChangedEventArgs e)
+    {
+        if (refreshing || ArtworkOption() is not { } option || ArtworkPositionCombo.SelectedValue is not string position) return;
+        option.Position = position; controller?.ApplySettings();
     }
 
     private void Filter()

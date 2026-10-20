@@ -13,7 +13,7 @@
     </shell:WindowChrome.WindowChrome>
     <Window.Resources>
         <Style x:Key="SectionCard" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource Surface}"/>
+            <Setter Property="Background" Value="{DynamicResource ThemeCardSurface}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource Stroke}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="16"/>
@@ -118,6 +118,7 @@
                     </Grid>
                 </Border>
                 <Grid Grid.Column="1">
+                    <Border Background="{DynamicResource ThemeBackdrop}" IsHitTestVisible="False"/>
                     <ScrollViewer x:Name="DevicesPage" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" Padding="32,28,30,28">
                         <StackPanel>
                             <Grid Margin="0,0,0,23">

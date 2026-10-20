@@ -381,5 +381,19 @@
   "绝区零": "Zenless Zone Zero",
   "少女前线2：追放": "Girls Frontline 2: Exilium",
   "主题插件启用后会出现在设置的通用主题列表中，选中才应用。": "Enabled theme plugins appear under Settings → General. Select a theme to apply it.",
-  "选择主题": "Choose theme"
+  "选择主题": "Choose theme",
+  "角色立绘背景": "Character artwork",
+  "显示立绘背景": "Show artwork background",
+  "当前主题未找到立绘。": "No artwork found for this theme.",
+  "正在加载立绘…": "Loading artwork…",
+  "立绘无法读取，请使用 PNG 或 JPEG 图片。": "Cannot read artwork. Use a PNG or JPEG image.",
+  "立绘已加载，仅在本地使用。": "Artwork loaded for local use only.",
+  "选择立绘文件夹": "Choose artwork folder",
+  "为当前角色选择图片": "Choose image for this character",
+  "重置当前立绘": "Reset character artwork",
+  "立绘透明度": "Artwork opacity",
+  "左侧": "Left",
+  "居中": "Center",
+  "右侧": "Right",
+  "立绘包独立存放，按角色主题 ID 自动匹配；不联网、不随安装包分发。": "Artwork stays in a separate folder and matches theme IDs. Offline; images are excluded from the installer."
 }

@@ -10,6 +10,8 @@ public sealed class AppSettings : IJsonOnDeserializing
     public string? TaskbarDeviceId { get; set; }
     public int TaskbarLeftOffset { get; set; } = 64;
     public string Theme { get; set; } = "System";
+    public string? ThemeArtworkDirectory { get; set; }
+    public Dictionary<string, ThemeArtworkPreference> ThemeArtwork { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string DisplayStyle { get; set; } = "Ring";
     public bool AnimationsEnabled { get; set; } = true;
     public bool ShowBatteryPercentage { get; set; } = true;
@@ -56,6 +58,14 @@ public sealed class AppSettings : IJsonOnDeserializing
     public void Normalize()
     {
         Language = PowerHub.Services.L.Normalize(Language);
+        ThemeArtworkDirectory = string.IsNullOrWhiteSpace(ThemeArtworkDirectory) ? null : ThemeArtworkDirectory.Trim();
+        ThemeArtwork = new((ThemeArtwork ?? []).Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value), StringComparer.OrdinalIgnoreCase);
+        foreach (var artwork in ThemeArtwork.Values)
+        {
+            artwork.Opacity = ClampFinite(artwork.Opacity, 0, 1, .45);
+            artwork.Position = artwork.Position is "Left" or "Center" ? artwork.Position : "Right";
+            if (string.IsNullOrWhiteSpace(artwork.Path)) artwork.Path = null;
+        }
         TaskbarLeftOffset = Math.Clamp(TaskbarLeftOffset, 0, 1600);
         if (string.IsNullOrWhiteSpace(TaskbarDeviceId)) TaskbarDeviceId = null;
         CardFillOpacity = ClampFinite(CardFillOpacity, .1, 1, .85);

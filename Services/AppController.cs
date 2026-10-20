@@ -23,6 +23,7 @@ public sealed class AppController : IDisposable
     public SettingsStore Store { get; }
     public AppSettings Settings { get; }
     public PluginHost Plugins { get; }
+    public ThemeBackdrop Backdrop { get; } = new();
     public UpdateService Updates { get; } = new();
     private bool startupEnabled;
     private ScanResult? rawScan;
@@ -204,6 +205,7 @@ public sealed class AppController : IDisposable
         if (Settings.Theme.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase) && selectedTheme is null)
             Settings.Theme = "System";
         themes.Apply(Settings.Theme, selectedTheme);
+        Backdrop.Apply(Settings, selectedTheme);
     }
 
     private void OnSystemThemeChanged()
@@ -270,6 +272,7 @@ public sealed class AppController : IDisposable
         saveTimer.Stop();
         lifetime.Cancel();
         Updates.Dispose();
+        Backdrop.Dispose();
         themes.SystemThemeChanged -= OnSystemThemeChanged;
         SaveSettings();
         widget?.CloseForExit();

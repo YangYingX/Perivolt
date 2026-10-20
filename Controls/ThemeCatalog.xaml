@@ -44,5 +44,26 @@
         </ListBox>
         <TextBlock x:Name="EmptyText" Text="{local:T '没有匹配的角色，试试其他关键词。'}" Foreground="{DynamicResource TextSecondary}" Margin="0,10,0,0" Visibility="Collapsed" FontSize="11"/>
         <TextBlock x:Name="CurrentText" Foreground="{DynamicResource Accent}" Margin="0,12,0,0" FontSize="11" TextWrapping="Wrap"/>
+        <Border x:Name="ArtworkPanel" Background="{DynamicResource SurfaceAlt}" CornerRadius="10" Padding="14" Margin="0,15,0,0">
+            <StackPanel>
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="{local:T '角色立绘背景'}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="ArtworkEnabledBox" Grid.Column="1" Content="{local:T '显示立绘背景'}" Click="OnArtworkChanged"/>
+                </Grid>
+                <TextBlock x:Name="ArtworkStatusText" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,8,0,10" TextWrapping="Wrap"/>
+                <WrapPanel>
+                    <Button Content="{local:T '选择立绘文件夹'}" Click="OnArtworkDirectory" Padding="10,7" Margin="0,0,8,7" FontSize="11"/>
+                    <Button Content="{local:T '为当前角色选择图片'}" Click="OnArtworkFile" Padding="10,7" Margin="0,0,8,7" FontSize="11"/>
+                    <Button Content="{local:T '重置当前立绘'}" Click="OnArtworkReset" Padding="10,7" Margin="0,0,0,7" FontSize="11"/>
+                </WrapPanel>
+                <Grid Margin="0,5,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="42"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="{local:T '立绘透明度'}" VerticalAlignment="Center" FontSize="11" Margin="0,0,12,0"/>
+                    <Slider x:Name="ArtworkOpacitySlider" Grid.Column="1" Minimum="0" Maximum="100" ValueChanged="OnArtworkOpacity" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ArtworkOpacityText" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11"/>
+                    <ComboBox x:Name="ArtworkPositionCombo" Grid.Column="3" DisplayMemberPath="Label" SelectedValuePath="Value" SelectionChanged="OnArtworkPosition" FontSize="11"/>
+                </Grid>
+                <TextBlock Text="{local:T '立绘包独立存放，按角色主题 ID 自动匹配；不联网、不随安装包分发。'}" Foreground="{DynamicResource TextSecondary}" FontSize="10" TextWrapping="Wrap" Margin="0,10,0,0"/>
+            </StackPanel>
+        </Border>
     </StackPanel>
 </UserControl>

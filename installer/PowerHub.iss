@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "1.0.2-preview.5"
+  #define AppVersion "1.0.2"
 #endif
 #ifndef AppFileVersion
   #define AppFileVersion "1.0.2"

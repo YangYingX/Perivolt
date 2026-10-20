@@ -48,6 +48,7 @@ public partial class MainWindow : Window
         _controller = controller;
         _updating = true;
         InitializeComponent();
+        controller.Backdrop.ApplyWindowSurfaces(this);
         VersionBadge.Text = $"v{UpdateService.DisplayVersion}";
         LanguageCombo.ItemsSource = L.Languages;
         BatteryColorPanel.Initialize(controller);

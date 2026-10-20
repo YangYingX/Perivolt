@@ -30,7 +30,7 @@
             </Style></ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate><DataTemplate>
                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/><ColumnDefinition Width="60"/></Grid.ColumnDefinitions>
-                    <local:ThemeArtwork Theme="{Binding Entry.Theme}" ArtworkPath="{Binding ArtworkPath}" Width="90" Height="52" HorizontalAlignment="Left"/>
+                    <local:ThemeArtwork Theme="{Binding Entry.Theme}" ArtworkPath="{Binding ArtworkPath}" Opacity="{DynamicResource ThemePreviewOpacity}" Width="90" Height="52" HorizontalAlignment="Left"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,8,0">
                         <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
                         <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextSecondary}" FontSize="10" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>

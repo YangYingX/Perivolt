@@ -50,4 +50,6 @@
 
 本程序进入托管入口后的未处理启动异常会写入 %LOCALAPPDATA%\PowerHub\logs\startup.log 并显示错误提示；若目录不可写则尝试 TEMP 下的 Perivolt-logs。托管入口之前的系统/运行时加载失败需要诊断脚本的 host-startup.log 和 app-startup.txt。Windows 10 最低仍为 2004 / build 19041、x64；朋友设备是否满足要求由诊断结果确认，不能仅凭“Win10”判断。
 
+收到的 1.0.1 日志报 `Your Windows doesn't fully support CET`，退出码为 `-2146233082`（`0x80131506`）。1.0.2 通过项目的 `CetCompat=false` 取消本程序的 CET 兼容标记，不修改系统防护策略；这项兼容构建仍待受影响的 Windows 10 电脑复测。依据：[微软的 CET 兼容性说明](https://learn.microsoft.com/en-us/dotnet/core/compatibility/interop/9.0/cet-support)。
+
 任务栏嵌入在本机 Windows 11 验证了父子句柄、独立进程和 DPI 保持不变；它不是 Windows 10 的 DeskBand COM 扩展，也不保证所有第三方任务栏或后续系统版本均可挂载。Windows 10 实体机和资源管理器重启后的恢复仍需实测。

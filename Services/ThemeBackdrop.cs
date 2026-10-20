@@ -122,6 +122,8 @@ public sealed class ThemeBackdrop : IDisposable
             image.Freeze(); brush = image;
         }
         Application.Current.Resources["ThemeBackdrop"] = brush;
+        Application.Current.Resources["ThemePreviewOpacity"] = bitmap is null ? 1d : .72d;
+        foreach (var window in Application.Current.Windows.OfType<MainWindow>()) ApplyWindowSurfaces(window);
         foreach (var (key, source, opacity) in new[] { ("ThemeChoiceSurface", "SurfaceAlt", .48), ("ThemeChoiceSelected", "AccentSoft", .62) })
         {
             if (Application.Current.Resources[source] is not SolidColorBrush color) continue;
@@ -145,6 +147,17 @@ public sealed class ThemeBackdrop : IDisposable
                 gradient.Freeze(); card = gradient;
             }
             Application.Current.Resources["ThemeCardSurface"] = card;
+        }
+    }
+
+    public void ApplyWindowSurfaces(Window window)
+    {
+        foreach (var (key, opacity) in new[] { ("Surface", .60), ("SurfaceAlt", .48), ("AccentSoft", .62) })
+        {
+            if (bitmap is null) { window.Resources.Remove(key); continue; }
+            if (Application.Current.Resources[key] is not SolidColorBrush source) continue;
+            var brush = source.Clone(); brush.Opacity = opacity; brush.Freeze();
+            window.Resources[key] = brush;
         }
     }
 

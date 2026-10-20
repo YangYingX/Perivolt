@@ -82,6 +82,7 @@
         <Grid>
             <Grid.RowDefinitions><RowDefinition Height="50"/><RowDefinition Height="*"/></Grid.RowDefinitions>
             <Grid Background="{DynamicResource Surface}">
+                <Border Background="{DynamicResource ThemeDecoration}" Opacity="0.14" Width="190" HorizontalAlignment="Right" Margin="0,0,148,0" IsHitTestVisible="False"/>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="23,0,0,0">
                     <Border Width="23" Height="23" CornerRadius="7" Background="Transparent">
                         <Image Source="/PowerHub;component/Assets/powerhub-32.png" RenderOptions.BitmapScalingMode="HighQuality"/>
@@ -293,7 +294,8 @@
                                     <RadioButton x:Name="ForestTheme" GroupName="Theme" Style="{StaticResource ThemeChoice}" Tag="Forest" Click="OnThemeClick" Margin="6,0,0,0"><StackPanel><Border Height="43" Background="#182D27" CornerRadius="5" Margin="0,0,0,12"><Border Background="#A6D491" Height="5" Margin="10,0" VerticalAlignment="Center"/></Border><TextBlock Text="{loc:T '森林绿'}" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="{loc:T '深色 &#183; 自然绿调'}" Style="{StaticResource Caption}" FontSize="10" Margin="0,5,0,0"/></StackPanel></RadioButton>
                                 </UniformGrid>
                             </StackPanel></Border>
-                                                        <Border x:Name="PluginThemeCard" Style="{StaticResource SectionCard}"><StackPanel><TextBlock Text="{loc:T '插件主题'}" Style="{StaticResource SectionTitle}"/><TextBlock Text="{loc:T '启用主题插件后，在这里选择是否使用。'}" Style="{StaticResource Caption}" Margin="0,0,0,12"/><ItemsControl x:Name="PluginThemeItems"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><RadioButton GroupName="Theme" Style="{StaticResource ThemeChoice}" Content="{Binding Label}" Tag="{Binding Value}" IsChecked="{Binding Selected, Mode=OneWay}" Click="OnThemeClick" Margin="0,0,8,0"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></Border><Border Style="{StaticResource SectionCard}"><StackPanel>
+                            <Border x:Name="PluginThemeCard" Style="{StaticResource SectionCard}"><controls:ThemeCatalog x:Name="PluginThemePanel"/></Border>
+                            <Border Style="{StaticResource SectionCard}"><StackPanel>
                                 <TextBlock Text="{loc:T '轻量运行'}" Style="{StaticResource SectionTitle}"/><TextBlock Text="{loc:T '按需更新，安静地待在托盘。'}" Style="{StaticResource Caption}" Margin="0,0,0,20"/>
                                 <Grid><StackPanel><TextBlock Text="{loc:T '电量扫描间隔'}" FontSize="12"/><TextBlock Text="{loc:T '较长间隔可以减少设备查询。'}" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel><ComboBox x:Name="PollCombo" DisplayMemberPath="Label" SelectedValuePath="Value" HorizontalAlignment="Right" VerticalAlignment="Center" SelectionChanged="OnPollChanged"/></Grid>
                                 <CheckBox x:Name="StartWithWindowsBox" Content="{loc:T '开机启动 PowerHub'}" Click="OnStartWithWindowsClick" Margin="0,22,0,0"/>

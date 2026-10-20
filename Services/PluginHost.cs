@@ -15,7 +15,22 @@ public sealed class PluginHost : IDisposable
     private bool disposed;
     public string DirectoryPath { get; }
     public IReadOnlyList<PluginEntry> Entries { get { lock (gate) return states.Values.Select(state => state.Entry).ToArray(); } }
-    public IReadOnlyList<PluginEntry> AvailableThemes => Snapshot("theme").Select(state => state.Entry).ToArray();
+    public IReadOnlyList<PluginThemeEntry> AvailableThemes
+    {
+        get
+        {
+            var themes = new List<PluginThemeEntry>();
+            foreach (var state in Snapshot("theme"))
+            {
+                var runtime = Acquire(state);
+                if (runtime is null) continue;
+                try { themes.AddRange(ReadThemes(state, runtime)); }
+                catch (Exception error) { Fault(state, error); }
+                finally { Release(runtime); }
+            }
+            return themes;
+        }
+    }
 
     public PluginHost(string directory, AppSettings settings)
     {
@@ -109,28 +124,41 @@ public sealed class PluginHost : IDisposable
             var selectedId = settings.Theme[7..];
             foreach (var state in Snapshot("theme"))
             {
-                if (!state.Entry.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!state.Entry.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase) &&
+                    !selectedId.StartsWith(state.Entry.Id + "/", StringComparison.OrdinalIgnoreCase)) continue;
                 var runtime = Acquire(state);
                 if (runtime is null) continue;
                 try
                 {
-                    if (!runtime.ThemeRead)
-                    {
-                        var theme = runtime.Plugin.Theme;
-                        if (theme is not null)
-                        {
-                            foreach (var color in theme.Colors.Values)
-                                if (!IsColor(color)) throw new InvalidDataException("主题颜色必须使用 #RRGGBB");
-                        }
-                        runtime.Theme = theme;
-                        runtime.ThemeRead = true;
-                    }
-                    if (runtime.Theme is not null) return runtime.Theme;
+                    var selected = ReadThemes(state, runtime).FirstOrDefault(entry => entry.Value.Equals(settings.Theme, StringComparison.OrdinalIgnoreCase));
+                    if (selected is not null) return selected.Theme;
                 }
                 catch (Exception error) { Fault(state, error); }
                 finally { Release(runtime); }
             }
             return null;
+        }
+    }
+
+    private static IReadOnlyList<PluginThemeEntry> ReadThemes(PluginState state, PluginRuntime runtime)
+    {
+        lock (runtime)
+        {
+            if (runtime.Themes is not null) return runtime.Themes;
+            var result = new List<PluginThemeEntry>();
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var theme in runtime.Plugin.Themes.Take(501))
+            {
+                if (result.Count == 500 || string.IsNullOrWhiteSpace(theme.Id) || theme.Id.Length > 48 ||
+                    theme.Id.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not '-' and not '_') || !ids.Add(theme.Id))
+                    throw new InvalidDataException("主题 ID 无效或重复，单个插件最多 500 套主题");
+                foreach (var color in theme.Colors.Values)
+                    if (!IsColor(color)) throw new InvalidDataException("主题颜色必须使用 #RRGGBB");
+                var value = "plugin:" + state.Entry.Id + (theme.Id == state.Entry.Id ? "" : "/" + theme.Id);
+                if (value.Length > 87) throw new InvalidDataException("主题 ID 过长");
+                result.Add(new(value, string.IsNullOrWhiteSpace(theme.Name) ? state.Entry.Name : theme.Name, theme.Group, theme));
+            }
+            return runtime.Themes = result;
         }
     }
 
@@ -301,8 +329,7 @@ public sealed class PluginHost : IDisposable
         internal int Users;
         internal bool Retired;
         internal bool DisposalQueued;
-        internal PluginTheme? Theme;
-        internal bool ThemeRead;
+        internal IReadOnlyList<PluginThemeEntry>? Themes;
     }
 
     private sealed class PluginLoadContext(string directory) : AssemblyLoadContext(isCollectible: true)

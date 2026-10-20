@@ -6,6 +6,7 @@ public interface IPowerHubPlugin : IDisposable
 {
     PluginOutput OnScan(PluginContext context) => new();
     PluginTheme? Theme => null;
+    IReadOnlyList<PluginTheme> Themes => Theme is { } theme ? [theme] : [];
     HidPluginResult? ReadHid(HidDeviceContext device) => null;
     void IDisposable.Dispose() { }
 }
@@ -13,7 +14,14 @@ public interface IPowerHubPlugin : IDisposable
 public sealed record PluginContext(IReadOnlyList<DeviceStatus> Devices, DateTimeOffset Now, IReadOnlyDictionary<string, string> Options);
 public sealed record PluginOutput(bool SuppressLowBatteryAlerts = false, IReadOnlyList<PluginNotification>? Notifications = null);
 public sealed record PluginNotification(string Title, string Message);
-public sealed record PluginTheme(string Id, bool IsDark, IReadOnlyDictionary<string, string> Colors);
+public sealed record PluginTheme(string Id, bool IsDark, IReadOnlyDictionary<string, string> Colors)
+{
+    public string Name { get; init; } = "";
+    public string Group { get; init; } = "";
+    public string Description { get; init; } = "";
+    public string Motif { get; init; } = "";
+}
+public sealed record PluginThemeEntry(string Value, string Name, string Group, PluginTheme Theme);
 public sealed record HidDeviceContext(string Path, DeviceStatus Device, ushort UsagePage, ushort Usage,
     ushort InputReportByteLength, ushort OutputReportByteLength, ushort FeatureReportByteLength);
 public sealed record HidPluginResult(DeviceStatus Device, string Detail, IReadOnlyList<DeviceStatus>? Children = null);

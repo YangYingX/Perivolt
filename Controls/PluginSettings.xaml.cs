@@ -13,6 +13,7 @@ public partial class PluginSettings : UserControl
 {
     private AppController? _controller;
     private bool _refreshing;
+    public event Action? ThemeRequested;
 
     public PluginSettings() => InitializeComponent();
 
@@ -63,6 +64,8 @@ public partial class PluginSettings : UserControl
         if (sender is CheckBox { Tag: string id } box)
             Change(host => host.SetEnabled(id, box.IsChecked == true), L.T("插件状态已更新，会自动保存。"));
     }
+
+    private void OnBrowseThemes(object sender, RoutedEventArgs e) => ThemeRequested?.Invoke();
 
     private void OnOptionLostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {

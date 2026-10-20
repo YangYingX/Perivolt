@@ -10,6 +10,7 @@ PowerHub 默认离线，以普通用户权限运行，无进程注入或全局�
 | --- | --- | --- | --- |
 | `vendor-protocols` | 多品牌设备协议包 | 开启 | 命中厂商硬件标识后按需加载，补充 Logitech / Razer / Weisheng / Compx / AULA / DualSense / Steam 读取；开发版新增 MCHOSE、LANGTU、SteelSeries、Corsair、HyperX 协议族，具体范围见 [兼容性说明](compatibility.md) |
 | `aurora-theme` | 极光主题 | 关闭 | 启用后加入设置里的主题列表；选中才应用，停用当前插件主题后跟随系统 |
+| `character-themes` | 群星映色 · 角色主题包 | 关闭 | 六款游戏共 200 套角色灵感配色与原创矢量装饰；按游戏筛选、搜索角色，选中才应用，不含立绘、不联网 |
 | `full-charge` | 充满电提醒 | 关闭 | 本次运行已观察到未满电变为 100%，或满电充电结束时提醒；首次读取和重复扫描不提醒 |
 | `quiet-hours` | 定时免打扰 | 关闭 | 在指定时段暂停低电提醒；支持跨午夜，起止相同表示全天 |
 
@@ -56,10 +57,17 @@ PowerHub 默认离线，以普通用户权限运行，无进程注入或全局�
 | --- | --- |
 | `OnScan(PluginContext)` | 接收本次设备列表、时间和字符串选项，返回低电提醒抑制标记及可选通知 |
 | `Theme` | 返回主题 ID、深浅色标记和资源颜色字典；颜色使用 `#RRGGBB` |
+| `Themes` | 多主题列表；默认兼容旧的 `Theme`。可为每套填写 `Name`、`Group`、`Description` 和原创装饰 `Motif` |
 | `ReadHid(HidDeviceContext)` | 在明确匹配硬件后读取电量，返回设备状态、诊断及可选接收器子设备 |
 | `Dispose()` | 释放插件持有的资源 |
 
-主题资源沿用主程序的 `PageBackground`、`Surface`、`SurfaceAlt`、`Stroke`、`TextPrimary`、`TextSecondary`、`Accent`、`AccentSoft`、`AccentText`、`Warning`、`Danger`、`RingTrack`。多个主题插件同时启用时只使用宿主发现顺序中的首个有效主题，不组合多份调色板。
+主题资源沿用主程序的 `PageBackground`、`Surface`、`SurfaceAlt`、`Stroke`、`TextPrimary`、`TextSecondary`、`Accent`、`AccentSoft`、`AccentText`、`Warning`、`Danger`、`RingTrack`。启用插件只添加候选项，只有所选主题的调色板会应用。多主题存储为 `plugin:<插件ID>/<主题ID>`；单主题 ID 与插件 ID 相同的旧插件仍使用 `plugin:<插件ID>`。停用正在使用的插件后跟随系统。单插件最多 500 套，主题 ID 使用 ASCII 字母、数字、短横线或下划线，完整存储键不超过 87 字符。
+
+### 群星映色
+
+在“插件”开启主题包，然后到“设置 → 通用 → 插件主题”选择。包含终末地 10、明日方舟 50、原神 60、星穹铁道 40、绝区零 24、少女前线2：追放 16 套；每个角色配置独立色种、深浅色方向与原创配色标题。筛选和搜索只在本机执行，列表采用回收式虚拟化，调色板仅在插件首次启用时生成并缓存，停用后释放。
+
+角色名及游戏名用于标识非官方灵感主题。没有打包游戏立绘、Logo、语音或字体，主项目 MIT 许可不声称拥有相关角色和商标。角色名单参考与配色说明见 [主题包说明](../Extensions/CharacterThemes/README.md)。
 
 设备读取器应仅向已证实的厂商协议集合发送状态查询，限制等待时间，检查响应标识、命令、长度、校验和及取值范围。不要把无响应当成 0%，不要通过灯光、固件、配对或工作模式写入来探测电量；读取普通键鼠输入也不应成为厂商电量探测手段。
 

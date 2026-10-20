@@ -62,6 +62,7 @@ public sealed class ThemeService : IDisposable
             brush.Freeze();
             System.Windows.Application.Current.Resources[entry.Key] = brush;
         }
+        System.Windows.Application.Current.Resources["ThemeDecoration"] = Controls.ThemeArtwork.Decoration(pluginTheme);
     }
 
     private static bool SystemUsesLightTheme()

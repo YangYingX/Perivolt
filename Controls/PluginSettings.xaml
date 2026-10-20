@@ -47,6 +47,9 @@
                             <CheckBox Grid.Column="2" Style="{StaticResource PluginToggle}" IsChecked="{Binding IsEnabled, Mode=OneWay}" Tag="{Binding Id}" Click="OnEnabledClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,0,0" ToolTip="{loc:T '启用或停用此插件'}" AutomationProperties.Name="{Binding Name, StringFormat=启用 {0}}"/>
                         </Grid>
                         <TextBlock Text="{Binding Description}" Style="{StaticResource PluginCaption}" Margin="0,16,0,0"/>
+                        <Button Content="{loc:T '选择主题'}" Click="OnBrowseThemes" HorizontalAlignment="Left" Padding="12,7" Margin="0,12,0,0">
+                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding Kind}" Value="theme"/><Condition Binding="{Binding IsEnabled}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger></Style.Triggers></Style></Button.Style>
+                        </Button>
                         <Border Background="{DynamicResource SurfaceAlt}" CornerRadius="7" Padding="10,8" Margin="0,13,0,0"><TextBlock Text="{Binding Status}" Style="{StaticResource PluginCaption}" FontSize="10"/></Border>
                         <ItemsControl ItemsSource="{Binding Options}" Margin="0,7,0,0">
                             <ItemsControl.Style><Style TargetType="ItemsControl"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding IsEnabled}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></ItemsControl.Style>
@@ -60,7 +63,7 @@
         </ItemsControl>
         <Border x:Name="EmptyState" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="15" Padding="28" Margin="0,0,0,18" Visibility="Collapsed"><StackPanel><TextBlock Text="{loc:T '插件目录暂时是空的'}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="{loc:T '放入插件及其清单后，点击重新加载。'}" Style="{StaticResource PluginCaption}" HorizontalAlignment="Center" Margin="0,9,0,0"/></StackPanel></Border>
         <Border BorderBrush="{DynamicResource Stroke}" BorderThickness="0,1,0,0" Padding="1,18,1,0" Margin="0,8,0,0">
-            <StackPanel><TextBlock Text="{loc:T '主题插件开启后会覆盖当前主题配色，关闭后恢复所选主题。'}" Style="{StaticResource PluginCaption}"/><TextBlock Text="{loc:T '本地插件放入插件目录并附带清单，重新加载后即可使用。仅启用信任来源的插件。'}" Style="{StaticResource PluginCaption}" Margin="0,5,0,0"/><TextBlock x:Name="StatusText" Text="{loc:T '插件选项会自动保存。'}" Foreground="{DynamicResource Accent}" FontSize="11" TextWrapping="Wrap" Margin="0,13,0,0"/></StackPanel>
+            <StackPanel><TextBlock Text="{loc:T '主题插件启用后会出现在设置的通用主题列表中，选中才应用。'}" Style="{StaticResource PluginCaption}"/><TextBlock Text="{loc:T '本地插件放入插件目录并附带清单，重新加载后即可使用。仅启用信任来源的插件。'}" Style="{StaticResource PluginCaption}" Margin="0,5,0,0"/><TextBlock x:Name="StatusText" Text="{loc:T '插件选项会自动保存。'}" Foreground="{DynamicResource Accent}" FontSize="11" TextWrapping="Wrap" Margin="0,13,0,0"/></StackPanel>
         </Border>
     </StackPanel>
 </UserControl>

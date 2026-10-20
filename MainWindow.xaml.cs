@@ -54,6 +54,12 @@ public partial class MainWindow : Window
         BatteryColorPanel.PreviewChanged += (_, _) => UpdateStylePreviews();
         UpdatePanel.Initialize(controller);
         PluginPanel.Initialize(controller);
+        PluginThemePanel.Initialize(controller);
+        PluginPanel.ThemeRequested += () =>
+        {
+            Navigate("general");
+            Dispatcher.BeginInvoke(new Action(() => PluginThemeCard.BringIntoView()));
+        };
         PollCombo.ItemsSource = new[] { 30, 60, 120, 300, 600 }.Select(value => new Choice(value, value < 60 ? L.F("每 {0} 秒", value) : L.F("每 {0} 分钟", value / 60)));
         _thresholdSaveTimer.Tick += (_, _) => { if (!ThresholdSlider.IsMouseCaptureWithin) CommitThreshold(); };
         _visualSaveTimer.Tick += (_, _) => { if (!OpacitySlider.IsMouseCaptureWithin && !IntensitySlider.IsMouseCaptureWithin) CommitVisualOptions(); };
@@ -327,9 +333,8 @@ public partial class MainWindow : Window
         foreach (var (radio, theme) in new[] { (SystemTheme,"System"),(LightTheme,"Light"),(DarkTheme,"Dark"),(OceanTheme,"Ocean"),(LavenderTheme,"Lavender"),(SunsetTheme,"Sunset"),(ForestTheme,"Forest") }) radio.IsChecked = settings.Theme == theme;
         StartInTrayBox.IsChecked = settings.StartInTray;
         StartWithWindowsBox.IsChecked = settings.StartWithWindows;
-        var pluginThemes = _controller.Plugins.AvailableThemes.Select(entry => new PluginThemeChoice("plugin:" + entry.Id, L.T(entry.Name), settings.Theme == "plugin:" + entry.Id)).ToList();
-        PluginThemeItems.ItemsSource = pluginThemes;
-        PluginThemeCard.Visibility = pluginThemes.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        PluginThemePanel.Refresh();
+        PluginThemeCard.Visibility = PluginThemePanel.Visibility;
         var liveWidget = _controller.Widget is { IsVisible: true } widget ? widget.Content as Visual : null;
         WidgetMirrorBrush.Visual = liveWidget;
         WidgetLivePreview.Visibility = liveWidget is null ? Visibility.Collapsed : Visibility.Visible;
@@ -709,5 +714,4 @@ public partial class MainWindow : Window
     }
     private sealed record Choice(int Value, string Label);
     private sealed record DeviceChoice(string? Id, string Label);
-    private sealed record PluginThemeChoice(string Value, string Label, bool Selected);
 }

@@ -4,17 +4,17 @@
 
 把外设电量留在托盘和桌面一角，按每台设备自己的阈值提醒充电。
 
-电栖（Perivolt，原 PowerHub）是原生 C# / .NET 10 / WPF 桌面程序。当前版本为 **1.0.3**。支持 **Windows 10 2004（build 19041）及以上、Windows 11，x64**。发布包自带运行时，无需安装 .NET SDK。为兼容覆盖升级，程序文件名、设置目录、启动项标识暂时保留 PowerHub，GitHub 仓库更名为 Perivolt。
+电栖（Perivolt，原 PowerHub）是原生 C# / .NET 10 / WPF 桌面程序。当前版本为 **1.0.4**。支持 **Windows 10 2004（build 19041）及以上、Windows 11，x64**。发布包自带运行时，无需安装 .NET SDK。为兼容覆盖升级，程序文件名、设置目录、启动项标识暂时保留 PowerHub，GitHub 仓库更名为 Perivolt。
 
-1.0.3 改进任务栏电量条的四边适配、拖动记位与自动避让，调整托盘右键菜单的焦点和打开时序，补齐充电标记、动效和状态提示，并更新仓库更名后的检查更新地址。群星映色改为独立可选插件。设置入口与限制见[功能说明](docs/perivolt-preview.md)和[更新记录](docs/CHANGELOG.md)。自动下载安装仍按[既有计划](docs/auto-update-plan.md)另行实现；当前更新检查提供发行页入口，可覆盖安装并保留设置。
+1.0.4 补充狼途 LT95 与迈从 V9 Turbo 接收器的精确电量适配，并完善 HID 报告诊断。LT95 仅提供接收器电量，充电及键盘无线在线状态未知；两款仍待用户实体设备验证。详细范围见[兼容性说明](docs/compatibility.md)和[更新记录](docs/CHANGELOG.md)。当前更新检查提供发行页入口，可覆盖安装并保留设置。
 
 ## 下载与启动
 
-从 [1.0.3 发行页](https://github.com/YangYingX/Perivolt/releases/tag/v1.0.3) 下载 Windows 安装程序或便携 ZIP，也可通过 [最新发行版](https://github.com/YangYingX/Perivolt/releases/latest) 获取后续更新。
+从 [1.0.4 发行页](https://github.com/YangYingX/Perivolt/releases/tag/v1.0.4) 下载 Windows 安装程序或便携 ZIP，也可通过 [最新发行版](https://github.com/YangYingX/Perivolt/releases/latest) 获取后续更新。
 
 仓库已更名为 Perivolt。1.0.2 及更早版本的更新检查仍使用旧 API 地址，无法跟随仓库改名后的重定向；请从新发行页手动下载覆盖安装。1.0.3 已修正更新地址，现有设备设置会保留。
 
-- **安装版**：运行 `PowerHub-Setup-1.0.3-x64.exe`，优先选择非系统固定磁盘（如 `D:\Apps\PowerHub`），始终显示目录选择页；没有可用的非系统盘时需要手动选择，不自动回退到 C 盘。无需管理员权限，目录需可写。桌面快捷方式与开机启动均可选。
+- **安装版**：运行 `PowerHub-Setup-1.0.4-x64.exe`，优先选择非系统固定磁盘（如 `D:\Apps\PowerHub`），始终显示目录选择页；没有可用的非系统盘时需要手动选择，不自动回退到 C 盘。无需管理员权限，目录需可写。桌面快捷方式与开机启动均可选。
 - **便携版**：完整解压 ZIP，运行其中的 `PowerHub.exe`；保留所有 DLL、运行时、`plugins` 和第三方声明文件，不能只复制 EXE。
 
 默认常驻托盘：左键打开面板，右键进入快捷设置。关闭面板后继续监测，完全退出请使用托盘菜单。重复启动会打开已有实例；`--show` 可直接显示面板。

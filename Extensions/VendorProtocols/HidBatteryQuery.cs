@@ -24,7 +24,13 @@ internal static class HidBatteryQuery
                 detail = $"无法打开厂商接口，Windows 错误 {Marshal.GetLastWin32Error()}";
                 return null;
             }
-            if (!TryGetReportIds(handle, out var inputId, out var outputId)
+            byte inputId = 0, outputId = 0;
+            // A known protocol report may be described as values or buttons.
+            if (requiredReportId.HasValue) inputId = outputId = requiredReportId.Value;
+            var reportsMatch = requiredReportId.HasValue
+                ? DeclaresReport(handle, 0, inputId) && DeclaresReport(handle, 1, outputId)
+                : TryGetReportIds(handle, out inputId, out outputId);
+            if (!reportsMatch
                 || requiredReportId.HasValue && (inputId != requiredReportId || outputId != requiredReportId)
                 || payload.Length != caps.OutputReportByteLength - 1)
             {

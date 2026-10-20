@@ -16,6 +16,7 @@ internal static class MchoseHeadsetBatteryReader
         return (device.VendorId, device.ProductId) switch
         {
             (0x291D, 0x385D) when caps.UsagePage == 0xFF90 && caps.Usage == 1 => Protocol.Legacy,
+            (0x3837, 0x600A) when caps.UsagePage == 0xFF90 && caps.Usage == 1 => Protocol.Legacy,
             (0x3837, 0x6045 or 0x6008) => Protocol.Legacy,
             (0x3837, 0x6011 or 0x6013) => Protocol.Framed,
             _ => null

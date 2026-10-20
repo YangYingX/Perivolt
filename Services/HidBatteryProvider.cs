@@ -148,7 +148,9 @@ public sealed class HidBatteryProvider(PluginHost plugins)
                 if (HidP_GetCaps(data, out var caps) != Success)
                     return new(device with { Message = "HID 描述符解析失败" }, $"{detail}; HidP_GetCaps 失败");
                 device = device with { Category = Classify(caps.UsagePage, caps.Usage, device.Name) };
-                detail += $"; Usage={caps.UsagePage:X4}/{caps.Usage:X4}; FeatureBytes={caps.FeatureReportByteLength}";
+                detail += $"; Usage={caps.UsagePage:X4}/{caps.Usage:X4}; InputBytes={caps.InputReportByteLength}; OutputBytes={caps.OutputReportByteLength}; FeatureBytes={caps.FeatureReportByteLength}";
+                if (caps.UsagePage >= 0xFF00)
+                    detail += $"; InputReports={DescribeReports(0, caps.NumberInputValueCaps, caps.NumberInputButtonCaps, data)}; OutputReports={DescribeReports(1, caps.NumberOutputValueCaps, caps.NumberOutputButtonCaps, data)}; FeatureReports={DescribeReports(Feature, caps.NumberFeatureValueCaps, caps.NumberFeatureButtonCaps, data)}";
                 var vendor = plugins.ReadHid(new(path, device, caps.UsagePage, caps.Usage,
                     caps.InputReportByteLength, caps.OutputReportByteLength, caps.FeatureReportByteLength));
                 if (vendor is not null) return new(vendor.Device with { HasProtocolConnectionState = true },
@@ -218,6 +220,27 @@ public sealed class HidBatteryProvider(PluginHost plugins)
         {
             return new(device with { Message = $"HID 查询失败：{error.Message}" }, $"{detail}; {error.GetType().Name}: {error.Message}");
         }
+    }
+
+    private static string DescribeReports(int type, ushort count, ushort buttonCount, IntPtr data)
+    {
+        if (count > 256 || buttonCount > 256) return "too many";
+        var reports = new List<string>();
+        if (count > 0)
+        {
+            var values = new ValueCaps[count];
+            var status = HidP_GetValueCaps(type, values, ref count, data);
+            if (status != Success) reports.Add($"error {status:X8}");
+            else reports.AddRange(values.Take(count).Select(value => $"{value.ReportId:X2}:{value.BitSize}x{value.ReportCount}"));
+        }
+        if (buttonCount > 0)
+        {
+            var buttons = new ButtonCaps[buttonCount];
+            var status = HidP_GetButtonCaps(type, buttons, ref buttonCount, data);
+            if (status != Success) reports.Add($"error {status:X8}");
+            else reports.AddRange(buttons.Take(buttonCount).Select(button => $"{button.ReportId:X2}:buttons"));
+        }
+        return reports.Count > 0 ? string.Join(",", reports.Distinct()) : "none";
     }
 
     private static bool TryValue(IntPtr data, ValueCaps value, ushort usage, byte[] report, out long result)

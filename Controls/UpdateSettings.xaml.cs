@@ -46,6 +46,6 @@ public partial class UpdateSettings : UserControl
     {
         if (controller?.Updates is not { IsEnabled: true, ReleaseUri: { } uri }) return;
         try { Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true }); }
-        catch (Exception) { StatusText.Text = "未能打开浏览器，请在 GitHub 的 YangYingX/PowerHub 发行页下载。"; }
+        catch (Exception) { StatusText.Text = L.T("未能打开浏览器，请在 GitHub 的 YangYingX/PowerHub 发行页下载。"); }
     }
 }

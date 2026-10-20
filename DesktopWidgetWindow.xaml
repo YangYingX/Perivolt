@@ -1,8 +1,9 @@
 <Window x:Class="PowerHub.DesktopWidgetWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:PowerHub.Controls"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:PowerHub.Controls"
-        Title="PowerHub 桌面卡片" Width="312" SizeToContent="Height" MaxHeight="600"
+        Title="{loc:T 'PowerHub 桌面卡片'}" Width="312" SizeToContent="Height" MaxHeight="600"
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
         ShowInTaskbar="False" ShowActivated="False" FontFamily="Segoe UI, Microsoft YaHei UI"
         Foreground="{DynamicResource TextPrimary}" UseLayoutRounding="True">
@@ -54,12 +55,12 @@
         <Border.ContextMenu>
             <ContextMenu Background="{DynamicResource Surface}" Foreground="{DynamicResource TextPrimary}"
                          BorderBrush="{DynamicResource Stroke}" Opened="OnContextMenuOpened">
-                <MenuItem Header="打开电量中心" Click="OnOpenDashboard"/>
+                <MenuItem Header="{loc:T '打开电量中心'}" Click="OnOpenDashboard"/>
                 <Separator/>
-                <MenuItem x:Name="TopmostMenuItem" Header="始终置顶" IsCheckable="True" Click="OnTopmostClick"/>
-                <MenuItem x:Name="LockedMenuItem" Header="锁定位置" IsCheckable="True" Click="OnLockClick"/>
+                <MenuItem x:Name="TopmostMenuItem" Header="{loc:T '始终置顶'}" IsCheckable="True" Click="OnTopmostClick"/>
+                <MenuItem x:Name="LockedMenuItem" Header="{loc:T '锁定位置'}" IsCheckable="True" Click="OnLockClick"/>
                 <Separator/>
-                <MenuItem Header="隐藏桌面卡片" Click="OnHideWidget"/>
+                <MenuItem Header="{loc:T '隐藏桌面卡片'}" Click="OnHideWidget"/>
             </ContextMenu>
         </Border.ContextMenu>
         <StackPanel>
@@ -74,21 +75,21 @@
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
                         <Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" Margin="0,0,7,0"/>
-                        <TextBlock Text="桌面电量" FontSize="12" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:T '桌面电量'}" FontSize="12" FontWeight="SemiBold"/>
                     </StackPanel>
-                    <TextBlock x:Name="SummaryText" Text="随时留意你的设备" Margin="13,4,0,0"
+                    <TextBlock x:Name="SummaryText" Text="{loc:T '随时留意你的设备'}" Margin="13,4,0,0"
                                Foreground="{DynamicResource TextSecondary}" FontSize="10"/>
                 </StackPanel>
                 <Button x:Name="ToggleLockButton" Grid.Column="1" Style="{StaticResource WidgetIconButton}" Click="OnToggleLock"
-                        ToolTip="锁定位置" AutomationProperties.Name="锁定位置">
+                        ToolTip="{loc:T '锁定位置'}" AutomationProperties.Name="{loc:T '锁定位置'}">
                     <Path x:Name="LockStateIcon" Width="12" Height="14" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                 </Button>
                 <Button x:Name="OpenDashboardButton" Grid.Column="2" Style="{StaticResource WidgetIconButton}" Click="OnOpenDashboard"
-                        ToolTip="打开电量中心" AutomationProperties.Name="打开电量中心">
+                        ToolTip="{loc:T '打开电量中心'}" AutomationProperties.Name="{loc:T '打开电量中心'}">
                     <TextBlock Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"/>
                 </Button>
                 <Button x:Name="HideWidgetButton" Grid.Column="3" Style="{StaticResource WidgetIconButton}" Click="OnHideWidget"
-                        ToolTip="隐藏桌面卡片" AutomationProperties.Name="隐藏桌面卡片">
+                        ToolTip="{loc:T '隐藏桌面卡片'}" AutomationProperties.Name="{loc:T '隐藏桌面卡片'}">
                     <TextBlock Text="&#xE711;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </Grid>
@@ -119,14 +120,14 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                                    </Grid.ColumnDefinitions><controls:CardBatteryFill Grid.ColumnSpan="2" Panel.ZIndex="-1" Percent="{Binding Percent}" Fill="{Binding BatteryBrush}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationsEnabled="{Binding AnimationsEnabled}" Visibility="{Binding CardFillVisibility}" IsHitTestVisible="False"><controls:CardBatteryFill.Style><Style TargetType="controls:CardBatteryFill"><Setter Property="Margin" Value="-12"/><Style.Triggers><DataTrigger Binding="{Binding Compact}" Value="True"><Setter Property="Margin" Value="-9,-3"/></DataTrigger></Style.Triggers></Style></controls:CardBatteryFill.Style></controls:CardBatteryFill>
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
-                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="{Binding IconGeometry}" Style="{StaticResource DeviceTypeIcon}"/><TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="{Binding NameBrush}" FontSize="12" FontWeight="SemiBold"
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="{Binding IconGeometry}" Style="{StaticResource DeviceTypeIcon}"/><controls:OutlinedText IsOutlined="{Binding IsFillStyle}" Grid.Column="1" Text="{Binding Name}" Foreground="{Binding NameBrush}" FontSize="12" FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" VerticalAlignment="Center"/></Grid>
-                                        <TextBlock Text="{Binding Status}" Margin="0,5,0,0" FontSize="10"
+                                        <controls:OutlinedText IsOutlined="{Binding IsFillStyle}" Text="{Binding Status}" Margin="0,5,0,0" FontSize="10"
                                                    Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
+                                            <controls:OutlinedText.Style>
+                                                <Style TargetType="controls:OutlinedText">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Status}" Value="">
                                                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -136,11 +137,11 @@
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                        <TextBlock Text="{Binding Advice}" Margin="0,4,0,0" FontSize="10">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
+                                            </controls:OutlinedText.Style>
+                                        </controls:OutlinedText>
+                                        <controls:OutlinedText IsOutlined="{Binding IsFillStyle}" Text="{Binding Advice}" Margin="0,4,0,0" FontSize="10">
+                                            <controls:OutlinedText.Style>
+                                                <Style TargetType="controls:OutlinedText">
                                                     <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
                                                     <Setter Property="Visibility" Value="Visible"/>
                                                     <Style.Triggers>
@@ -152,15 +153,15 @@
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                            </controls:OutlinedText.Style>
+                                        </controls:OutlinedText>
                                     </StackPanel>
                                     <Grid Grid.Column="1" VerticalAlignment="Center" Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}"
                                           ToolTip="{Binding BatteryDescription}" AutomationProperties.Name="{Binding BatteryDescription}">
-                                        <controls:BatteryVisual Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}" HorizontalAlignment="Center" Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
-                                        <TextBlock Text="{Binding BatteryLabel}" Visibility="{Binding BatteryPercentageVisibility}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
+                                        <controls:BatteryVisual Visibility="{Binding BatteryGraphicVisibility}" Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}" HorizontalAlignment="Center" Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
+                                        <controls:OutlinedText IsOutlined="{Binding IsFillStyle}" Text="{Binding BatteryLabel}" Visibility="{Binding BatteryPercentageVisibility}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold">
+                                            <controls:OutlinedText.Style>
+                                                <Style TargetType="controls:OutlinedText">
                                                     <Setter Property="FontSize" Value="12"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Compact}" Value="True">
@@ -168,8 +169,8 @@
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                            </controls:OutlinedText.Style>
+                                        </controls:OutlinedText>
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -181,14 +182,14 @@
                 <StackPanel>
                     <TextBlock Text="&#xE718;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="23"
                                Foreground="{DynamicResource Accent}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="当前没有已连接的固定设备" Margin="0,12,0,0" FontSize="12" FontWeight="SemiBold" TextAlignment="Center"/>
-                    <TextBlock x:Name="EmptyExplanation" Text="连接外设后，在电量中心点击固定，&#x0a;就能在这里查看电量。" Margin="0,7,0,0"
+                    <TextBlock Text="{loc:T '当前没有已连接的固定设备'}" Margin="0,12,0,0" FontSize="12" FontWeight="SemiBold" TextAlignment="Center"/>
+                    <TextBlock x:Name="EmptyExplanation" Text="{loc:T '连接外设后，在电量中心点击固定，&#10;就能在这里查看电量。'}" Margin="0,7,0,0"
                                FontSize="11" LineHeight="18" Foreground="{DynamicResource TextSecondary}" TextAlignment="Center"/>
-                    <Button Content="选择设备  →" Click="OnOpenDashboard" Margin="0,12,0,0" Padding="8,6"
+                    <Button Content="{loc:T '选择设备  →'}" Click="OnOpenDashboard" Margin="0,12,0,0" Padding="8,6"
                             Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Accent}" Cursor="Hand"/>
                 </StackPanel>
             </Border>
-            <TextBlock x:Name="FooterText" Text="PowerHub · 充电提醒已开启" FontSize="9" Margin="1,2,0,0"
+            <TextBlock x:Name="FooterText" Text="{loc:T 'PowerHub &#183; 充电提醒已开启'}" FontSize="9" Margin="1,2,0,0"
                        Foreground="{DynamicResource TextSecondary}"/>
         </StackPanel>
     </Border>

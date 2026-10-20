@@ -29,10 +29,10 @@ public partial class PluginSettings : UserControl
         try
         {
             var entries = _controller.Plugins.Entries;
-            PluginItems.ItemsSource = entries.Select(entry => new PluginCard(entry.Id, entry.Name, entry.Description,
-                entry.Kind, entry.Version, entry.IsEnabled, entry.Status,
-                entry.Options.Select(option => new OptionEditor(entry.Id, option.Key, option.Label, option.Value)).ToList())).ToList();
-            SummaryText.Text = $"{entries.Count} 个插件 · {entries.Count(entry => entry.IsEnabled)} 个已开启";
+            PluginItems.ItemsSource = entries.Select(entry => new PluginCard(entry.Id, L.T(entry.Name), L.T(entry.Description),
+                entry.Kind, entry.Version, entry.IsEnabled, L.T(entry.Status),
+                entry.Options.Select(option => new OptionEditor(entry.Id, option.Key, L.T(option.Label), option.Value)).ToList())).ToList();
+            SummaryText.Text = L.F("{0} 个插件 · {1} 个已开启", entries.Count, entries.Count(entry => entry.IsEnabled));
             EmptyState.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         finally { _refreshing = false; }
@@ -52,7 +52,7 @@ public partial class PluginSettings : UserControl
         }
         catch (Exception error)
         {
-            StatusText.Text = $"未能更新插件：{error.Message}";
+            StatusText.Text = L.F("未能更新插件：{0}", error.Message);
             StatusText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "Danger");
             return false;
         }
@@ -61,7 +61,7 @@ public partial class PluginSettings : UserControl
     private void OnEnabledClick(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox { Tag: string id } box)
-            Change(host => host.SetEnabled(id, box.IsChecked == true), "插件状态已更新，会自动保存。");
+            Change(host => host.SetEnabled(id, box.IsChecked == true), L.T("插件状态已更新，会自动保存。"));
     }
 
     private void OnOptionLostFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -80,11 +80,11 @@ public partial class PluginSettings : UserControl
     {
         if (_controller is null || _refreshing || box.DataContext is not OptionEditor option || box.Text == option.Value) return;
         var value = box.Text;
-        if (Change(host => host.SetOption(option.PluginId, option.Key, value), "插件选项已保存。")) option.Value = value;
+        if (Change(host => host.SetOption(option.PluginId, option.Key, value), L.T("插件选项已保存。"))) option.Value = value;
     }
 
     private void OnReload(object sender, RoutedEventArgs e) =>
-        Change(host => host.Reload(), "插件目录已重新加载。");
+        Change(host => host.Reload(), L.T("插件目录已重新加载。"));
 
     private void OnOpenDirectory(object sender, RoutedEventArgs e)
     {
@@ -92,7 +92,7 @@ public partial class PluginSettings : UserControl
         try { Process.Start(new ProcessStartInfo(_controller.Plugins.DirectoryPath) { UseShellExecute = true }); }
         catch (Exception error)
         {
-            StatusText.Text = $"未能打开插件目录：{error.Message}";
+            StatusText.Text = L.F("未能打开插件目录：{0}", error.Message);
             StatusText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "Danger");
         }
     }
@@ -108,7 +108,7 @@ public partial class PluginSettings : UserControl
     private sealed record PluginCard(string Id, string Name, string Description, string Kind, string Version,
         bool IsEnabled, string Status, IReadOnlyList<OptionEditor> Options)
     {
-        public string KindLabel => $"{(Kind switch { "theme" => "外观插件", "device" => "设备适配", _ => "实用插件" })} · v{Version}";
+        public string KindLabel => L.F("{0} · v{1}", (Kind switch { "theme" => L.T("外观插件"), "device" => L.T("设备适配"), _ => L.T("实用插件") }), Version);
         public string Icon => Kind switch { "theme" => "\uE790", "device" => "\uE772", _ => "\uE713" };
     }
 }

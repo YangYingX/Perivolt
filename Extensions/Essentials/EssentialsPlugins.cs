@@ -1,5 +1,6 @@
 using System.Globalization;
 using PowerHub.Plugins;
+using PowerHub.Services;
 
 namespace PowerHub.Extensions;
 
@@ -28,7 +29,7 @@ public sealed class FullChargePlugin : IPowerHubPlugin
             if (percent < 100) notified.Remove(device.Id);
             if (percent == 100 && previous.TryGetValue(device.Id, out var last) &&
                 (last.Percent < 100 || last.Charging == true && device.IsCharging == false) && notified.Add(device.Id))
-                notifications.Add(new("设备已充满", $"{device.Name} · 100%，本轮充电已完成"));
+                notifications.Add(new(L.T("设备已充满"), L.F("{0} · 100%，本轮充电已完成", device.Name)));
             previous[device.Id] = (percent, device.IsCharging);
         }
         return new(Notifications: notifications);

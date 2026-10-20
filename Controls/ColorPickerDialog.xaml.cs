@@ -1,3 +1,4 @@
+using PowerHub.Services;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,7 +21,7 @@ public partial class ColorPickerDialog : Window
     private bool ready;
     public string SelectedColor { get; private set; }
 
-    public ColorPickerDialog(string? initialColor, string title = "选择颜色")
+    public ColorPickerDialog(string? initialColor, string? title = null)
     {
         var normalized = AppSettings.NormalizeHexColor(initialColor);
         if (normalized is null && initialColor is { Length: 9 } && initialColor[0] == '#' &&
@@ -28,7 +29,7 @@ public partial class ColorPickerDialog : Window
             normalized = $"#{argb & 0xFFFFFF:X6}";
         SelectedColor = normalized ?? "#8FE4C5";
         InitializeComponent();
-        Title = Heading.Text = title;
+        Title = Heading.Text = title ?? L.T("选择颜色");
         var initial = Parse(SelectedColor);
         OriginalSwatch.Background = Brush(initial);
         OriginalSwatch.ToolTip = SelectedColor;
@@ -40,7 +41,7 @@ public partial class ColorPickerDialog : Window
                 Background = Brush(Parse(hex)), Height = 30, Margin = new Thickness(3, 0, 3, 0),
                 Padding = new Thickness(0), ToolTip = hex, Tag = hex
             };
-            System.Windows.Automation.AutomationProperties.SetName(swatch, $"选择颜色 {hex}");
+            System.Windows.Automation.AutomationProperties.SetName(swatch, L.F("选择颜色 {0}", hex));
             swatch.Click += (_, _) => SetColor(Parse(hex));
             Swatches.Children.Add(swatch);
         }
@@ -48,7 +49,7 @@ public partial class ColorPickerDialog : Window
         SetColor(initial);
     }
 
-    public static string? Pick(Window? owner, string? initialColor, string title = "选择颜色")
+    public static string? Pick(Window? owner, string? initialColor, string? title = null)
     {
         var dialog = new ColorPickerDialog(initialColor, title);
         if (owner is not null) dialog.Owner = owner;

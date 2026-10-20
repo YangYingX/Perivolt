@@ -1,3 +1,4 @@
+using PowerHub.Services;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Threading;
@@ -16,6 +17,7 @@ public sealed class AppController : IDisposable
     private readonly bool previewMode;
     private MainWindow? window;
     private DesktopWidgetWindow? widget;
+    private TaskbarBatteryWindow? taskbar;
     private bool exiting;
     private Task<PowerHub.Plugins.PluginOutput>? pendingPluginEvaluation;
     public SettingsStore Store { get; }
@@ -23,18 +25,21 @@ public sealed class AppController : IDisposable
     public PluginHost Plugins { get; }
     public UpdateService Updates { get; } = new();
     private bool startupEnabled;
+    private ScanResult? rawScan;
     public ScanResult? LastScan { get; private set; }
     public IReadOnlyList<DeviceStatus> Devices => LastScan?.Devices ?? [];
     public int ViewRevision { get; private set; }
     public List<string> Diagnostics { get; } = [];
     public bool IsScanning { get; private set; }
-    public string StatusText { get; private set; } = "正在准备设备监测…";
+    public string StatusText { get; private set; } = L.T("正在准备设备监测…");
     public event Action? Changed;
 
     public AppController(string dataDirectory, ThemeService themeService, AppSettings? settings = null, bool preview = false)
     {
         Store = new SettingsStore(dataDirectory);
         Settings = settings ?? Store.Load();
+        L.SetLanguage(Settings.Language);
+        StatusText = L.T("正在准备设备监测…");
         previewMode = preview;
         themes = themeService;
         Plugins = new PluginHost(Program.PluginDirectory, Settings);
@@ -47,7 +52,7 @@ public sealed class AppController : IDisposable
         if (!previewMode) tray = new TrayService(() => ShowPanel(), () => _ = RefreshAsync(), Exit, () => ShowPanel("widgets"), () => ShowPanel("settings"), Settings, () => ApplySettings());
         Updates.UpdateAvailable += version =>
         {
-            if (Settings.NotificationsEnabled) tray?.ShowPluginNotification("PowerHub 有新版本", $"v{version} 已发布，可在设置的通用选项中查看更新。");
+            if (Settings.NotificationsEnabled) tray?.ShowPluginNotification(L.T("PowerHub 有新版本"), L.F("v{0} 已发布，可在设置的通用选项中查看更新。", version));
         };
         timer.Tick += (_, _) => _ = RefreshAsync();
         saveTimer.Tick += (_, _) => { saveTimer.Stop(); SaveSettings(); };
@@ -58,6 +63,7 @@ public sealed class AppController : IDisposable
     {
         if (!previewMode) { timer.Start(); Updates.Configure(Settings.AutoCheckUpdates); }
         SyncWidget();
+        SyncTaskbar();
         await RefreshAsync();
     }
 
@@ -65,21 +71,27 @@ public sealed class AppController : IDisposable
     {
         if (IsScanning || exiting) return;
         IsScanning = true;
-        StatusText = "正在更新设备电量…";
+        StatusText = L.T("正在更新设备电量…");
         Changed?.Invoke();
         var startedAt = DateTimeOffset.UtcNow;
         try
         {
             var result = await monitor.ScanAsync(true, null, lifetime.Token);
             if (exiting) return;
+            rawScan = result;
+            foreach (var device in result.Devices)
+            {
+                if (!Settings.Devices.TryGetValue(device.Id, out var remembered)) Settings.Devices[device.Id] = remembered = new();
+                remembered.DisplayName = device.Name;
+            }
+            result = DeviceIdentity.ApplyLinks(result, Settings);
             LastScan = result;
             ViewRevision++;
             Diagnostics.Clear();
             Diagnostics.AddRange(result.Diagnostics);
-            foreach (var device in result.Devices)
-                if (Settings.Devices.TryGetValue(device.Id, out var preference)) preference.DisplayName = device.Name;
-            StatusText = $"已更新 {result.ScannedAt.ToLocalTime():HH:mm} · {result.Devices.Count(x => x.IsConnected)} 台在线";
+            StatusText = L.F("已更新 {0:HH:mm} · {1} 台在线", result.ScannedAt.ToLocalTime(), result.Devices.Count(x => x.IsConnected));
             widget?.UpdateDevices(result.Devices);
+            taskbar?.UpdateDevices(result.Devices);
             var effects = await EvaluatePluginsAsync(result.Devices);
             if (exiting) return;
             tray?.Update(result, startedAt, effects.SuppressLowBatteryAlerts);
@@ -90,9 +102,11 @@ public sealed class AppController : IDisposable
         catch (Exception error)
         {
             LastScan = null;
+            rawScan = null;
             ViewRevision++;
             widget?.UpdateDevices([]);
-            StatusText = "本次更新未完成，可稍后重试";
+            taskbar?.UpdateDevices([]);
+            StatusText = L.T("本次更新未完成，可稍后重试");
             Diagnostics.Add(error.ToString());
         }
         finally
@@ -113,7 +127,7 @@ public sealed class AppController : IDisposable
         }).ToArray();
         pendingPluginEvaluation = Task.Run(() => Plugins.Evaluate(snapshot, DateTimeOffset.Now));
         try { return await pendingPluginEvaluation.WaitAsync(TimeSpan.FromMilliseconds(500), lifetime.Token); }
-        catch (TimeoutException) { Diagnostics.Add("实用插件计算超过 500 ms；本轮跳过结果，等待现有任务结束。"); return new(); }
+        catch (TimeoutException) { Diagnostics.Add(L.T("实用插件计算超过 500 ms；本轮跳过结果，等待现有任务结束。")); return new(); }
         finally { if (pendingPluginEvaluation.IsCompleted) pendingPluginEvaluation = null; }
     }
 
@@ -156,6 +170,12 @@ public sealed class AppController : IDisposable
     public void ApplySettings(bool persist = true)
     {
         Settings.Normalize();
+        var languageChanged = L.SetLanguage(Settings.Language);
+        if (rawScan is not null) LastScan = DeviceIdentity.ApplyLinks(rawScan, Settings);
+        if (languageChanged)
+            StatusText = IsScanning ? L.T("正在更新设备电量…") : LastScan is { } scan
+                ? L.F("已更新 {0:HH:mm} · {1} 台在线", scan.ScannedAt.ToLocalTime(), scan.Devices.Count)
+                : L.T("正在准备设备监测…");
         ApplyTheme();
         BatteryPalette.Apply(Settings);
         ViewRevision++;
@@ -163,13 +183,14 @@ public sealed class AppController : IDisposable
         tray?.ApplySettings();
         if (!previewMode) Updates.Configure(Settings.AutoCheckUpdates);
         SyncWidget();
+        SyncTaskbar();
         if (!previewMode && startupEnabled != Settings.StartWithWindows)
         {
             try { StartupService.SetEnabled(Settings.StartWithWindows); startupEnabled = Settings.StartWithWindows; }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException or InvalidOperationException)
             {
                 Settings.StartWithWindows = startupEnabled;
-                StatusText = "开机启动设置未保存：" + error.Message;
+                StatusText = L.T("开机启动设置未保存：") + error.Message;
                 Diagnostics.Add(StatusText);
             }
         }
@@ -190,6 +211,7 @@ public sealed class AppController : IDisposable
         ViewRevision++;
         widget?.ApplySettings();
         widget?.UpdateDevices(Devices);
+        taskbar?.UpdateDevices(Devices);
         Changed?.Invoke();
     }
 
@@ -204,13 +226,21 @@ public sealed class AppController : IDisposable
 
     public DesktopWidgetWindow? Widget => widget;
 
+    private void SyncTaskbar()
+    {
+        if (previewMode) return;
+        if (!Settings.TaskbarEnabled) { taskbar?.Hide(); return; }
+        taskbar ??= new TaskbarBatteryWindow(Settings);
+        taskbar.UpdateDevices(Devices);
+    }
+
     public void SaveSettings()
     {
         if (previewMode) return;
         try { Store.Save(Settings); }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            StatusText = "设置暂未保存，请检查文件夹权限";
+            StatusText = L.T("设置暂未保存，请检查文件夹权限");
             Diagnostics.Add(error.Message);
             Changed?.Invoke();
         }
@@ -234,6 +264,7 @@ public sealed class AppController : IDisposable
         if (exiting) return;
         exiting = true;
         window?.CloseImmediately();
+        taskbar?.Close();
         timer.Stop();
         saveTimer.Stop();
         lifetime.Cancel();

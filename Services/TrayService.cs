@@ -1,3 +1,4 @@
+using PowerHub.Services;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
@@ -36,7 +37,7 @@ public sealed class TrayService : IDisposable
             }
         };
         _batteryIcon = CreateBatteryIcon();
-        _icon = new Forms.NotifyIcon { Icon = _batteryIcon, Text = "PowerHub · 外设电量中心", Visible = true };
+        _icon = new Forms.NotifyIcon { Icon = _batteryIcon, Text = L.T("PowerHub · 外设电量中心"), Visible = true };
         _icon.MouseClick += (_, args) =>
         {
             if (args.Button == Forms.MouseButtons.Left) show();
@@ -56,7 +57,13 @@ public sealed class TrayService : IDisposable
         _menu.Focus();
     }
 
-    public void ApplySettings() => _menu?.Refresh(_devices);
+    public void ApplySettings()
+    {
+        _menu?.Refresh(_devices);
+        var devices = _devices.Where(device => device.ConnectionKnown && device.IsConnected && device.HasBattery).Take(2).ToArray();
+        _icon.Text = devices.Length == 0 ? L.T("PowerHub · 外设电量中心") : Shorten(L.AppName + " · " +
+            string.Join(" · ", devices.Select(device => $"{Shorten(DisplayName(device), 14)} {Shorten(device.BatteryText, 8)}")), 63);
+    }
 
     public void Update(ScanResult result, DateTimeOffset scanStartedAt, bool suppressReminders = false)
     {
@@ -65,14 +72,11 @@ public sealed class TrayService : IDisposable
         var reminders = suppressReminders ? [] : _reminderPolicy.Evaluate(result, scanStartedAt, _settings, DateTimeOffset.Now);
         if (reminders.Count > 0)
         {
-            var message = string.Join("\n", reminders.Take(5).Select(device => $"{Shorten(DisplayName(device), 40)} · {device.BatteryText}，请充电"));
-            if (reminders.Count > 5) message += $"\n还有 {reminders.Count - 5} 个设备需要充电";
-            _icon.ShowBalloonTip(6000, "设备需要充电", message, Forms.ToolTipIcon.Warning);
+            var message = string.Join("\n", reminders.Take(5).Select(device => L.F("{0} · {1}，请充电", Shorten(DisplayName(device), 40), device.BatteryText)));
+            if (reminders.Count > 5) message += L.F("\n还有 {0} 个设备需要充电", reminders.Count - 5);
+            _icon.ShowBalloonTip(6000, L.T("设备需要充电"), message, Forms.ToolTipIcon.Warning);
         }
 
-        var devices = result.Devices.Where(device => device.ConnectionKnown && device.IsConnected && device.HasBattery).Take(2).ToArray();
-        _icon.Text = devices.Length == 0 ? "PowerHub · 外设电量中心" : Shorten("PowerHub · " +
-            string.Join(" · ", devices.Select(device => $"{Shorten(DisplayName(device), 14)} {Shorten(device.BatteryText, 8)}")), 63);
     }
 
     public void ShowPluginNotification(string title, string message) =>

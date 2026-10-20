@@ -4,16 +4,16 @@
 
 [Setup]
 AppId={{F8421AA2-85D8-4E06-B227-BDBD43B58BC9}
-AppName=PowerHub
+AppName=电栖 · Perivolt
 AppVersion={#AppVersion}
-AppVerName=PowerHub {#AppVersion}
-AppPublisher=PowerHub
+AppVerName=电栖 · Perivolt {#AppVersion}
+AppPublisher=Perivolt contributors
 AppComments=Windows 外设电量中心
 VersionInfoVersion={#AppVersion}
-VersionInfoDescription=PowerHub 安装程序
+VersionInfoDescription=电栖 · Perivolt 安装程序
 DefaultDirName={code:DefaultInstallDirectory}
 DisableDirPage=no
-DefaultGroupName=PowerHub
+DefaultGroupName=电栖
 DisableProgramGroupPage=yes
 AllowNoIcons=yes
 PrivilegesRequired=lowest
@@ -24,7 +24,7 @@ WizardStyle=modern dynamic
 WizardSizePercent=110
 SetupIconFile=..\Assets\powerhub.ico
 UninstallDisplayIcon={app}\PowerHub.exe
-UninstallDisplayName=PowerHub
+UninstallDisplayName=电栖 · Perivolt
 AppMutex=Local\PowerHub.TrayApp
 CloseApplications=no
 RestartApplications=no
@@ -40,14 +40,18 @@ Name: "chinesesimplified"; MessagesFile: "compiler:Default.isl,ChineseSimplified
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "快捷方式："; Flags: unchecked
-Name: "startup"; Description: "登录 Windows 后自动启动 PowerHub"; GroupDescription: "启动选项："; Flags: unchecked
+Name: "startup"; Description: "登录 Windows 后自动启动电栖"; GroupDescription: "启动选项："; Flags: unchecked
 
 [Files]
 Source: "..\dist\PowerHub\*"; DestDir: "{app}"; Excludes: "*.pdb,artifacts,artifacts\*,settings.json,settings.*.json,battery-*.jsonl"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{userprograms}\PowerHub"; Filename: "{app}\PowerHub.exe"; WorkingDir: "{app}"; Check: not WizardNoIcons
-Name: "{userdesktop}\PowerHub"; Filename: "{app}\PowerHub.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userprograms}\电栖"; Filename: "{app}\PowerHub.exe"; WorkingDir: "{app}"; Check: not WizardNoIcons
+Name: "{userdesktop}\电栖"; Filename: "{app}\PowerHub.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+
+[InstallDelete]
+Type: files; Name: "{userprograms}\PowerHub.lnk"
+Type: files; Name: "{userdesktop}\PowerHub.lnk"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "PowerHub"; ValueData: """{app}\PowerHub.exe"" --startup"; Tasks: startup; Flags: uninsdeletevalue

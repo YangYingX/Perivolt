@@ -1,3 +1,4 @@
+using PowerHub.Services;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -25,6 +26,7 @@ public partial class DesktopWidgetWindow : Window
     private bool _closingForExit;
     private bool _positionInitialized;
     private bool _dragging;
+    private WidgetUnlockWindow? _unlockWindow;
 
     public DesktopWidgetWindow(AppSettings settings, Action settingsChanged, Action openDashboard)
     {
@@ -34,15 +36,16 @@ public partial class DesktopWidgetWindow : Window
         InitializeComponent();
         _positionSaveTimer.Tick += (_, _) => SavePosition();
         Loaded += (_, _) => ApplySettings();
-        SourceInitialized += (_, _) => HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(OnWindowMessage);
-        IsVisibleChanged += (_, _) => { if (IsVisible) Dispatcher.BeginInvoke(new Action(EnsureVisiblePosition)); };
+        SourceInitialized += (_, _) => { HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(OnWindowMessage); PowerHub.Native.OverlayNative.SetMousePassthrough(this, _settings.WidgetLocked); };
+        IsVisibleChanged += (_, _) => { if (IsVisible) Dispatcher.BeginInvoke(new Action(EnsureVisiblePosition)); SyncUnlockButton(); };
         LocationChanged += (_, _) =>
         {
+            SyncUnlockButton();
             if (_applyingSettings || _dragging || !IsLoaded || !IsVisible || _closingForExit) return;
             _positionSaveTimer.Stop();
             _positionSaveTimer.Start();
         };
-        SizeChanged += (_, _) => { if (IsLoaded && !_applyingSettings) EnsureVisiblePosition(); };
+        SizeChanged += (_, _) => { if (IsLoaded && !_applyingSettings) EnsureVisiblePosition(); SyncUnlockButton(); };
         Closing += OnClosing;
         ApplySettings();
     }
@@ -57,13 +60,13 @@ public partial class DesktopWidgetWindow : Window
             var name = appearance.Name;
             var percent = device.BatteryPercent is int value ? Math.Clamp(value, 0, 100) : (int?)null;
             var needsCharge = device.IsCharging != true && (percent is int remaining ? remaining <= _settings.GetThreshold(device.Id) : device.IsBatteryLow == true);
-            var status = device.IsCharging == true ? "正在充电" : _settings.WidgetCompact
-                ? needsCharge ? "电量偏低" : "" : $"已连接 · {device.Connection}";
-            var label = percent is int battery ? $"{battery}%" : _settings.WidgetCompact ? device.BatteryLevel ?? "—" : "—";
-            var advice = _settings.WidgetCompact ? "" : needsCharge ? "该充电了" : !percent.HasValue && device.BatteryLevel is not null
-                ? $"电量：{device.BatteryLevel}" : !device.HasBattery ? "暂未获取电量" : "";
+            var status = device.IsCharging == true ? L.T("正在充电") : _settings.WidgetCompact
+                ? needsCharge ? L.T("电量偏低") : "" : L.F("已连接 · {0}", L.T(device.Connection));
+            var label = percent is int battery ? $"{battery}%" : _settings.WidgetCompact && device.BatteryLevel is not null ? device.BatteryText : "—";
+            var advice = _settings.WidgetCompact ? "" : needsCharge ? L.T("该充电了") : !percent.HasValue && device.BatteryLevel is not null
+                ? L.F("电量：{0}", device.BatteryText) : !device.HasBattery ? L.T("暂未获取电量") : "";
             return new WidgetDevice(name, status, advice, percent, label,
-                percent.HasValue ? $"{name}，{label}，{status}" : $"{name}，电量未知，{status}",
+                percent.HasValue ? $"{name}，{label}，{status}" : L.F("{0}，电量未知，{1}", name, status),
                 needsCharge, needsCharge && percent is <= 10, appearance.DisplayStyle,
                 appearance.AnimationsEnabled, appearance.ShowBatteryPercentage, appearance.FillOpacity, appearance.AnimationIntensity, appearance.ColorOpacity,
                 _settings.WidgetCompact, _settings.WidgetTransparent,
@@ -72,8 +75,8 @@ public partial class DesktopWidgetWindow : Window
         DeviceItems.ItemsSource = items;
         EmptyState.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         var lowCount = items.Count(item => item.NeedsCharge);
-        SummaryText.Text = items.Count == 0 ? "连接固定的外设后显示电量" : lowCount > 0
-            ? $"{items.Count} 个设备 · {lowCount} 个需要充电" : $"{items.Count} 个常用设备";
+        SummaryText.Text = items.Count == 0 ? L.T("连接固定的外设后显示电量") : lowCount > 0
+            ? L.F("{0} 个设备 · {1} 个需要充电", items.Count, lowCount) : L.F("{0} 个常用设备", items.Count);
     }
 
     public void ApplySettings()
@@ -103,15 +106,16 @@ public partial class DesktopWidgetWindow : Window
             EmptyState.SetResourceReference(System.Windows.Controls.Border.BorderBrushProperty, "Stroke");
             EmptyState.BorderThickness = new Thickness(_settings.WidgetTransparent ? 1 : 0);
             Topmost = _settings.WidgetTopmost;
+            PowerHub.Native.OverlayNative.SetMousePassthrough(this, _settings.WidgetLocked);
             DragHeader.Cursor = _settings.WidgetLocked ? Cursors.Arrow : Cursors.SizeAll;
             OpenDashboardButton.IsEnabled = HideWidgetButton.IsEnabled = !_settings.WidgetLocked;
             LockStateIcon.Data = _settings.WidgetLocked ? LockedIcon : UnlockedIcon;
             ToggleLockButton.SetResourceReference(System.Windows.Controls.Control.ForegroundProperty, _settings.WidgetLocked ? "Accent" : "TextSecondary");
-            ToggleLockButton.ToolTip = _settings.WidgetLocked ? "解锁位置" : "锁定位置";
+            ToggleLockButton.ToolTip = _settings.WidgetLocked ? L.T("解锁位置") : L.T("锁定位置");
             System.Windows.Automation.AutomationProperties.SetName(ToggleLockButton, (string)ToggleLockButton.ToolTip);
             TopmostMenuItem.IsChecked = _settings.WidgetTopmost;
             LockedMenuItem.IsChecked = _settings.WidgetLocked;
-            FooterText.Text = $"PowerHub · {(_settings.NotificationsEnabled ? "充电提醒已开启" : "充电提醒已关闭")}";
+            FooterText.Text = L.F("PowerHub · {0}", (_settings.NotificationsEnabled ? L.T("充电提醒已开启") : L.T("充电提醒已关闭")));
             if (IsLoaded && !_positionInitialized)
             {
                 _positionInitialized = true;
@@ -128,7 +132,22 @@ public partial class DesktopWidgetWindow : Window
         finally
         {
             _applyingSettings = false;
+            Dispatcher.BeginInvoke(new Action(SyncUnlockButton), DispatcherPriority.Loaded);
         }
+    }
+
+    private void SyncUnlockButton()
+    {
+        if (_closingForExit || !IsLoaded || !IsVisible || !_settings.WidgetLocked || ToggleLockButton.ActualWidth <= 0)
+        { _unlockWindow?.Hide(); return; }
+        _unlockWindow ??= new WidgetUnlockWindow(this, () => { _settings.WidgetLocked = false; _settingsChanged(); });
+        _unlockWindow.RefreshText();
+        _unlockWindow.Topmost = _settings.WidgetTopmost;
+        if (!_unlockWindow.IsVisible) _unlockWindow.Show();
+        var point = ToggleLockButton.PointToScreen(new Point());
+        var dpi = VisualTreeHelper.GetDpi(this);
+        PowerHub.Native.OverlayNative.MovePixels(_unlockWindow, (int)Math.Round(point.X), (int)Math.Round(point.Y),
+            (int)Math.Round(ToggleLockButton.ActualWidth * dpi.DpiScaleX), (int)Math.Round(ToggleLockButton.ActualHeight * dpi.DpiScaleY));
     }
 
     private System.Windows.Media.Brush TranslucentBrush(string resource, double opacity)
@@ -143,6 +162,7 @@ public partial class DesktopWidgetWindow : Window
     public void CloseForExit()
     {
         _closingForExit = true;
+        _unlockWindow?.Close();
         _positionSaveTimer.Stop();
         Close();
     }
@@ -301,6 +321,9 @@ public partial class DesktopWidgetWindow : Window
         System.Windows.Media.Geometry IconGeometry)
     {
         public Visibility BatteryPercentageVisibility => Percent.HasValue && !ShowBatteryPercentage ? Visibility.Collapsed : Visibility.Visible;
+        public bool IsFillStyle => DisplayStyle == "Fill";
+        public Visibility CardFillVisibility => IsFillStyle ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility BatteryGraphicVisibility => IsFillStyle ? Visibility.Collapsed : Visibility.Visible;
         public double BatteryVisualSize => Compact ? 28 : 48;
     }
 }

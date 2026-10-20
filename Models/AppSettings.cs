@@ -5,6 +5,10 @@ namespace PowerHub.Models;
 
 public sealed class AppSettings : IJsonOnDeserializing
 {
+    public string Language { get; set; } = "zh-Hans";
+    public bool TaskbarEnabled { get; set; }
+    public string? TaskbarDeviceId { get; set; }
+    public int TaskbarLeftOffset { get; set; } = 64;
     public string Theme { get; set; } = "System";
     public string DisplayStyle { get; set; } = "Ring";
     public bool AnimationsEnabled { get; set; } = true;
@@ -13,6 +17,7 @@ public sealed class AppSettings : IJsonOnDeserializing
     public double BarOpacity { get; set; } = .85;
     public double HourglassOpacity { get; set; } = .85;
     public double OceanOpacity { get; set; } = .85;
+    public double CardFillOpacity { get; set; } = .85;
     public double AnimationIntensity { get; set; } = 1.6;
     public List<string> DeviceOrder { get; set; } = [];
     public BatteryColorConfiguration BatteryColors { get; set; } = new();
@@ -43,12 +48,17 @@ public sealed class AppSettings : IJsonOnDeserializing
     public double? WidgetTop { get; set; }
     public bool HistoryEnabled { get; set; }
     public Dictionary<string, DevicePreference> Devices { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> DeviceLinks { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     // Older settings have no BatteryColors property and still need their saved six-color palette migrated.
     void IJsonOnDeserializing.OnDeserializing() => BatteryColors = null!;
 
     public void Normalize()
     {
+        Language = PowerHub.Services.L.Normalize(Language);
+        TaskbarLeftOffset = Math.Clamp(TaskbarLeftOffset, 0, 1600);
+        if (string.IsNullOrWhiteSpace(TaskbarDeviceId)) TaskbarDeviceId = null;
+        CardFillOpacity = ClampFinite(CardFillOpacity, .1, 1, .85);
         Theme = Theme?.Trim().ToLowerInvariant() switch
         {
             "dark" => "Dark", "light" => "Light", "ocean" => "Ocean", "lavender" => "Lavender",
@@ -59,7 +69,7 @@ public sealed class AppSettings : IJsonOnDeserializing
         };
         DisplayStyle = DisplayStyle?.Trim().ToLowerInvariant() switch
         {
-            "bar" => "Bar", "hourglass" => "Hourglass", "ocean" => "Ocean", _ => "Ring"
+            "bar" => "Bar", "hourglass" => "Hourglass", "ocean" => "Ocean", "fill" => "Fill", _ => "Ring"
         };
         BarOpacity = ClampFinite(BarOpacity, .1, 1, .85);
         BatteryColorOpacity = ClampFinite(BatteryColorOpacity, 0, 1, 1);
@@ -103,18 +113,66 @@ public sealed class AppSettings : IJsonOnDeserializing
                     preference.RepeatReminderMinutes = Math.Clamp(repeat, 5, 1440);
                 preference.DisplayStyle = preference.DisplayStyle?.Trim().ToLowerInvariant() switch
                 {
-                    "ring" => "Ring", "bar" => "Bar", "hourglass" => "Hourglass", "ocean" => "Ocean", _ => null
+                    "ring" => "Ring", "bar" => "Bar", "hourglass" => "Hourglass", "ocean" => "Ocean", "fill" => "Fill", _ => null
                 };
                 preference.BatteryColors?.Normalize();
                 preference.BatteryColorOpacity = NormalizeOptionalNumber(preference.BatteryColorOpacity, 0, 1);
                 preference.BarOpacity = NormalizeOptionalNumber(preference.BarOpacity, .1, 1);
                 preference.HourglassOpacity = NormalizeOptionalNumber(preference.HourglassOpacity, .1, 1);
                 preference.OceanOpacity = NormalizeOptionalNumber(preference.OceanOpacity, .1, 1);
+                preference.CardFillOpacity = NormalizeOptionalNumber(preference.CardFillOpacity, .1, 1);
                 preference.AnimationIntensity = NormalizeOptionalNumber(preference.AnimationIntensity, .5, 3);
                 devices[id] = preference;
             }
         }
         Devices = devices;
+        DeviceLinks = new((DeviceLinks ?? []).Where(pair => !string.IsNullOrWhiteSpace(pair.Key) &&
+            !string.IsNullOrWhiteSpace(pair.Value) && !pair.Key.Equals(pair.Value, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(pair => pair.Key, pair => pair.Value), StringComparer.OrdinalIgnoreCase);
+        foreach (var id in DeviceLinks.Keys.ToArray())
+        {
+            var resolved = ResolveDeviceId(id);
+            if (resolved.Equals(id, StringComparison.OrdinalIgnoreCase)) DeviceLinks.Remove(id);
+            else DeviceLinks[id] = resolved;
+        }
+        DeviceOrder = DeviceOrder.Select(ResolveDeviceId).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (TaskbarDeviceId is { } taskbarId) TaskbarDeviceId = ResolveDeviceId(taskbarId);
+    }
+
+    public string ResolveDeviceId(string id)
+    {
+        var current = id;
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (DeviceLinks.TryGetValue(current, out var next))
+        {
+            if (!visited.Add(current)) return id;
+            current = next;
+        }
+        return current;
+    }
+
+    public bool HasLinkedConnections(string id) => DeviceLinks.Keys.Any(key => ResolveDeviceId(key).Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    public void LinkDevices(string sourceId, string targetId)
+    {
+        sourceId = ResolveDeviceId(sourceId); targetId = ResolveDeviceId(targetId);
+        if (sourceId.Equals(targetId, StringComparison.OrdinalIgnoreCase)) return;
+        foreach (var key in DeviceLinks.Keys.Where(key => ResolveDeviceId(key).Equals(sourceId, StringComparison.OrdinalIgnoreCase)).ToArray())
+            DeviceLinks[key] = targetId;
+        DeviceLinks[sourceId] = targetId;
+        if (Devices.TryGetValue(sourceId, out var source) && source.Pinned)
+        {
+            if (!Devices.TryGetValue(targetId, out var target)) Devices[targetId] = target = new();
+            target.Pinned = true;
+        }
+        Normalize();
+    }
+
+    public void UnlinkDevice(string id)
+    {
+        id = ResolveDeviceId(id);
+        foreach (var key in DeviceLinks.Keys.Where(key => ResolveDeviceId(key).Equals(id, StringComparison.OrdinalIgnoreCase)).ToArray())
+            DeviceLinks.Remove(key);
     }
 
     public int GetThreshold(string id) => Math.Clamp(
@@ -146,6 +204,7 @@ public sealed class AppSettings : IJsonOnDeserializing
             "Bar" => ClampFinite(preference?.BarOpacity ?? BarOpacity, .1, 1, .85),
             "Hourglass" => ClampFinite(preference?.HourglassOpacity ?? HourglassOpacity, .1, 1, .85),
             "Ocean" => ClampFinite(preference?.OceanOpacity ?? OceanOpacity, .1, 1, .85),
+            "Fill" => ClampFinite(preference?.CardFillOpacity ?? CardFillOpacity, .1, 1, .85),
             _ => 1
         };
     }
@@ -232,6 +291,7 @@ public sealed class DevicePreference
     public double? BarOpacity { get; set; }
     public double? HourglassOpacity { get; set; }
     public double? OceanOpacity { get; set; }
+    public double? CardFillOpacity { get; set; }
     public double? AnimationIntensity { get; set; }
     public BatteryColorConfiguration? BatteryColors { get; set; }
 }

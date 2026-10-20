@@ -27,11 +27,11 @@ public sealed record DeviceStatus
     public IReadOnlyList<string> HardwareIds { get; init; } = [];
 
     public bool HasBattery => BatteryPercent.HasValue || BatteryLevel is not null;
-    public string BatteryText => BatteryPercent is int value ? $"{value}%" : BatteryLevel ?? PowerSource ?? "--";
-    public string ChargingText => IsCharging switch { true => "正在充电", false => "未充电", _ => "充电状态未知" };
-    public string ConnectionText => !ConnectionKnown ? "连接未知" : IsConnected ? "已连接" : "未连接";
-    public string UpdatedText => UpdatedAt is { } time ? time.ToLocalTime().ToString("HH:mm:ss") : "尚未读取";
-    public string HardwareText => VendorId is int vendor && ProductId is int product ? $"VID {vendor:X4} · PID {product:X4}" : "无 USB 标识";
+    public string BatteryText => BatteryPercent is int value ? $"{value}%" : PowerHub.Services.L.T(BatteryLevel ?? PowerSource ?? "--");
+    public string ChargingText => PowerHub.Services.L.T(IsCharging switch { true => "正在充电", false => "未充电", _ => "充电状态未知" });
+    public string ConnectionText => PowerHub.Services.L.T(!ConnectionKnown ? "连接未知" : IsConnected ? "已连接" : "未连接");
+    public string UpdatedText => UpdatedAt is { } time ? time.ToLocalTime().ToString("HH:mm:ss") : PowerHub.Services.L.T("尚未读取");
+    public string HardwareText => VendorId is int vendor && ProductId is int product ? $"VID {vendor:X4} · PID {product:X4}" : PowerHub.Services.L.T("无 USB 标识");
     public string Icon => Category switch { "键盘" => "⌨", "鼠标" => "◉", "耳机" or "麦克风" or "音频设备" => "♫", "手柄" => "✚", _ => "◇" };
 }
 

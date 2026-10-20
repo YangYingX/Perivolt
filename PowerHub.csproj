@@ -13,9 +13,12 @@
     <ApplicationIcon>Assets/powerhub.ico</ApplicationIcon>
     <Version>1.0.1</Version>
     <Description>Windows 外设电量中心</Description>
+    <Product>电栖 · Perivolt</Product>
+    <Title>电栖 · Perivolt</Title>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets/powerhub.ico;Assets/powerhub-32.png" />
+    <EmbeddedResource Include="Locales/*.json" />
     <Compile Remove="Extensions/**/*.cs" />
     <Compile Remove="Services/*BatteryReader.cs" />
     <EmbeddedResource Remove="Extensions/**/*" />

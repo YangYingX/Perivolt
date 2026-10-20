@@ -2,7 +2,7 @@
   "ApiVersion": 1,
   "Id": "aurora-theme",
   "Name": "极光主题",
-  "Description": "冷调夜空与薄荷绿的轻量外观主题，启用后覆盖应用配色。",
+  "Description": "冷调夜空与薄荷绿的轻量外观主题，启用后可在主题列表中选择。",
   "Version": "1.0.0",
   "Assembly": "PowerHub.Essentials.dll",
   "EntryType": "PowerHub.Extensions.AuroraThemePlugin",

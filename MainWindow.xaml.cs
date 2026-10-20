@@ -48,11 +48,12 @@ public partial class MainWindow : Window
         _controller = controller;
         _updating = true;
         InitializeComponent();
+        LanguageCombo.ItemsSource = L.Languages;
         BatteryColorPanel.Initialize(controller);
         BatteryColorPanel.PreviewChanged += (_, _) => UpdateStylePreviews();
         UpdatePanel.Initialize(controller);
         PluginPanel.Initialize(controller);
-        PollCombo.ItemsSource = new[] { 30, 60, 120, 300, 600 }.Select(value => new Choice(value, value < 60 ? $"每 {value} 秒" : $"每 {value / 60} 分钟"));
+        PollCombo.ItemsSource = new[] { 30, 60, 120, 300, 600 }.Select(value => new Choice(value, value < 60 ? L.F("每 {0} 秒", value) : L.F("每 {0} 分钟", value / 60)));
         _thresholdSaveTimer.Tick += (_, _) => { if (!ThresholdSlider.IsMouseCaptureWithin) CommitThreshold(); };
         _visualSaveTimer.Tick += (_, _) => { if (!OpacitySlider.IsMouseCaptureWithin && !IntensitySlider.IsMouseCaptureWithin) CommitVisualOptions(); };
         ThresholdSlider.LostMouseCapture += (_, _) => { if (!_updating && !ThresholdSlider.IsMouseCaptureWithin) CommitThreshold(); };
@@ -199,7 +200,7 @@ public partial class MainWindow : Window
             CoverageText.Text = devices.Count == 0 ? "—" : $"{CoverageRing.Percent}%";
             UpdateText.Text = _controller.StatusText;
             RefreshButton.IsEnabled = !_controller.IsScanning;
-            RefreshButton.Content = _controller.IsScanning ? "正在更新…" : "↻  刷新电量";
+            RefreshButton.Content = _controller.IsScanning ? L.T("正在更新…") : L.T("↻  刷新电量");
             var cardsChanged = _cardsRevision != _controller.ViewRevision;
             if (cardsChanged)
             {
@@ -216,9 +217,9 @@ public partial class MainWindow : Window
             _lastSearch = search;
             _lastBatteryOnly = batteryOnly;
             NoDevices.Visibility = visible.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            NoDevicesTitle.Text = devices.Count == 0 ? "当前没有已连接的外设" : "没有符合条件的设备";
+            NoDevicesTitle.Text = devices.Count == 0 ? L.T("当前没有已连接的外设") : L.T("没有符合条件的设备");
             SearchHint.Visibility = search.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-            var choices = new List<DeviceChoice> { new(null, "默认配置") };
+            var choices = new List<DeviceChoice> { new(null, L.T("默认配置")) };
             choices.AddRange(_cards.Select(card => new DeviceChoice(card.Id, card.Name)));
             if (!_choices.SequenceEqual(choices))
             {
@@ -229,6 +230,7 @@ public partial class MainWindow : Window
             if (scopeChanged) BatteryColorPanel.SetDevice(null);
             RefreshPreferences(scopeChanged);
             PluginPanel.Refresh();
+            UpdatePanel.Refresh();
         }
         finally { _updating = false; _refreshing = false; }
     }
@@ -238,16 +240,27 @@ public partial class MainWindow : Window
     private void RefreshPreferences(bool force = false)
     {
         var settings = _controller.Settings;
+        LanguageCombo.SelectedValue = settings.Language;
+        TaskbarBox.IsChecked = settings.TaskbarEnabled;
+        var taskbarChoices = new[] { new DeviceChoice(null, L.T("自动显示最低电量设备")) }.Concat(_cards.Select(card => new DeviceChoice(card.Id, card.Name))).ToList();
+        if (settings.TaskbarDeviceId is { } savedId && !taskbarChoices.Any(choice => choice.Id == savedId))
+        {
+            settings.Devices.TryGetValue(savedId, out var savedDevice);
+            taskbarChoices.Add(new(savedId, $"{savedDevice?.CustomName ?? savedDevice?.DisplayName ?? L.T("已保存设备")} · {L.T("未连接")}"));
+        }
+        TaskbarDeviceCombo.ItemsSource = taskbarChoices;
+        TaskbarDeviceCombo.SelectedItem = taskbarChoices.First(choice => choice.Id == settings.TaskbarDeviceId);
+        if (!TaskbarOffsetBox.IsKeyboardFocusWithin) TaskbarOffsetBox.Text = settings.TaskbarLeftOffset.ToString();
         var preference = Preference;
         var device = _cards.FirstOrDefault(card => card.Id == _selectedDeviceId);
         var showDeviceScope = _settingsTab is "reminders" or "appearance";
         SettingsScopeRow.Visibility = SettingsLivePreview.Visibility = showDeviceScope ? Visibility.Visible : Visibility.Collapsed;
         SettingsTitle.Margin = new Thickness(0, 0, showDeviceScope ? 152 : 0, 20);
         ScopeHint.Text = _selectedDeviceId is null
-            ? "默认值适用于未单独配置的设备。" : "仅设置所选设备，断开连接后仍会记住。";
-        ReminderScopeText.Text = _selectedDeviceId is null ? "设置所有设备的提醒总开关与默认值。" : "为这台设备设置独立提醒；重置后继续跟随默认配置。";
+            ? L.T("默认值适用于未单独配置的设备。") : L.T("仅设置所选设备，断开连接后仍会记住。");
+        ReminderScopeText.Text = _selectedDeviceId is null ? L.T("设置所有设备的提醒总开关与默认值。") : L.T("为这台设备设置独立提醒；重置后继续跟随默认配置。");
         NotificationsBox.IsChecked = _selectedDeviceId is null ? settings.NotificationsEnabled : preference?.NotificationsEnabled ?? true;
-        GlobalReminderHint.Text = "默认配置中的提醒总开关已关闭；此设备的提醒设置会保留。";
+        GlobalReminderHint.Text = L.T("默认配置中的提醒总开关已关闭；此设备的提醒设置会保留。");
         GlobalReminderHint.Visibility = _selectedDeviceId is not null && !settings.NotificationsEnabled ? Visibility.Visible : Visibility.Collapsed;
         if (force || !_thresholdDirty && !ThresholdBox.IsKeyboardFocusWithin)
         {
@@ -258,17 +271,33 @@ public partial class MainWindow : Window
         var repeat = settings.GetRepeatReminderMinutes(_selectedDeviceId);
         var repeatChoices = new[] { 15, 30, 60, 120, 240, repeat }.Distinct().Order().ToArray();
         if (RepeatCombo.ItemsSource is not List<Choice> currentRepeats || !currentRepeats.Select(choice => choice.Value).SequenceEqual(repeatChoices))
-            RepeatCombo.ItemsSource = repeatChoices.Select(value => new Choice(value, $"每 {value} 分钟")).ToList();
+            RepeatCombo.ItemsSource = repeatChoices.Select(value => new Choice(value, L.F("每 {0} 分钟", value))).ToList();
         RepeatCombo.SelectedValue = repeat;
         ResetRemindersButton.Visibility = _selectedDeviceId is null ? Visibility.Collapsed : Visibility.Visible;
         DeviceIdentityCard.Visibility = device is null ? Visibility.Collapsed : Visibility.Visible;
         if (force || !DeviceNameBox.IsKeyboardFocusWithin) DeviceNameBox.Text = device?.Name ?? "";
         NameColorSwatch.Background = device?.NameBrush;
+        DeviceLinkCard.Visibility = device is null ? Visibility.Collapsed : Visibility.Visible;
+        if (!LinkDeviceCombo.IsDropDownOpen)
+        {
+            var selectedLink = LinkDeviceCombo.SelectedValue as string;
+            var targets = settings.Devices.Where(pair => pair.Key == settings.ResolveDeviceId(pair.Key) &&
+                pair.Key != _selectedDeviceId && !string.IsNullOrWhiteSpace(pair.Value.DisplayName))
+                .Select(pair => new DeviceChoice(pair.Key, $"{pair.Value.CustomName ?? pair.Value.DisplayName} · …{pair.Key[^Math.Min(8, pair.Key.Length)..]}"))
+                .OrderBy(choice => choice.Label).ToList();
+            targets.Insert(0, new(null, L.T("选择同一设备的另一种连接")));
+            LinkDeviceCombo.ItemsSource = targets;
+            LinkDeviceCombo.SelectedItem = targets.FirstOrDefault(choice => choice.Id == selectedLink) ?? targets[0];
+            LinkDeviceButton.IsEnabled = LinkDeviceCombo.SelectedValue is string;
+        }
+        UnlinkDeviceButton.Visibility = _selectedDeviceId is not null && settings.HasLinkedConnections(_selectedDeviceId) ? Visibility.Visible : Visibility.Collapsed;
+        LinkDeviceHint.Text = L.T("先分别连接过两种模式，再在这里关联；不会仅凭同名自动合并，可随时取消。");
         var style = settings.GetDisplayStyle(_selectedDeviceId);
         RingStyle.IsChecked = style == "Ring";
         BarStyle.IsChecked = style == "Bar";
         HourglassStyle.IsChecked = style == "Hourglass";
         OceanStyle.IsChecked = style == "Ocean";
+        FillStyle.IsChecked = style == "Fill";
         AnimationsBox.IsChecked = settings.GetAnimationsEnabled(_selectedDeviceId);
         PercentageBox.IsChecked = settings.GetShowBatteryPercentage(_selectedDeviceId);
         StyleExpander.AnimationsEnabled = ColorsExpander.AnimationsEnabled = settings.AnimationsEnabled;
@@ -281,7 +310,7 @@ public partial class MainWindow : Window
             IntensityBox.Text = ((int)IntensitySlider.Value).ToString();
         }
         OpacityControls.Visibility = style == "Ring" ? Visibility.Collapsed : Visibility.Visible;
-        OpacityTitle.Text = $"{StyleLabel(style)}填充透明度 · 每种样式分别保存";
+        OpacityTitle.Text = L.F("{0}填充透明度 · 每种样式分别保存", StyleLabel(style));
         UpdateStylePreviews();
         BatteryColorPanel.Refresh();
         ResetAppearanceButton.Visibility = _selectedDeviceId is null ? Visibility.Collapsed : Visibility.Visible;
@@ -295,7 +324,7 @@ public partial class MainWindow : Window
         foreach (var (radio, theme) in new[] { (SystemTheme,"System"),(LightTheme,"Light"),(DarkTheme,"Dark"),(OceanTheme,"Ocean"),(LavenderTheme,"Lavender"),(SunsetTheme,"Sunset"),(ForestTheme,"Forest") }) radio.IsChecked = settings.Theme == theme;
         StartInTrayBox.IsChecked = settings.StartInTray;
         StartWithWindowsBox.IsChecked = settings.StartWithWindows;
-        var pluginThemes = _controller.Plugins.AvailableThemes.Select(entry => new PluginThemeChoice("plugin:" + entry.Id, entry.Name, settings.Theme == "plugin:" + entry.Id)).ToList();
+        var pluginThemes = _controller.Plugins.AvailableThemes.Select(entry => new PluginThemeChoice("plugin:" + entry.Id, L.T(entry.Name), settings.Theme == "plugin:" + entry.Id)).ToList();
         PluginThemeItems.ItemsSource = pluginThemes;
         PluginThemeCard.Visibility = pluginThemes.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         var liveWidget = _controller.Widget is { IsVisible: true } widget ? widget.Content as Visual : null;
@@ -304,7 +333,7 @@ public partial class MainWindow : Window
         WidgetPreviewEmptyText.Visibility = liveWidget is null ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private static string StyleLabel(string style) => style switch { "Ring" => "圆环", "Bar" => "条形", "Hourglass" => "沙漏", _ => "海洋球" };
+    private static string StyleLabel(string style) => style switch { "Ring" => L.T("圆环"), "Bar" => L.T("条形"), "Hourglass" => L.T("沙漏"), "Fill" => L.T("底色填充"), _ => L.T("海洋球") };
 
     private void UpdateStylePreviews()
     {
@@ -313,10 +342,10 @@ public partial class MainWindow : Window
         var percent = _selectedDeviceId is null ? 65 : device?.Status.BatteryPercent;
         var label = _selectedDeviceId is null ? "65%" : device?.Status.BatteryText ?? "—";
         var brush = BatteryColorPanel.PreviewBrush;
-        AppearancePreviewName.Text = device?.Name ?? "默认外观";
+        AppearancePreviewName.Text = device?.Name ?? L.T("默认外观");
         AppearancePreviewName.Foreground = device?.NameBrush ?? TryFindResource("TextPrimary") as System.Windows.Media.Brush;
-        AppearancePreviewHint.Text = _selectedDeviceId is null ? "示例电量 65% · 默认配置将应用于未单独设置的设备" : $"当前设备电量 {label} · 下方样式使用实时读数预览";
-        foreach (var (preview, style) in new[] { (RingPreview,"Ring"),(BarPreview,"Bar"),(HourglassPreview,"Hourglass"),(OceanPreview,"Ocean") })
+        AppearancePreviewHint.Text = _selectedDeviceId is null ? L.T("示例电量 65% · 默认配置将应用于未单独设置的设备") : L.F("当前设备电量 {0} · 下方样式使用实时读数预览", label);
+        foreach (var (preview, style) in new[] { (RingPreview,"Ring"),(BarPreview,"Bar"),(HourglassPreview,"Hourglass"),(OceanPreview,"Ocean"),(FillPreview,"Fill") })
         {
             preview.Foreground = brush;
             preview.Percent = percent;
@@ -326,6 +355,8 @@ public partial class MainWindow : Window
             preview.ColorOpacity = BatteryColorPanel.PreviewColorOpacity;
             preview.AnimationIntensity = _visualOptionsDirty ? IntensitySlider.Value / 100 : settings.GetAnimationIntensity(_selectedDeviceId);
         }
+        FillPreviewNumber.Text = label;
+        FillPreviewNumber.Visibility = percent is null || settings.GetShowBatteryPercentage(_selectedDeviceId) ? Visibility.Visible : Visibility.Collapsed;
         foreach (var number in new[] { RingPreviewNumber, BarPreviewNumber, HourglassPreviewNumber, OceanPreviewNumber })
         {
             number.Text = label;
@@ -340,8 +371,8 @@ public partial class MainWindow : Window
         var device = _cards.FirstOrDefault(card => card.Id == _selectedDeviceId);
         var style = settings.GetDisplayStyle(_selectedDeviceId);
         var percent = _selectedDeviceId is null ? 65 : device?.Status.BatteryPercent;
-        var label = _selectedDeviceId is null ? "65%" : device?.Status.HasBattery == true ? device.Status.BatteryText : "未知";
-        SettingsPreviewName.Text = device?.Name ?? "默认外观";
+        var label = _selectedDeviceId is null ? "65%" : device?.Status.HasBattery == true ? device.Status.BatteryText : L.T("未知");
+        SettingsPreviewName.Text = device?.Name ?? L.T("默认外观");
         SettingsPreviewName.Foreground = device?.NameBrush ?? TryFindResource("TextPrimary") as System.Windows.Media.Brush;
         SettingsPreviewVisual.Percent = percent;
         SettingsPreviewVisual.DisplayStyle = style;
@@ -352,8 +383,9 @@ public partial class MainWindow : Window
         SettingsPreviewVisual.ColorOpacity = BatteryColorPanel.PreviewColorOpacity;
         SettingsPreviewVisual.AnimationIntensity = _visualOptionsDirty ? IntensitySlider.Value / 100 : settings.GetAnimationIntensity(_selectedDeviceId);
         SettingsPreviewNumber.Text = label;
+        SettingsPreviewNumber.IsOutlined = style == "Fill";
         SettingsPreviewNumber.Visibility = percent is null || settings.GetShowBatteryPercentage(_selectedDeviceId) ? Visibility.Visible : Visibility.Collapsed;
-        SettingsPreviewHint.Text = _selectedDeviceId is null ? "示例电量" : device?.IsCharging == true ? "正在充电" : "实时外观";
+        SettingsPreviewHint.Text = _selectedDeviceId is null ? L.T("示例电量") : device?.IsCharging == true ? L.T("正在充电") : L.T("实时外观");
         SettingsPreviewGraphic.ToolTip = $"{SettingsPreviewName.Text} · {label}";
     }
 
@@ -362,7 +394,7 @@ public partial class MainWindow : Window
         if (_updating) return;
         change(_controller.Settings);
         _controller.ApplySettings();
-        SettingsStatusText.Text = "设置已更新，会自动保存。";
+        SettingsStatusText.Text = L.T("设置已更新，会自动保存。");
     }
 
     private void CommitPending() { CommitThreshold(); CommitVisualOptions(); BatteryColorPanel.CommitPending(); }
@@ -425,7 +457,7 @@ public partial class MainWindow : Window
         var value = (int)Math.Round(ThresholdSlider.Value);
         ThresholdRing.Percent = value;
         ThresholdPreview.Text = $"{value}%";
-        ThresholdText.Text = $"电量 ≤ {value}% 时提醒；充电中与离线时暂停。";
+        ThresholdText.Text = L.F("电量 ≤ {0}% 时提醒；充电中与离线时暂停。", value);
     }
     private void OnThresholdChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
@@ -441,7 +473,7 @@ public partial class MainWindow : Window
         if (_updating || ThresholdSlider is null) return;
         _thresholdSaveTimer.Stop();
         if (!int.TryParse(ThresholdBox.Text, out var value) || value is < 1 or > 100)
-        { ThresholdErrorText.Text = "请输入 1–100 的整数。"; ThresholdErrorText.Visibility = Visibility.Visible; return; }
+        { ThresholdErrorText.Text = L.T("请输入 1–100 的整数。"); ThresholdErrorText.Visibility = Visibility.Visible; return; }
         _updating = true; ThresholdSlider.Value = value; _updating = false;
         ThresholdErrorText.Visibility = Visibility.Collapsed;
         UpdateThresholdPreview(); _thresholdDirty = true; _thresholdSaveTimer.Start();
@@ -490,7 +522,7 @@ public partial class MainWindow : Window
     {
         if (_selectedDeviceId is null) return;
         var initial = NameColorSwatch.Background is SolidColorBrush brush ? brush.Color.ToString() : null;
-        if (ColorPickerDialog.Pick(this, initial, "设备名称颜色") is { } color) Apply(_ => _controller.GetPreference(_selectedDeviceId).NameColor = color);
+        if (ColorPickerDialog.Pick(this, initial, L.T("设备名称颜色")) is { } color) Apply(_ => _controller.GetPreference(_selectedDeviceId).NameColor = color);
     }
     private void OnResetIdentity(object sender, RoutedEventArgs e)
     {
@@ -544,7 +576,7 @@ public partial class MainWindow : Window
     {
         var opacityValid = int.TryParse(OpacityBox.Text, out opacity) && opacity is >= 10 and <= 100;
         var intensityValid = int.TryParse(IntensityBox.Text, out intensity) && intensity is >= 50 and <= 300;
-        VisualOptionError.Text = "透明度须为 10–100，动效幅度须为 50–300。";
+        VisualOptionError.Text = L.T("透明度须为 10–100，动效幅度须为 50–300。");
         VisualOptionError.Visibility = opacityValid && intensityValid ? Visibility.Collapsed : Visibility.Visible;
         return opacityValid && intensityValid;
     }
@@ -566,6 +598,7 @@ public partial class MainWindow : Window
                 if (opacityChanged && _opacityStyle == "Bar") settings.BarOpacity = opacity / 100d;
                 else if (opacityChanged && _opacityStyle == "Hourglass") settings.HourglassOpacity = opacity / 100d;
                 else if (opacityChanged && _opacityStyle == "Ocean") settings.OceanOpacity = opacity / 100d;
+                else if (opacityChanged && _opacityStyle == "Fill") settings.CardFillOpacity = opacity / 100d;
             }
             else
             {
@@ -574,6 +607,7 @@ public partial class MainWindow : Window
                 if (opacityChanged && _opacityStyle == "Bar") preference.BarOpacity = opacity / 100d;
                 else if (opacityChanged && _opacityStyle == "Hourglass") preference.HourglassOpacity = opacity / 100d;
                 else if (opacityChanged && _opacityStyle == "Ocean") preference.OceanOpacity = opacity / 100d;
+                else if (opacityChanged && _opacityStyle == "Fill") preference.CardFillOpacity = opacity / 100d;
             }
         });
     }
@@ -581,7 +615,7 @@ public partial class MainWindow : Window
     {
         if (_selectedDeviceId is null) return;
         _visualOptionsDirty = _opacityDirty = _intensityDirty = false; _visualSaveTimer.Stop(); BatteryColorPanel.DiscardPending();
-        Apply(_ => { var preference = _controller.GetPreference(_selectedDeviceId); preference.DisplayStyle = null; preference.AnimationsEnabled = null; preference.ShowBatteryPercentage = null; preference.BatteryColors = null; preference.BatteryColorOpacity = null; preference.BarOpacity = null; preference.HourglassOpacity = null; preference.OceanOpacity = null; preference.AnimationIntensity = null; });
+        Apply(_ => { var preference = _controller.GetPreference(_selectedDeviceId); preference.DisplayStyle = null; preference.AnimationsEnabled = null; preference.ShowBatteryPercentage = null; preference.BatteryColors = null; preference.BatteryColorOpacity = null; preference.BarOpacity = null; preference.HourglassOpacity = null; preference.OceanOpacity = null; preference.CardFillOpacity = null; preference.AnimationIntensity = null; });
         BatteryColorPanel.SetDevice(_selectedDeviceId, true);
     }
 
@@ -591,8 +625,42 @@ public partial class MainWindow : Window
     private void OnLockedClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetLocked = LockedBox.IsChecked == true);
     private void OnWidgetCompactClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetCompact = WidgetCompactBox.IsChecked == true);
     private void OnWidgetTransparentClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetTransparent = WidgetTransparentBox.IsChecked == true);
-    private void OnRecoverWidget(object sender, RoutedEventArgs e) { Apply(settings => { settings.WidgetEnabled = true; settings.WidgetLocked = false; }); _controller.Widget?.ResetPosition(); SettingsStatusText.Text = "已找回卡片到主屏并解锁，外观与置顶设置已保留。"; }
+    private void OnRecoverWidget(object sender, RoutedEventArgs e) { Apply(settings => { settings.WidgetEnabled = true; settings.WidgetLocked = false; }); _controller.Widget?.ResetPosition(); SettingsStatusText.Text = L.T("已找回卡片到主屏并解锁，外观与置顶设置已保留。"); }
     private void OnPollChanged(object sender, SelectionChangedEventArgs e) { if (PollCombo.SelectedValue is int value) Apply(settings => settings.PollIntervalSeconds = value); }
+    private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updating || LanguageCombo.SelectedValue is not string language) return;
+        CommitPending();
+        _controller.Settings.Language = language;
+        _controller.ApplySettings();
+        PollCombo.ItemsSource = new[] { 30, 60, 120, 300, 600 }.Select(value => new Choice(value, value < 60 ? L.F("每 {0} 秒", value) : L.F("每 {0} 分钟", value / 60)));
+        RepeatCombo.ItemsSource = null;
+        BatteryColorPanel.SetDevice(_selectedDeviceId, true);
+        UpdateView();
+    }
+    private void OnLinkDevice(object sender, RoutedEventArgs e)
+    {
+        if (_selectedDeviceId is null || LinkDeviceCombo.SelectedValue is not string targetId) return;
+        CommitPending();
+        _controller.Settings.LinkDevices(_selectedDeviceId, targetId);
+        _selectedDeviceId = _controller.Settings.ResolveDeviceId(targetId);
+        BatteryColorPanel.SetDevice(_selectedDeviceId, true);
+        _controller.ApplySettings();
+    }
+    private void OnLinkTargetChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (LinkDeviceButton is not null) LinkDeviceButton.IsEnabled = LinkDeviceCombo.SelectedValue is string;
+    }
+    private void OnUnlinkDevice(object sender, RoutedEventArgs e)
+    {
+        if (_selectedDeviceId is null) return;
+        CommitPending();
+        _controller.Settings.UnlinkDevice(_selectedDeviceId);
+        _controller.ApplySettings();
+    }
+    private void OnTaskbarClick(object sender, RoutedEventArgs e) => Apply(settings => settings.TaskbarEnabled = TaskbarBox.IsChecked == true);
+    private void OnTaskbarDeviceChanged(object sender, SelectionChangedEventArgs e) { if (!_updating) Apply(settings => settings.TaskbarDeviceId = TaskbarDeviceCombo.SelectedValue as string); }
+    private void OnTaskbarOffsetLostFocus(object sender, RoutedEventArgs e) { if (!_updating && int.TryParse(TaskbarOffsetBox.Text, out var offset)) Apply(settings => settings.TaskbarLeftOffset = Math.Clamp(offset, 0, 1600)); }
     private void OnStartInTrayClick(object sender, RoutedEventArgs e) => Apply(settings => settings.StartInTray = StartInTrayBox.IsChecked == true);
     private void OnStartWithWindowsClick(object sender, RoutedEventArgs e) { var enabled = StartWithWindowsBox.IsChecked == true; Apply(settings => settings.StartWithWindows = enabled); if (_controller.Settings.StartWithWindows != enabled) SettingsStatusText.Text = _controller.StatusText; }
     private void OnThemeClick(object sender, RoutedEventArgs e) { if (sender is RadioButton { Tag: string theme }) Apply(settings => settings.Theme = theme); }
@@ -630,11 +698,11 @@ public partial class MainWindow : Window
     }
     private async void OnExport(object sender, RoutedEventArgs e)
     {
-        var dialog = new Microsoft.Win32.SaveFileDialog { Title = "导出兼容性诊断", Filter = "JSON 文件 (*.json)|*.json", FileName = $"PowerHub-diagnostics-{DateTime.Now:yyyyMMdd-HHmm}.json" };
+        var dialog = new Microsoft.Win32.SaveFileDialog { Title = L.T("导出兼容性诊断"), Filter = L.T("JSON 文件 (*.json)|*.json"), FileName = $"PowerHub-diagnostics-{DateTime.Now:yyyyMMdd-HHmm}.json" };
         if (dialog.ShowDialog(this) != true) return;
         ExportButton.IsEnabled = false;
-        try { await _controller.ExportAsync(dialog.FileName); SettingsStatusText.Text = "诊断文件已导出。"; }
-        catch (Exception error) { SettingsStatusText.Text = $"导出未完成：{error.Message}"; }
+        try { await _controller.ExportAsync(dialog.FileName); SettingsStatusText.Text = L.T("诊断文件已导出。"); }
+        catch (Exception error) { SettingsStatusText.Text = L.F("导出未完成：{0}", error.Message); }
         finally { ExportButton.IsEnabled = true; }
     }
     private sealed record Choice(int Value, string Label);

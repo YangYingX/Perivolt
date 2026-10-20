@@ -5,19 +5,18 @@ $null = New-Item -ItemType Directory -Path $OutputDirectory -Force
 $OutputDirectory = (Resolve-Path -LiteralPath $OutputDirectory).Path
 $sizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
 
-# Original PowerHub artwork; the SVG and raster drawings use the same 256-unit geometry.
+# Original Perivolt mark: an open P-shaped energy core with three peripheral nodes.
 $svg = @'
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <title>PowerHub</title>
+  <title>电栖 · Perivolt</title>
   <defs>
-    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#B7F5DE"/><stop offset="1" stop-color="#61D4AE"/></linearGradient>
-    <linearGradient id="battery" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#174D40"/><stop offset="1" stop-color="#0D332B"/></linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#173F49"/><stop offset="1" stop-color="#102530"/></linearGradient>
+    <linearGradient id="battery" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#C9FFE7"/><stop offset="1" stop-color="#4BD8BE"/></linearGradient>
   </defs>
   <rect x="8" y="8" width="240" height="240" rx="58" fill="url(#mint)"/>
-  <rect x="9" y="9" width="238" height="238" rx="57" fill="none" stroke="#FFFFFF" stroke-opacity=".42" stroke-width="2"/>
-  <rect x="108" y="47" width="40" height="24" rx="6" fill="#174D40"/>
-  <rect x="72" y="64" width="112" height="151" rx="23" fill="url(#battery)"/>
-  <path d="M149 89 111 143H132L119 184 160 126H136L150 89Z" fill="#C6FFE6"/>
+  <path d="M81 195V92C81 59 104 45 136 45C174 45 197 67 197 101C197 135 173 158 138 158H110V130H138C157 130 169 119 169 101C169 83 157 73 138 73C119 73 110 80 110 96V195Z" fill="url(#battery)"/>
+  <path d="M137 83 121 107H134L128 122 153 96H139L146 83Z" fill="#FFFFFF"/>
+  <circle cx="45" cy="148" r="10" fill="#65DBCF"/><circle cx="210" cy="70" r="9" fill="#8ABDEB"/><circle cx="193" cy="207" r="13" fill="#F3C383"/>
 </svg>
 '@
 [IO.File]::WriteAllText((Join-Path $OutputDirectory 'powerhub.svg'), $svg, [Text.UTF8Encoding]::new($false))
@@ -40,29 +39,32 @@ foreach ($size in $sizes) {
     $result = [Drawing.Bitmap]::new($size, $size, [Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $resampler = [Drawing.Graphics]::FromImage($result)
     $tile = New-RoundedPath 8 8 240 240 58
-    $edge = New-RoundedPath 9 9 238 238 57
-    $terminal = New-RoundedPath 108 47 40 24 6
-    $body = New-RoundedPath 72 64 112 151 23
-    $mint = [Drawing.Drawing2D.LinearGradientBrush]::new([Drawing.RectangleF]::new(8, 8, 240, 240), [Drawing.ColorTranslator]::FromHtml('#B7F5DE'), [Drawing.ColorTranslator]::FromHtml('#61D4AE'), [single]45)
-    $battery = [Drawing.Drawing2D.LinearGradientBrush]::new([Drawing.RectangleF]::new(72, 64, 112, 151), [Drawing.ColorTranslator]::FromHtml('#174D40'), [Drawing.ColorTranslator]::FromHtml('#0D332B'), [single]90)
-    $dark = [Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml('#174D40'))
-    $charge = [Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml('#C6FFE6'))
-    $outline = [Drawing.Pen]::new([Drawing.Color]::FromArgb(107, 255, 255, 255), 2)
+    $body = [Drawing.Drawing2D.GraphicsPath]::new()
+    $body.AddLine(81,195,81,92); $body.AddBezier(81,92,81,59,104,45,136,45)
+    $body.AddBezier(136,45,174,45,197,67,197,101); $body.AddBezier(197,101,197,135,173,158,138,158)
+    $body.AddLine(138,158,110,158); $body.AddLine(110,158,110,130); $body.AddLine(110,130,138,130)
+    $body.AddBezier(138,130,157,130,169,119,169,101); $body.AddBezier(169,101,169,83,157,73,138,73)
+    $body.AddBezier(138,73,119,73,110,80,110,96); $body.AddLine(110,96,110,195); $body.CloseFigure()
+    $mint = [Drawing.Drawing2D.LinearGradientBrush]::new([Drawing.RectangleF]::new(8,8,240,240), [Drawing.ColorTranslator]::FromHtml('#173F49'), [Drawing.ColorTranslator]::FromHtml('#102530'), [single]45)
+    $battery = [Drawing.Drawing2D.LinearGradientBrush]::new([Drawing.RectangleF]::new(81,45,116,150), [Drawing.ColorTranslator]::FromHtml('#C9FFE7'), [Drawing.ColorTranslator]::FromHtml('#4BD8BE'), [single]45)
+    $charge = [Drawing.SolidBrush]::new([Drawing.Color]::White)
+    $nodes = @('#65DBCF','#8ABDEB','#F3C383') | ForEach-Object { [Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml($_)) }
     try {
         $graphics.Clear([Drawing.Color]::Transparent)
         $graphics.SmoothingMode = [Drawing.Drawing2D.SmoothingMode]::AntiAlias
         $graphics.PixelOffsetMode = [Drawing.Drawing2D.PixelOffsetMode]::HighQuality
         $graphics.ScaleTransform([single]($rasterSize / 256.0), [single]($rasterSize / 256.0))
         $graphics.FillPath($mint, $tile)
-        $graphics.DrawPath($outline, $edge)
-        $graphics.FillPath($dark, $terminal)
         $graphics.FillPath($battery, $body)
         $points = [Drawing.PointF[]]@(
-            [Drawing.PointF]::new(149, 89), [Drawing.PointF]::new(111, 143),
-            [Drawing.PointF]::new(132, 143), [Drawing.PointF]::new(119, 184),
-            [Drawing.PointF]::new(160, 126), [Drawing.PointF]::new(136, 126),
-            [Drawing.PointF]::new(150, 89))
+            [Drawing.PointF]::new(137,83), [Drawing.PointF]::new(121,107),
+            [Drawing.PointF]::new(134,107), [Drawing.PointF]::new(128,122),
+            [Drawing.PointF]::new(153,96), [Drawing.PointF]::new(139,96),
+            [Drawing.PointF]::new(146,83))
         $graphics.FillPolygon($charge, $points)
+        $graphics.FillEllipse($nodes[0],35,138,20,20)
+        $graphics.FillEllipse($nodes[1],201,61,18,18)
+        $graphics.FillEllipse($nodes[2],180,194,26,26)
         $resampler.CompositingMode = [Drawing.Drawing2D.CompositingMode]::SourceCopy
         $resampler.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
         $resampler.PixelOffsetMode = [Drawing.Drawing2D.PixelOffsetMode]::HighQuality
@@ -70,8 +72,9 @@ foreach ($size in $sizes) {
         $result.Save((Join-Path $OutputDirectory "powerhub-$size.png"), [Drawing.Imaging.ImageFormat]::Png)
     }
     finally {
-        $outline.Dispose(); $charge.Dispose(); $dark.Dispose(); $battery.Dispose(); $mint.Dispose()
-        $body.Dispose(); $terminal.Dispose(); $edge.Dispose(); $tile.Dispose()
+        foreach ($node in $nodes) { $node.Dispose() }
+        $charge.Dispose(); $battery.Dispose(); $mint.Dispose()
+        $body.Dispose(); $tile.Dispose()
         $resampler.Dispose(); $result.Dispose(); $graphics.Dispose(); $canvas.Dispose()
     }
 }
@@ -94,4 +97,4 @@ try {
     foreach ($entry in $entries) { $writer.Write([byte[]]$entry.Data) }
 }
 finally { $writer.Dispose(); $stream.Dispose() }
-Write-Output "Generated PowerHub SVG, 9 PNG sizes and multi-resolution ICO in $OutputDirectory"
+Write-Output "Generated Perivolt SVG, 9 PNG sizes and multi-resolution ICO in $OutputDirectory"

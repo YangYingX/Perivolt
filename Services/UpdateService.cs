@@ -1,3 +1,4 @@
+using PowerHub.Services;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -16,7 +17,10 @@ public sealed class UpdateService : IDisposable
     public static string CurrentVersion => typeof(Program).Assembly.GetName().Version!.ToString(3);
     public bool IsEnabled { get; private set; }
     public bool IsChecking => request is not null;
-    public string Status { get; private set; } = "离线模式 · 更新检查已关闭";
+    private string statusKey = "离线模式 · 更新检查已关闭";
+    private object?[] statusArguments = [];
+    public string Status => L.F(statusKey, statusArguments);
+    private void SetStatus(string key, params object?[] arguments) { statusKey = key; statusArguments = arguments; }
     public Uri? ReleaseUri { get; private set; }
     public event Action? Changed;
     public event Action<string>? UpdateAvailable;
@@ -37,7 +41,7 @@ public sealed class UpdateService : IDisposable
             timer.Stop();
             request?.Cancel();
             ReleaseUri = null;
-            Status = "离线模式 · 更新检查已关闭";
+            SetStatus("离线模式 · 更新检查已关闭");
         }
         Changed?.Invoke();
     }
@@ -47,7 +51,7 @@ public sealed class UpdateService : IDisposable
         if (disposed || !IsEnabled || request is not null) return;
         using var cancellation = new CancellationTokenSource();
         request = cancellation;
-        Status = "正在检查 GitHub 上的新版本…";
+        SetStatus("正在检查 GitHub 上的新版本…");
         Changed?.Invoke();
         try
         {
@@ -60,7 +64,7 @@ public sealed class UpdateService : IDisposable
             if (!IsEnabled || disposed || cancellation.IsCancellationRequested) return;
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                Status = "暂时没有公开发行版";
+                SetStatus("暂时没有公开发行版");
                 return;
             }
             response.EnsureSuccessStatusCode();
@@ -68,7 +72,8 @@ public sealed class UpdateService : IDisposable
             var release = ParseRelease(payload, Version.Parse(CurrentVersion));
             if (!IsEnabled || disposed || cancellation.IsCancellationRequested) return;
             ReleaseUri = release?.Uri;
-            Status = release is null ? $"已是最新版本 · v{CurrentVersion}" : $"发现新版本 v{release.Value.Version}，可查看并下载安装";
+            if (release is null) SetStatus("已是最新版本 · v{0}", CurrentVersion);
+            else SetStatus("发现新版本 v{0}，可查看并下载安装", release.Value.Version);
             if (release is { } update && notifiedVersion != update.Version)
             {
                 notifiedVersion = update.Version;
@@ -78,7 +83,7 @@ public sealed class UpdateService : IDisposable
         catch (Exception error) when (error is HttpRequestException or OperationCanceledException or JsonException or InvalidDataException)
         {
             if (IsEnabled && !disposed)
-                Status = "暂时无法检查更新，设备监测继续运行。可稍后重试。";
+                SetStatus("暂时无法检查更新，设备监测继续运行。可稍后重试。");
         }
         finally
         {

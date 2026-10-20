@@ -175,6 +175,13 @@ public sealed class BatteryVisual : Control
             case "Ring": DrawRing(context, percent); break;
             case "Bar": DrawBar(context, percent); break;
             case "Hourglass": DrawHourglass(context, percent); break;
+            case "Fill":
+                context.DrawRoundedRectangle(TrackBrush, null, new Rect(2, 13, 66, 44), 8, 8);
+                context.PushClip(new RectangleGeometry(new Rect(2, 13, 66, 44), 8, 8));
+                context.PushOpacity(FillOpacity);
+                context.DrawRectangle(Foreground, null, new Rect(2, 13, 66 * percent, 44));
+                context.Pop(); context.Pop();
+                break;
             default: DrawOcean(context, percent); break;
         }
         context.Pop();

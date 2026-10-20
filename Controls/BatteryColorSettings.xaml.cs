@@ -82,7 +82,7 @@ public partial class BatteryColorSettings : UserControl
         NodeItems.ItemsSource = _rows;
         UpdateNodeLabels();
         AddNodeButton.IsEnabled = _rows.Count < 10;
-        NodeCountText.Text = $"{_rows.Count} / 10 · 至少保留 2 个";
+        NodeCountText.Text = L.F("{0} / 10 · 至少保留 2 个", _rows.Count);
     }
     private void UpdateNodeLabels()
     {
@@ -137,21 +137,21 @@ public partial class BatteryColorSettings : UserControl
         LowPreview.IsCharging = device?.IsCharging == true;
         LowPreviewNumber.Text = _deviceId is null ? "65%" : device?.BatteryText ?? "—";
         LowPreviewNumber.Visibility = percent is null || settings.GetShowBatteryPercentage(_deviceId) ? Visibility.Visible : Visibility.Collapsed;
-        ColorPreviewName.Text = device is null ? "默认外观" : settings.GetDeviceName(device);
+        ColorPreviewName.Text = device is null ? L.T("默认外观") : settings.GetDeviceName(device);
         ColorPreviewName.Foreground = device is null ? TryFindResource("TextPrimary") as Brush : new DeviceCard(device, settings).NameBrush;
-        ColorPreviewCaption.Text = _deviceId is null ? "示例电量 65% · 预览当前配色" : "真实设备电量 · 配色随编辑即时预览";
+        ColorPreviewCaption.Text = _deviceId is null ? L.T("示例电量 65% · 预览当前配色") : L.T("真实设备电量 · 配色随编辑即时预览");
         ColorBand.Background = BatteryPalette.GetScaleBrush(_draft);
         ModeHint.Text = (_draft.GradientByBatteryLevel, _draft.GradientWithinShape) switch
         {
-            (true,true) => "平滑区间显示渐变；关闭区间过渡后，用该区间上界颜色纯色显示。",
-            (true,false) => "随电量在节点间变色；关闭过渡后使用上界档位颜色。",
-            (false,true) => "平滑区间铺开完整色带；关闭过渡的区间显示该档纯色。",
-            _ => "按上界分档使用纯色：默认 ≤20% 低电色、21–60% 中电色、61–100% 高电色。"
+            (true,true) => L.T("平滑区间显示渐变；关闭区间过渡后，用该区间上界颜色纯色显示。"),
+            (true,false) => L.T("随电量在节点间变色；关闭过渡后使用上界档位颜色。"),
+            (false,true) => L.T("平滑区间铺开完整色带；关闭过渡的区间显示该档纯色。"),
+            _ => L.T("按上界分档使用纯色：默认 ≤20% 低电色、21–60% 中电色、61–100% 高电色。")
         };
-        ResetColorsButton.Content = _deviceId is null ? "重置配色" : "重置为默认配色";
-        InheritanceHint.Text = _deviceId is null ? "正在编辑默认配色；节点位置独立于充电提醒阈值。" :
+        ResetColorsButton.Content = _deviceId is null ? L.T("重置配色") : L.T("重置为默认配色");
+        InheritanceHint.Text = _deviceId is null ? L.T("正在编辑默认配色；节点位置独立于充电提醒阈值。") :
             _dirty || settings.Devices.TryGetValue(_deviceId, out var preference) && (preference.BatteryColors is not null || preference.BatteryColorOpacity is not null)
-                ? "此设备已使用独立配色，修改不会影响其他设备。" : "正在跟随默认配色；编辑任意节点后会保存为此设备的独立配色。";
+                ? L.T("此设备已使用独立配色，修改不会影响其他设备。") : L.T("正在跟随默认配色；编辑任意节点后会保存为此设备的独立配色。");
         PreviewChanged?.Invoke(this, EventArgs.Empty);
     }
     public void CommitPending()
@@ -162,7 +162,7 @@ public partial class BatteryColorSettings : UserControl
         { OpacityErrorText.Visibility = Visibility.Visible; return; }
         if (_rows.Any(row => !row.IsPositionValid))
         {
-            ErrorText.Text = "节点位置须为 0–100 的数字，本次无效输入尚未保存。";
+            ErrorText.Text = L.T("节点位置须为 0–100 的数字，本次无效输入尚未保存。");
             ErrorText.Visibility = Visibility.Visible;
             return;
         }
@@ -212,7 +212,7 @@ public partial class BatteryColorSettings : UserControl
     private void OnPickColor(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: NodeRow row }) return;
-        if (ColorPickerDialog.Pick(Window.GetWindow(this), row.Color, "颜色节点") is not { } color) return;
+        if (ColorPickerDialog.Pick(Window.GetWindow(this), row.Color, L.T("颜色节点")) is not { } color) return;
         row.Color = color;
         CommitPending();
     }
@@ -281,7 +281,7 @@ public partial class BatteryColorSettings : UserControl
         public bool CanRemove { get; private set; }
         public void UpdateLabel(int number, double? next, bool canRemove)
         {
-            Label = number.ToString(); TransitionLabel = next.HasValue ? $"{Position:0.##}–{next.Value:0.##}% 区间平滑过渡" : "";
+            Label = number.ToString(); TransitionLabel = next.HasValue ? L.F("{0:0.##}–{1:0.##}% 区间平滑过渡", Position, next.Value) : "";
             TransitionVisibility = next.HasValue ? Visibility.Visible : Visibility.Collapsed; CanRemove = canRemove;
             Notify(nameof(Label)); Notify(nameof(TransitionLabel)); Notify(nameof(TransitionVisibility)); Notify(nameof(CanRemove));
         }

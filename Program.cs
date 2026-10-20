@@ -95,7 +95,7 @@ public static class Program
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
         {
             if (capturing) Console.Error.WriteLine(error.Message);
-            else System.Windows.MessageBox.Show($"无法准备设置目录：{error.Message}", "PowerHub", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            else System.Windows.MessageBox.Show(L.F("无法准备设置目录：{0}", error.Message), L.AppName, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             return 1;
         }
         var application = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
@@ -110,7 +110,7 @@ public static class Program
         application.DispatcherUnhandledException += (_, eventArgs) =>
         {
             if (capturing) { Console.Error.WriteLine(eventArgs.Exception); application.Shutdown(1); }
-            else System.Windows.MessageBox.Show($"PowerHub 遇到异常：{eventArgs.Exception.Message}", "PowerHub", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            else System.Windows.MessageBox.Show(L.F("程序遇到异常：{0}", eventArgs.Exception.Message), L.AppName, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             eventArgs.Handled = true;
         };
         application.Startup += async (_, _) =>

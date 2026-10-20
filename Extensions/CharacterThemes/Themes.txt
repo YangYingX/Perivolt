@@ -51,7 +51,7 @@ weedy|温蒂|蒸汽薄荷|L|#8EBCAB|#D1B681|#31483F
 suzuran|铃兰|铃草蜜金|L|#A8C67C|#D2B779|#3D4831
 angelina|安洁莉娜|暮色焦糖|L|#CA9A73|#AD92C0|#483644
 magallan|麦哲伦|极地橙蓝|L|#DEAA65|#88B8D1|#2D4152
-nian|年|赤角流银|D|#D66B76|#C7D3D4|#40303C
+nian|年|炭火赤金|D|#F07955|#D5B87D|#1D1B1A
 dusk|夕|水墨青岚|D|#8CCBB4|#CEC1AD|#293C39
 ling|令|青蓝醉梦|D|#87B2D9|#BDA8CD|#2E3650
 chongyue|重岳|岩金止戈|L|#BC9B66|#A8BDB8|#3F4035

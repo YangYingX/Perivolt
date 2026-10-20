@@ -6,14 +6,66 @@ using Brushes = System.Windows.Media.Brushes;
 using ColorConverter = System.Windows.Media.ColorConverter;
 using Pen = System.Windows.Media.Pen;
 using Point = System.Windows.Point;
+using PowerHub.Services;
+using System.Windows.Media.Imaging;
+using System.IO;
 
 namespace PowerHub.Controls;
 
-// Original, static vector ornaments: no image cache, animation timer or network assets.
+// Visible rows load small local thumbnails; vector ornaments remain the no-image fallback.
 public sealed class ThemeArtwork : FrameworkElement
 {
     public static readonly DependencyProperty ThemeProperty = DependencyProperty.Register(nameof(Theme), typeof(PluginTheme), typeof(ThemeArtwork), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
     public PluginTheme? Theme { get => (PluginTheme?)GetValue(ThemeProperty); set => SetValue(ThemeProperty, value); }
+    public static readonly DependencyProperty ArtworkPathProperty = DependencyProperty.Register(nameof(ArtworkPath), typeof(string), typeof(ThemeArtwork), new PropertyMetadata(null, OnArtworkChanged));
+    public string? ArtworkPath { get => (string?)GetValue(ArtworkPathProperty); set => SetValue(ArtworkPathProperty, value); }
+    private BitmapSource? thumbnail;
+    private long request;
+    private static readonly object ThumbnailGate = new();
+    private static readonly Dictionary<string, BitmapSource> Thumbnails = new();
+    private static readonly Queue<string> ThumbnailOrder = new();
+
+    public ThemeArtwork()
+    {
+        Loaded += (_, _) => { if (thumbnail is null && ArtworkPath is { } path) _ = LoadThumbnail(path); };
+        Unloaded += (_, _) => { request++; thumbnail = null; };
+    }
+
+    private static void OnArtworkChanged(DependencyObject source, DependencyPropertyChangedEventArgs args)
+    {
+        var artwork = (ThemeArtwork)source;
+        artwork.request++; artwork.thumbnail = null; artwork.InvalidateVisual();
+        if (artwork.IsLoaded && args.NewValue is string path) _ = artwork.LoadThumbnail(path);
+    }
+
+    private async Task LoadThumbnail(string path)
+    {
+        var revision = ++request;
+        BitmapSource? image = null;
+        try
+        {
+            image = await Task.Run(() =>
+            {
+                var key = path + File.GetLastWriteTimeUtc(path).Ticks;
+                lock (ThumbnailGate)
+                {
+                    if (revision != request) return null;
+                    if (Thumbnails.TryGetValue(key, out var cached)) return cached;
+                    var decoded = ThemeBackdrop.Decode(path, 256);
+                    while (ThumbnailOrder.Count >= 16) Thumbnails.Remove(ThumbnailOrder.Dequeue());
+                    Thumbnails[key] = decoded; ThumbnailOrder.Enqueue(key);
+                    return decoded;
+                }
+            }).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException or FileFormatException or ArgumentException or InvalidOperationException) { }
+        if (Dispatcher.HasShutdownStarted) return;
+        await Dispatcher.InvokeAsync(() =>
+        {
+            if (revision != request) return;
+            thumbnail = image; InvalidateVisual();
+        });
+    }
 
     protected override void OnRender(DrawingContext drawing)
     {
@@ -21,6 +73,13 @@ public sealed class ThemeArtwork : FrameworkElement
         if (Theme is not { } theme || ActualWidth <= 0 || ActualHeight <= 0) return;
         drawing.PushClip(new RectangleGeometry(new Rect(RenderSize), 8, 8));
         drawing.DrawRectangle(Color(theme, "Surface"), null, new Rect(RenderSize));
+        if (thumbnail is { } artwork)
+        {
+            var scale = Math.Max(ActualWidth / artwork.PixelWidth, ActualHeight / artwork.PixelHeight);
+            var width = artwork.PixelWidth * scale; var height = artwork.PixelHeight * scale;
+            drawing.DrawImage(artwork, new Rect((ActualWidth - width) / 2, (ActualHeight - height) / 2, width, height));
+            drawing.Pop(); return;
+        }
         drawing.PushTransform(new ScaleTransform(ActualWidth / 160, ActualHeight / 90));
         DrawMotif(drawing, theme);
         drawing.Pop();

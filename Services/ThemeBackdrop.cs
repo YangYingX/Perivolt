@@ -22,10 +22,10 @@ public sealed class ThemeBackdrop : IDisposable
     public string Status { get; private set; } = "";
     public event Action? Changed;
 
-    public static string? ResolvePath(AppSettings settings, PluginTheme? theme)
+    public static string? ResolvePath(AppSettings settings, PluginTheme? theme, string? themeValue = null)
     {
         if (theme is null) return null;
-        settings.ThemeArtwork.TryGetValue(settings.Theme, out var option);
+        settings.ThemeArtwork.TryGetValue(themeValue ?? settings.Theme, out var option);
         if (option?.Path is { } custom) return LocalPath(custom);
         if (settings.ThemeArtworkDirectory is not { } directory) return null;
         var root = LocalPath(directory);
@@ -90,7 +90,7 @@ public sealed class ThemeBackdrop : IDisposable
         });
     }
 
-    private static BitmapSource Decode(string path)
+    internal static BitmapSource Decode(string path, int maximumEdge = 1600)
     {
         if (new FileInfo(path).Length > 25 * 1024 * 1024) throw new InvalidDataException("Image exceeds 25 MiB");
         using var stream = File.OpenRead(path);
@@ -101,8 +101,8 @@ public sealed class ThemeBackdrop : IDisposable
         stream.Position = 0;
         var image = new BitmapImage();
         image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad;
-        if (frame.PixelWidth >= frame.PixelHeight) image.DecodePixelWidth = Math.Min(1600, frame.PixelWidth);
-        else image.DecodePixelHeight = Math.Min(1600, frame.PixelHeight);
+        if (frame.PixelWidth >= frame.PixelHeight) image.DecodePixelWidth = Math.Min(maximumEdge, frame.PixelWidth);
+        else image.DecodePixelHeight = Math.Min(maximumEdge, frame.PixelHeight);
         image.StreamSource = stream; image.EndInit(); image.Freeze();
         return image;
     }
@@ -115,7 +115,7 @@ public sealed class ThemeBackdrop : IDisposable
         {
             var image = new ImageBrush(bitmap)
             {
-                Stretch = Stretch.Uniform, AlignmentY = AlignmentY.Bottom,
+                Stretch = Stretch.UniformToFill, AlignmentY = AlignmentY.Center,
                 AlignmentX = preference.Position switch { "Left" => AlignmentX.Left, "Center" => AlignmentX.Center, _ => AlignmentX.Right },
                 Opacity = preference.Opacity
             };
@@ -124,7 +124,20 @@ public sealed class ThemeBackdrop : IDisposable
         Application.Current.Resources["ThemeBackdrop"] = brush;
         if (Application.Current.Resources["Surface"] is SolidColorBrush surface)
         {
-            var card = surface.Clone(); card.Opacity = bitmap is null ? 1 : .78; card.Freeze();
+            var chrome = surface.Clone(); chrome.Opacity = bitmap is null ? 1 : .48; chrome.Freeze();
+            Application.Current.Resources["ThemeChromeSurface"] = chrome;
+            Brush card = surface;
+            if (bitmap is not null)
+            {
+                var tint = surface.Color;
+                var gradient = new LinearGradientBrush(new GradientStopCollection
+                {
+                    new(System.Windows.Media.Color.FromArgb(232, tint.R, tint.G, tint.B), 0),
+                    new(System.Windows.Media.Color.FromArgb(192, tint.R, tint.G, tint.B), .45),
+                    new(System.Windows.Media.Color.FromArgb(44, tint.R, tint.G, tint.B), 1)
+                }, 0);
+                gradient.Freeze(); card = gradient;
+            }
             Application.Current.Resources["ThemeCardSurface"] = card;
         }
     }

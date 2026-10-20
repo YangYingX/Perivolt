@@ -81,7 +81,8 @@
         <Border.RenderTransform><ScaleTransform x:Name="PanelScale"/></Border.RenderTransform>
         <Grid>
             <Grid.RowDefinitions><RowDefinition Height="50"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <Grid Background="{DynamicResource Surface}">
+            <Border x:Name="WindowArtwork" Grid.RowSpan="2" Background="{DynamicResource ThemeBackdrop}" CornerRadius="14" IsHitTestVisible="False"/>
+            <Grid Background="{DynamicResource ThemeChromeSurface}">
                 <Border Background="{DynamicResource ThemeDecoration}" Opacity="0.14" Width="190" HorizontalAlignment="Right" Margin="0,0,148,0" IsHitTestVisible="False"/>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="23,0,0,0">
                     <Border Width="23" Height="23" CornerRadius="7" Background="Transparent">
@@ -99,7 +100,7 @@
             </Grid>
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="196"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="0,0,1,0">
+                <Border Background="{DynamicResource ThemeChromeSurface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="0,0,1,0">
                     <Grid Margin="14,25,14,20">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 
@@ -118,7 +119,6 @@
                     </Grid>
                 </Border>
                 <Grid Grid.Column="1">
-                    <Border Background="{DynamicResource ThemeBackdrop}" IsHitTestVisible="False"/>
                     <ScrollViewer x:Name="DevicesPage" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" Padding="32,28,30,28">
                         <StackPanel>
                             <Grid Margin="0,0,0,23">
@@ -142,7 +142,7 @@
                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="15" Padding="19" Margin="6,0,6,12" AllowDrop="True" DragOver="OnDeviceDragOver" Drop="OnDeviceDrop"><Grid><controls:CardBatteryFill Percent="{Binding Status.BatteryPercent}" Fill="{Binding BatteryBrush}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationsEnabled="{Binding AnimationsEnabled}" Visibility="{Binding CardFillVisibility}" Margin="-19" IsHitTestVisible="False"/>
+                                        <Border Background="{DynamicResource ThemeCardSurface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="15" Padding="19" Margin="6,0,6,12" AllowDrop="True" DragOver="OnDeviceDragOver" Drop="OnDeviceDrop"><Grid><controls:CardBatteryFill Percent="{Binding Status.BatteryPercent}" Fill="{Binding BatteryBrush}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationsEnabled="{Binding AnimationsEnabled}" Visibility="{Binding CardFillVisibility}" Margin="-19" IsHitTestVisible="False"/>
                                             <StackPanel>
                                                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                                     <StackPanel Margin="0,0,9,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="{Binding IconGeometry, Mode=OneWay}" Style="{StaticResource DeviceTypeIcon}"/><controls:OutlinedText Grid.Column="1" Text="{Binding Name, Mode=OneWay}" Foreground="{Binding NameBrush, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" VerticalAlignment="Center"/></Grid><controls:OutlinedText Text="{Binding Subtitle, Mode=OneWay}" Foreground="{DynamicResource TextSecondary}" FontSize="10" Margin="26,6,0,0" TextTrimming="CharacterEllipsis"/></StackPanel>

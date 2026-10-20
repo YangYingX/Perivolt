@@ -5,6 +5,7 @@ using PowerHub.Plugins;
 using PowerHub.Services;
 using PowerHub.Models;
 using System.Windows.Threading;
+using System.ComponentModel;
 using UserControl = System.Windows.Controls.UserControl;
 using ColorConverter = System.Windows.Media.ColorConverter;
 
@@ -16,6 +17,7 @@ public partial class ThemeCatalog : UserControl
     private IReadOnlyList<PluginThemeEntry> entries = [];
     private List<ThemeRow> rows = [];
     private string language = "";
+    private string? artworkDirectory;
     private bool refreshing;
     private readonly DispatcherTimer artworkTimer = new() { Interval = TimeSpan.FromMilliseconds(180) };
 
@@ -44,7 +46,8 @@ public partial class ThemeCatalog : UserControl
             {
                 entries = available;
                 language = L.Current.Language;
-                rows = entries.Select(entry => new ThemeRow(entry)).ToList();
+                rows = entries.Select(entry => new ThemeRow(entry) { ArtworkPath = ThemeBackdrop.ResolvePath(controller.Settings, entry.Theme, entry.Value) }).ToList();
+                artworkDirectory = controller.Settings.ThemeArtworkDirectory;
                 var selectedGroup = GroupCombo.SelectedValue as string ?? "";
                 GroupCombo.ItemsSource = new[] { new GroupChoice("", L.T("全部游戏")) }.Concat(entries.Select(entry => entry.Group).Where(group => group.Length > 0).Distinct().Select(group => new GroupChoice(group, L.T(group)))).ToArray();
                 GroupCombo.SelectedValue = selectedGroup;
@@ -61,6 +64,16 @@ public partial class ThemeCatalog : UserControl
     {
         if (controller is null) return;
         var current = entries.FirstOrDefault(entry => entry.Value == controller.Settings.Theme);
+        if (artworkDirectory != controller.Settings.ThemeArtworkDirectory)
+        {
+            artworkDirectory = controller.Settings.ThemeArtworkDirectory;
+            foreach (var row in rows) row.ArtworkPath = ThemeBackdrop.ResolvePath(controller.Settings, row.Entry.Theme, row.Entry.Value);
+        }
+        if (current is not null)
+        {
+            var row = rows.First(item => item.Entry.Value == current.Value);
+            row.ArtworkPath = ThemeBackdrop.ResolvePath(controller.Settings, current.Theme, current.Value);
+        }
         ArtworkPanel.Visibility = current is null ? Visibility.Collapsed : Visibility.Visible;
         if (current is null) return;
         var previous = refreshing; refreshing = true;
@@ -162,8 +175,15 @@ public partial class ThemeCatalog : UserControl
     }
 
     private sealed record GroupChoice(string Value, string Label);
-    private sealed class ThemeRow(PluginThemeEntry entry)
+    private sealed class ThemeRow(PluginThemeEntry entry) : INotifyPropertyChanged
     {
+        private string? artworkPath;
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public string? ArtworkPath
+        {
+            get => artworkPath;
+            set { if (artworkPath == value) return; artworkPath = value; PropertyChanged?.Invoke(this, new(nameof(ArtworkPath))); }
+        }
         public PluginThemeEntry Entry { get; } = entry;
         public string Name { get; } = L.T(entry.Name);
         public string Detail { get; } = string.Join(" · ", new[] { L.T(entry.Group), entry.Theme.Description }.Where(text => text.Length > 0));

@@ -1,114 +1,140 @@
 # id | character | original palette title | D(ark)/L(ight) | primary | secondary | base
 @endfield|明日方舟：终末地|Circuit
-endministrator|管理员|开拓者黄黑|D|#F4CF45|#D9E2E7|#262B30
-perlica|佩丽卡|协议蓝白|L|#609CD4|#AEC5DD|#263E59
-chen-qianyu|陈千语|青锋朱印|L|#298B87|#CF6F58|#244444
-wulfgard|狼卫|灰狼焰橙|D|#E89A56|#BFC6CB|#282D32
-ardelia|艾尔黛拉|苔绿暮紫|L|#8AA77A|#B19BBA|#314538
-laevatain|莱万汀|熔火余晖|D|#F17050|#E8BE8B|#422327
-gilberta|洁尔佩塔|信使青风|L|#70BDAE|#D9C485|#2D4A48
-yvonne|伊冯|冰糖桃粉|L|#E995B9|#9BCBD1|#473247
-last-rite|别礼|凛冬幽蓝|D|#97CFE1|#B5A9D1|#252D48
-pogranichnik|骏卫|铁骑橄榄|D|#B8BF79|#C9A877|#333A2C
-si|祀|青玉洄龙|D|#52CBBB|#E6D55C|#1D3035
-typhoeus|提弗洛斯|雪凇幽蓝|D|#96AADA|#C6CAD8|#222C46
-liino|梨诺|晨星绒蓝|L|#849EE3|#C9BADF|#313B61
-arcane|诀|临渊青钢|D|#8FA6CA|#D2BC8A|#253342
-camille|卡缪|夜趋绀红|D|#9CA7E3|#D9A4AE|#232E45
-mifu|弭弗|绛结桃灰|L|#D28CA9|#8C9AB9|#40384D
-zhuang-fangyi|庄方宜|霆光青金|D|#82C7C3|#D3BD87|#203D3F
-tangtang|汤汤|祖泉暖砂|L|#9B7C53|#80AAA5|#443A2C
-rossi|洛茜|绯狼苍影|D|#CE686A|#99B0D2|#2D252A
+endministrator|管理员|开拓者黄黑|D|#E6C954|#79ACCA|#252A30
+perlica|佩丽卡|协议蓝白|D|#6F99B6|#AEB8C4|#4A5767
+chen-qianyu|陈千语|青锋朱印|L|#569FA6|#C4716D|#607C88
+wulfgard|狼卫|灰狼焰橙|L|#D07E69|#939DA9|#656A75
+ardelia|艾尔黛拉|苔绿暮紫|L|#C281A4|#BB9EB7|#716B7E
+laevatain|莱万汀|熔火余晖|D|#E38870|#DAB18D|#3E3B42
+gilberta|洁尔佩塔|信使青风|D|#DA614C|#75B5CF|#283038
+yvonne|伊冯|冰糖桃粉|D|#E580AA|#BBA552|#36333E
+last-rite|别礼|凛冬幽蓝|D|#69BFD7|#9FA0C3|#232F43
+pogranichnik|骏卫|铁骑橄榄|D|#AA5653|#BEA370|#454F5C
+si|祀|青玉洄龙|L|#5DA79B|#CCC372|#627577
+typhoeus|提弗洛斯|雪凇幽蓝|D|#9B87BF|#809FC8|#2D3142
+liino|梨诺|晨星绒蓝|D|#8B84D6|#BBA3CF|#2B3049
+arcane|诀|临渊青钢|D|#7BA7BC|#A6BAC9|#526276
+camille|卡缪|夜趋绀红|D|#CB5464|#5A8FA2|#1F2631
+mifu|弭弗|绛结桃灰|D|#BA7287|#B4986E|#2C2F36
+zhuang-fangyi|庄方宜|霆光青金|D|#5C9A94|#C5B787|#33464C
+tangtang|汤汤|祖泉暖砂|D|#D2B074|#8FB8C5|#3C3B3B
+rossi|洛茜|绯狼苍影|D|#B95054|#A4B4CE|#292933
 @arknights|明日方舟|Shard
-amiya|阿米娅|苍蓝承诺|D|#6BC8EC|#D4B99B|#213546
-chen|陈|赤霄夜雨|D|#5BA8CF|#E27262|#25394C
-hoshiguma|星熊|般若青锋|D|#73B789|#C4B69D|#263B32
-swire|诗怀雅|虎金蔷薇|L|#E6B850|#DC91A9|#51432A
-silverash|银灰|雪境银霜|L|#899EB8|#C2C6CE|#293B50
-eyjafjalla|艾雅法拉|火山绒粉|L|#D8909C|#BD9A72|#4F363D
-siege|推进之王|王狮金棕|D|#DAB86D|#B39069|#3E3528
-exusiai|能天使|苹果派赤橙|L|#D95C4D|#E8B379|#4A3031
-texas|德克萨斯|铅灰剑雨|D|#92A9C8|#CB6869|#222C40
-lappland|拉普兰德|银狼青刃|D|#B8DCC5|#CCC9D7|#29383A
-mostima|莫斯提马|深蓝时序|D|#699FDD|#C5AB7A|#202C49
-skadi|斯卡蒂|深海绯潮|D|#E18B9E|#BACBDF|#312B42
-specter|幽灵鲨|白浪血月|L|#A64C64|#9FA9BB|#382B3F
-gladiia|歌蕾蒂娅|冷银潮汐|D|#BCD0DC|#B85865|#242F3C
-mountain|山|白虎墨影|L|#63777D|#CDBD94|#2C393B
-thorns|棘刺|黑金剑棘|D|#E9BF5F|#B09D88|#2B2A26
-surtr|史尔特尔|赤焰薄暮|D|#EE8276|#B6B9CA|#432B38
-mudrock|泥岩|白垩赤砂|L|#C27879|#A8ABB2|#44313A
-bagpipe|风笛|麦穗晴橙|L|#DD9A56|#84A59E|#4C3D2C
-saileach|琴柳|鸢尾流金|L|#AEA0CE|#D7B776|#3C3450
-reed|苇草|青焰余烬|D|#8AC9AB|#E4BC88|#2B3F36
-nightingale|夜莺|金羽晚歌|L|#CEAF72|#ABA7C5|#463F3E
-shining|闪灵|黑白静谧|D|#D2D5E2|#B59BA7|#2E2D3B
-saria|塞雷娅|钙质晨光|L|#B48B61|#90A5AE|#3A3D3F
-ifrit|伊芙利特|灼热金火|D|#F3BD63|#E08768|#483528
-silence|赫默|咖啡羽翎|L|#B88C69|#E6C8A3|#483B32
-ptilopsis|白面鸮|白羽冷橙|L|#D59A67|#A9BFCA|#354652
-liskarm|雷蛇|电光盾蓝|D|#88BCE2|#BBAF94|#25374A
-franka|芙兰卡|狐火红棕|L|#BC7461|#D3AF83|#4D3433
-jessica|杰西卡|黑钢雨蓝|D|#8CABC7|#C7B6AC|#27394B
-blaze|煌|炽蓝链锯|D|#6DCCE6|#E59964|#213C4C
-rosmontis|迷迭香|迷雾天青|L|#7BB2C6|#BEB8CF|#2F4254
-kaltsit|凯尔希|医者翠白|L|#71AC94|#B7B8AA|#31473E
-w|W|爆破赤夜|D|#E36D69|#C4B8AD|#402A32
-phantom|傀影|歌剧绀夜|D|#97A5CD|#B88492|#282D46
-eunectes|森蚺|雨林黄铜|D|#B6C583|#D5AD64|#344335
-weedy|温蒂|蒸汽薄荷|L|#8EBCAB|#D1B681|#31483F
-suzuran|铃兰|铃草蜜金|L|#A8C67C|#D2B779|#3D4831
-angelina|安洁莉娜|暮色焦糖|L|#CA9A73|#AD92C0|#483644
-magallan|麦哲伦|极地橙蓝|L|#DEAA65|#88B8D1|#2D4152
-nian|年|炭火赤金|D|#F07955|#D5B87D|#1D1B1A
-dusk|夕|水墨青岚|D|#8CCBB4|#CEC1AD|#293C39
-ling|令|青蓝醉梦|D|#87B2D9|#BDA8CD|#2E3650
-chongyue|重岳|岩金止戈|L|#BC9B66|#A8BDB8|#3F4035
-shu|黍|田垄青金|L|#A9BB73|#D7BD81|#41452E
-logos|逻各斯|骨笛幽紫|D|#B8A6DD|#BCC3CC|#302E47
-ines|伊内丝|暗影玫紫|D|#CC91AC|#A69BAA|#382D41
-mlynar|玛恩纳|沉默鎏金|D|#DBBE7A|#AEB4BA|#37372F
-nearl|临光|耀骑曙金|L|#CFA95F|#D6CABB|#4A4131
-blemishine|瑕光|晨星浅金|L|#DBB773|#AFC3D3|#4A4033
+amiya|阿米娅|苍蓝承诺|D|#59AFD0|#D3B695|#26313D
+amiya-guard|阿米娅 · 近卫升变|阿米娅 · 职业形态 · 苍蓝赤刃|D|#538FBC|#985664|#252D3C
+amiya-medic|阿米娅 · 医疗升变|阿米娅 · 职业形态 · 绯白愈光|D|#B995A9|#61B3C8|#3A3B49
+chen|陈|赤霄夜雨|D|#5188AC|#C26F63|#1E2937
+chen-holungday|假日威龙陈|陈 · 异格形态 · 碧海霜蓝|D|#7DCFE0|#D69F7D|#2B3D4B
+chen-dawnstreak|赤刃明霄陈|陈 · 异格形态 · 明霄朱刃|D|#B96B60|#C6B19C|#3C3F49
+hoshiguma|星熊|般若青锋|D|#5E9270|#C7B396|#242E2C
+hoshiguma-breacher|斩业星熊|星熊 · 异格形态 · 斩业青玉|D|#7FB5AB|#C68376|#242F32
+swire|诗怀雅|虎金蔷薇|D|#EABD64|#B87749|#262426
+swire-elegant-wit|琳琅诗怀雅|诗怀雅 · 异格形态 · 琳琅流金|D|#DAB473|#E0C7A3|#3C3837
+silverash|银灰|雪境银霜|D|#899BB5|#B5BDCD|#27303D
+silverash-reignfrost|凛御银灰|银灰 · 异格形态 · 凛御霜蓝|D|#6F8CBF|#B3B6CC|#2D3348
+eyjafjalla|艾雅法拉|火山绒粉|D|#C48790|#CDA983|#564040
+eyjafjalla-hvit-aska|纯烬艾雅法拉|艾雅法拉 · 异格形态 · 纯烬绒粉|D|#D097AC|#DEC7B4|#775558
+siege|推进之王|王狮金棕|D|#DFB46F|#B38B63|#312C27
+siege-vina-victoria|维娜·维多利亚|推进之王 · 异格形态 · 维多利亚鎏金|D|#D0AA6B|#6977A0|#313241
+exusiai|能天使|苹果派赤橙|D|#CB5B4D|#E8B987|#3D2C2F
+exusiai-new-covenant|新约能天使|能天使 · 异格形态 · 新约绯银|D|#E38379|#BBCACB|#312C33
+texas|德克萨斯|铅灰剑雨|D|#8DA2C0|#B96B6B|#222836
+texas-omertosa|缄默德克萨斯|德克萨斯 · 异格形态 · 缄默暮蓝|D|#979FCE|#B4B7CE|#2F3242
+lappland|拉普兰德|银狼青刃|D|#B8DCC5|#CCC9D7|#3F4A4C
+lappland-decadenza|荒芜拉普兰德|拉普兰德 · 异格形态 · 荒芜绯灰|D|#AA6268|#CDD3D4|#302B30
+mostima|莫斯提马|深蓝时序|D|#739CCE|#D1B68E|#21263A
+skadi|斯卡蒂|深海绯潮|D|#E18B9E|#A9B8CE|#252331
+skadi-corrupting-heart|浊心斯卡蒂|斯卡蒂 · 异格形态 · 浊心绯潮|D|#C56E7A|#83AEB0|#313240
+specter|幽灵鲨|白浪血月|D|#834354|#9FA9BB|#302835
+specter-unchained|归溟幽灵鲨|幽灵鲨 · 异格形态 · 归溟苍浪|D|#859AC2|#CCB6A3|#3D4961
+gladiia|歌蕾蒂娅|冷银潮汐|D|#9AAAB8|#9C4856|#515A6A
+mountain|山|白虎墨影|D|#63777D|#D4BC96|#2B3234
+thorns|棘刺|黑金剑棘|D|#D5A953|#B19C87|#272625
+thorns-lodestar|引星棘刺|棘刺 · 异格形态 · 引星砂金|L|#DAC097|#ABBCCA|#717984
+surtr|史尔特尔|赤焰薄暮|L|#E17C70|#B6B9CA|#7D6467
+mudrock|泥岩|白垩赤砂|D|#A8595D|#BCC6C7|#25282E
+bagpipe|风笛|麦穗晴橙|D|#D79A5F|#84A59E|#5A5043
+saileach|琴柳|鸢尾流金|D|#9C91BB|#D4B276|#424059
+reed|苇草|青焰余烬|D|#8AC9AB|#E4C296|#28332F
+reed-flame-shadow|焰影苇草|苇草 · 异格形态 · 焰影暖金|D|#E5B573|#D5CFB3|#33302D
+nightingale|夜莺|金羽晚歌|D|#DBBE8A|#ABA7C5|#473F41
+shining|闪灵|黑白静谧|D|#D2D5E2|#B59BA7|#534E59
+saria|塞雷娅|钙质晨光|D|#BD9876|#748690|#444548
+ifrit|伊芙利特|灼热金火|D|#EFC070|#D97E60|#493B37
+silence|赫默|咖啡羽翎|D|#B68B6A|#E6C7A2|#554439
+silence-paradigmatic|淬羽赫默|赫默 · 异格形态 · 淬羽麦绿|D|#B3A87C|#9EBAB9|#4E5753
+ptilopsis|白面鸮|白羽冷橙|L|#D19969|#8A9BA8|#656A71
+liskarm|雷蛇|电光盾蓝|D|#799EBD|#CBB89E|#3F4A5A
+franka|芙兰卡|狐火红棕|D|#B8715E|#DBB68D|#403131
+jessica|杰西卡|黑钢雨蓝|D|#92ADC9|#B8A497|#2D3B4D
+jessica-liberated|涤火杰西卡|杰西卡 · 异格形态 · 涤火灰紫|D|#988DB2|#B09E78|#2A2833
+blaze|煌|炽蓝链锯|D|#76BCD4|#E4A378|#253644
+blaze-igniting-spark|烛煌|煌 · 异格形态 · 烛火焰蓝|D|#D5917C|#819EAB|#202832
+rosmontis|迷迭香|迷雾天青|L|#67AAC7|#A7A6BE|#7387A0
+kaltsit|凯尔希|医者翠白|D|#71AC94|#A5A48D|#293532
+kaltsit-esperanta|凯尔希·思衡托|凯尔希 · 异格形态 · 思衡翠白|D|#9BA668|#BCCBC3|#374240
+w|W|爆破赤夜|D|#C05A57|#C8B4A7|#32262C
+w-wisadel|维什戴尔|W · 异格形态 · 维什绯砂|D|#CA857B|#C9B4A8|#2C262B
+phantom|傀影|歌剧绀夜|D|#7986AA|#AF7D8A|#31354C
+phantom-tragodia|酒神|傀影 · 异格形态 · 酒神绀金|D|#7B85B8|#DAC190|#2E3148
+eunectes|森蚺|雨林黄铜|D|#DCB45B|#A9B68A|#2F352C
+weedy|温蒂|蒸汽薄荷|D|#8EBCAB|#C7AC77|#32413D
+suzuran|铃兰|铃草蜜金|D|#91A668|#CFB57E|#3B4235
+angelina|安洁莉娜|暮色焦糖|D|#BF826A|#C7AA94|#362F33
+angelina-mellow-wish|予愿安洁莉娜|安洁莉娜 · 异格形态 · 予愿暖绯|D|#C17F6F|#D3BC99|#322A2E
+magallan|麦哲伦|极地橙蓝|L|#D7A460|#97C0DA|#667F92
+nian|年|炭火赤金|D|#E56952|#DCB48E|#232328
+dusk|夕|水墨青岚|D|#79B09C|#BEB19B|#3D4B48
+ling|令|青蓝醉梦|D|#7EA0C3|#BDA8CD|#2B344E
+chongyue|重岳|岩金止戈|L|#B9996A|#A8BDB8|#74756D
+shu|黍|田垄青金|L|#CEB36D|#7980AA|#878374
+logos|逻各斯|骨笛幽紫|D|#9A8CB9|#909DBC|#2A283A
+ines|伊内丝|暗影玫紫|D|#A55C50|#D0B086|#252227
+mlynar|玛恩纳|沉默鎏金|D|#E0C186|#AEB4BA|#2A2A2A
+nearl|临光|耀骑曙金|D|#D1B273|#DCC9B1|#37322D
+nearl-radiant-knight|耀骑士临光|临光 · 异格形态 · 耀骑曙金|D|#E2C285|#C6CBD3|#2F2D33
+blemishine|瑕光|晨星浅金|D|#DDB47A|#AFC3D3|#3C3631
 @zenless|绝区零|Pulse
-nicole|妮可|狡兔桃绿|L|#D995B3|#94B9A1|#4B3749
-anby|安比|雷刃青灰|D|#B8D18B|#C4CFD3|#333D3B
-billy|比利|红衣银枪|D|#E18376|#BDC8D3|#443237
-nekomata|猫又|赤猫夜行|D|#DF9379|#CABAA7|#453431
-ellen|艾莲|鲨尾冰红|D|#DF8290|#9FD5DD|#342F41
-lycaon|莱卡恩|白狼赤瞳|D|#C2D3DF|#D58B92|#2B3946
-corin|可琳|薄荷紫裙|L|#A8C1AD|#B29AC8|#3A4641
-rina|丽娜|幽灵绒银|L|#ACABC7|#D4B9A3|#423C50
-zhu-yuan|朱鸢|治安焰蓝|D|#86ACD6|#DF9A67|#2C3B50
-qingyi|青衣|玉偶竹青|L|#96B48B|#C7B899|#394A3D
-seth|赛斯|电盾苍蓝|D|#90BFDF|#D0B589|#2D4153
-jane|简|暗鼠红绸|D|#CB8DA3|#AEB8D0|#3B3045
-burnice|柏妮思|燃油樱橙|L|#E3A575|#DBA3C2|#513D39
-caesar|凯撒|荒野橄榄|D|#AFC68D|#D3AF84|#394536
-lucy|露西|野猪暖红|L|#D59079|#D9B96E|#4A3830
-piper|派派|铁轮薄绿|L|#AEBC8A|#D6BDA1|#424938
-lighter|莱特|赤围巾夜|D|#E08874|#D0B998|#42332E
-miyabi|星见雅|狐火寒蓝|D|#9BAACF|#D48380|#2D3449
-yanagi|月城柳|粉樱雷光|L|#D6A4BD|#B5A8CF|#4B3A50
-soukaku|苍角|冰角晴青|L|#7FBCCB|#E0B79B|#344B57
-harumasa|浅羽悠真|弓弦青柠|D|#BDD18F|#B7C3CE|#343E3E
-soldier11|11号|焰刀橘火|D|#E99C6B|#C1C6CD|#43382F
-koleda|珂蕾妲|钢炉赤橙|D|#E28E62|#D2B68B|#4B342B
-grace|格莉丝|机修琥珀|L|#C49B69|#9AAFC1|#43423B
+nicole|妮可|狡兔桃绿|D|#C0869D|#AFC663|#332C35
+anby|安比|雷刃青灰|D|#9EB568|#C2D1D7|#282F32
+soldier0-anby|零号·安比|安比 · 独立身份形态 · 零号霜金|D|#E1BB75|#A0B5CC|#2F3742
+billy|比利|红衣银枪|D|#E56D5F|#BAC9D4|#26232B
+starlight-billy|星徽·比利|比利 · 独立身份形态 · 星徽绯银|D|#C3747D|#8F9BB4|#2B2F40
+nekomata|猫又|赤猫夜行|D|#D78B6C|#D4B894|#29272B
+ellen|艾莲|鲨尾冰红|D|#BB727C|#94BED3|#2B3448
+lycaon|莱卡恩|白狼赤瞳|D|#A3B5C8|#AD6F77|#232A35
+corin|可琳|薄荷紫裙|D|#A8CBB4|#B4A1CD|#2F3636
+rina|丽娜|幽灵绒银|D|#998FAF|#B19E86|#3E3A4E
+zhu-yuan|朱鸢|治安焰蓝|D|#8ABAE8|#C9956E|#212C3D
+qingyi|青衣|玉偶竹青|D|#8BA87E|#CDB88D|#353B36
+seth|赛斯|电盾苍蓝|D|#77AFDE|#D7BEA0|#445168
+jane|简|暗鼠红绸|D|#A77A8E|#7B90A6|#25242F
+burnice|柏妮思|燃油樱橙|D|#E8A06C|#C26C6E|#4A3C3F
+caesar|凯撒|荒野橄榄|D|#ACC98D|#C29E70|#2C302C
+lucy|露西|野猪暖红|D|#D28D75|#E0B878|#362E2E
+piper|派派|铁轮薄绿|D|#B6C692|#D4AF7C|#33362F
+lighter|莱特|赤围巾夜|D|#C7745E|#CCAF8A|#2C2826
+miyabi|星见雅|狐火寒蓝|D|#A6B5DA|#DD9C87|#242B3B
+yanagi|月城柳|粉樱雷光|D|#BB8BA2|#9393B6|#3E384C
+soukaku|苍角|冰角晴青|D|#74ACBB|#DAB887|#2D3F4D
+harumasa|浅羽悠真|弓弦青柠|D|#C3C383|#9EB1C3|#3B4550
+soldier11|11号|焰刀橘火|D|#E09E69|#B9C6CF|#2E2A2B
+koleda|珂蕾妲|钢炉赤橙|D|#C4815C|#BF9F6E|#37302E
+grace|格莉丝|机修琥珀|D|#CD9F69|#9CB7CC|#313234
 @exilium|少女前线2：追放|Crosshair
-daiyan|黛烟|墨弦青玉|L|#8FB8A4|#D3BF9D|#36493F
-qiongjiu|琼玖|赤狐战术|D|#D99773|#BCC5B6|#423B30
-tololo|托洛洛|星夜钴蓝|D|#8AAAE0|#C4B6D9|#2B3353
-mosin-nagant|莫辛纳甘|雪原紫灰|L|#A6A0C1|#C9B49C|#3D3C4C
-peritya|佩里缇亚|猫瞳墨紫|D|#B193C6|#C5A3AA|#3B2E4A
-sabrina|塞布丽娜|海盐浅蓝|L|#91B8D2|#C5B9A6|#344957
-cheeta|奇塔|电路橙绿|L|#CBA06F|#9BB3A0|#444432
-krolik|克罗丽科|利刃紫红|D|#BB8DB9|#D9A0A8|#3F2C49
-vepley|维普蕾|舞台蜜桃|L|#D6A1B7|#B1C0DC|#4F3B51
-sharkry|夏克里|暮紫魅影|D|#BE93D3|#D69AA9|#3E304E
-jiangyu|绛雨|绯雨墨绿|D|#D58B88|#9DBCAE|#393C38
-makkiatto|玛绮朵|焦糖冰棕|L|#BD9676|#ADBDCC|#453D37
-suomi|索米|极光霜蓝|L|#91C5D5|#D5C2A6|#354D59
-ullrid|乌尔丽德|绿锋灰影|D|#A9C39D|#C2B4A5|#374334
-lenna|莱娜|霓虹糖紫|L|#BFA4CF|#9EC9BD|#443D52
-klukai|可露凯|紫瞳战术|D|#B594D3|#ACBAB1|#363449
+daiyan|黛烟|墨弦青玉|D|#8AB6D7|#D2B079|#323F4F
+qiongjiu|琼玖|赤狐战术|D|#8DB8AD|#C78A75|#2A3433
+tololo|托洛洛|星夜钴蓝|D|#7AA4BB|#A397C2|#2A3149
+mosin-nagant|莫辛纳甘|雪原紫灰|D|#AEBE9B|#D3B27F|#363E43
+peritya|佩里缇亚|猫瞳墨紫|D|#B5BEAA|#D6C093|#373A3A
+sabrina|塞布丽娜|海盐浅蓝|D|#7297A7|#CB7575|#3A4550
+cheeta|奇塔|电路橙绿|D|#D29D61|#B8C497|#2C2723
+krolik|克罗丽科|利刃紫红|D|#BC6168|#BEC9D6|#2D282F
+vepley|维普蕾|舞台蜜桃|D|#75B0DD|#E0C79B|#223043
+sharkry|夏克里|暮紫魅影|D|#9E86C3|#DCBFA0|#2B2536
+jiangyu|绛雨|绯雨墨绿|D|#C1797C|#A995C5|#363238
+makkiatto|玛绮朵|焦糖冰棕|D|#9F758C|#BFA373|#322934
+suomi|索米|极光霜蓝|L|#8DC2D7|#D9C093|#546B83
+ullrid|乌尔丽德|绿锋灰影|D|#C5716C|#659595|#292B2B
+lenna|莱娜|霓虹糖紫|D|#D9B563|#A8BBAA|#38372F
+klukai|可露凯|紫瞳战术|D|#9A81BD|#B7C58D|#323443

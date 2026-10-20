@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <AssemblyName>PowerHub.CharacterThemes</AssemblyName>
+    <Version>1.1.1</Version>
     <RootNamespace>PowerHub.CharacterThemes</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

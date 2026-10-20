@@ -39,11 +39,12 @@ public sealed class CharacterThemesPlugin : IPowerHubPlugin
         return new Dictionary<string, string>
         {
             ["PageBackground"] = page, ["Surface"] = surface, ["SurfaceAlt"] = surfaceAlt,
-            ["Stroke"] = stroke, ["TextPrimary"] = dark ? "#F6F7FC" : Mix(basis, "#10121C", .75),
+            ["Stroke"] = stroke, ["TextPrimary"] = Readable(dark ? "#F6F7FC" : Mix(basis, "#10121C", .75), [page, surface, surfaceAlt, soft], dark),
             ["TextSecondary"] = Readable(secondary, [page, surface, surfaceAlt, soft], dark),
             ["Accent"] = accent, ["AccentSoft"] = soft,
             ["AccentText"] = Contrast(accent, "#FFFFFF") > Contrast(accent, "#10121C") ? "#FFFFFF" : "#10121C",
-            ["Warning"] = dark ? "#F6CC84" : "#925F10", ["Danger"] = dark ? "#FF9EB1" : "#B82B49",
+            ["Warning"] = Readable(dark ? "#F6CC84" : "#925F10", [page, surface, surfaceAlt, soft], dark),
+            ["Danger"] = Readable(dark ? "#FF9EB1" : "#B82B49", [page, surface, surfaceAlt, soft], dark),
             ["RingTrack"] = stroke
         };
     }

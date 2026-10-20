@@ -53,13 +53,10 @@ public sealed class BatteryVisual : Control
     private Pen? _trackPen;
     private Pen? _thinTrackPen;
     private Pen? _wavePen;
+    private Brush? _horizontalFill;
     private bool _subscribed;
-    private double _displayed;
-    private double _from;
-    private double _target;
-    private double _transitionStarted;
     private double _lastFrame;
-    private double _phase;
+    private double _phase = Now % (Math.PI * 20);
     private double _ringArcPercent = -1;
     private Geometry? _ringArc;
 
@@ -92,19 +89,13 @@ public sealed class BatteryVisual : Control
     private static void OnPercentChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         var control = (BatteryVisual)sender;
-        control._from = args.OldValue is int ? control._displayed : 0;
-        control._target = control.HasPercent ? control.Percent!.Value / 100d : 0;
-        control._transitionStarted = Now;
-        if (!control.AnimationsEnabled || !control.IsLoaded || !control.IsVisible)
-            control._displayed = control._target;
         control.UpdateRendering();
     }
 
     private static void OnAnimationChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         var control = (BatteryVisual)sender;
-        control._displayed = control._target;
-        control._phase = 0;
+        control._phase = Now % (Math.PI * 20);
         control.UpdateRendering();
     }
 
@@ -113,6 +104,7 @@ public sealed class BatteryVisual : Control
         var control = (BatteryVisual)sender;
         control._accentPen = control._trackPen = control._thinTrackPen = null;
         control._wavePen = null;
+        control._horizontalFill = null;
     }
 
     private static void OnMotionModeChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args) =>
@@ -121,7 +113,7 @@ public sealed class BatteryVisual : Control
     private void UpdateRendering()
     {
         if (IsLoaded && IsVisible && ColorOpacity > 0 && AnimationsEnabled && HasPercent &&
-            (DisplayStyle != "Ring" || IsCharging || Now - _transitionStarted < .55))
+            (DisplayStyle is "Bar" or "Hourglass" or "Ocean" || DisplayStyle == "Ring" && IsCharging))
         {
             if (_subscribed) return;
             _lastFrame = 0;
@@ -143,11 +135,8 @@ public sealed class BatteryVisual : Control
         var now = Now;
         if (now - _lastFrame < 1d / 24) return;
         _lastFrame = now;
-        var progress = Math.Clamp((now - _transitionStarted) / .55, 0, 1);
-        _displayed = _from + (_target - _from) * (1 - Math.Pow(1 - progress, 3));
         _phase = now % (Math.PI * 20);
         InvalidateVisual();
-        if (progress >= 1 && DisplayStyle == "Ring" && !IsCharging) StopRendering();
     }
 
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
@@ -167,7 +156,7 @@ public sealed class BatteryVisual : Control
         _trackPen ??= new Pen(TrackBrush, 4.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         _thinTrackPen ??= new Pen(TrackBrush, 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         _wavePen ??= new Pen(Foreground, .9);
-        var percent = HasPercent ? Math.Clamp(_displayed, 0, 1) : 0;
+        var percent = HasPercent ? Percent!.Value / 100d : 0;
         context.PushTransform(_layoutTransform);
         context.PushOpacity(ColorOpacity);
         switch (DisplayStyle)
@@ -179,7 +168,8 @@ public sealed class BatteryVisual : Control
                 context.DrawRoundedRectangle(TrackBrush, null, new Rect(2, 13, 66, 44), 8, 8);
                 context.PushClip(new RectangleGeometry(new Rect(2, 13, 66, 44), 8, 8));
                 context.PushOpacity(FillOpacity);
-                context.DrawRectangle(Foreground, null, new Rect(2, 13, 66 * percent, 44));
+                context.DrawRectangle(_horizontalFill ??= CardBatteryFill.CreateHorizontalBrush(Foreground), null,
+                    new Rect(2, 13, 66 * percent, 44));
                 context.Pop(); context.Pop();
                 break;
             default: DrawOcean(context, percent); break;

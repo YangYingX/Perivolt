@@ -62,7 +62,7 @@
                     <TextBlock x:Name="ArtworkOpacityText" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11"/>
                     <ComboBox x:Name="ArtworkPositionCombo" Grid.Column="3" DisplayMemberPath="Label" SelectedValuePath="Value" SelectionChanged="OnArtworkPosition" FontSize="11"/>
                 </Grid>
-                <TextBlock Text="{local:T '立绘包独立存放，按角色主题 ID 自动匹配；不联网、不随安装包分发。'}" Foreground="{DynamicResource TextSecondary}" FontSize="10" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                <TextBlock Text="{local:T '立绘包独立存放，按角色主题 ID 自动匹配。'}" Foreground="{DynamicResource TextSecondary}" FontSize="10" TextWrapping="Wrap" Margin="0,10,0,0"/>
             </StackPanel>
         </Border>
     </StackPanel>

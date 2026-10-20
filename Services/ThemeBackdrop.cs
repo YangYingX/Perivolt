@@ -124,7 +124,7 @@ public sealed class ThemeBackdrop : IDisposable
         Application.Current.Resources["ThemeBackdrop"] = brush;
         Application.Current.Resources["ThemePreviewOpacity"] = bitmap is null ? 1d : .72d;
         foreach (var window in Application.Current.Windows.OfType<MainWindow>()) ApplyWindowSurfaces(window);
-        foreach (var (key, source, opacity) in new[] { ("ThemeChoiceSurface", "SurfaceAlt", .48), ("ThemeChoiceSelected", "AccentSoft", .62) })
+        foreach (var (key, source, opacity) in new[] { ("ThemeChoiceSurface", "SurfaceAlt", .48), ("ThemeChoiceSelected", "AccentSoft", .62), ("ThemePopupSurface", "Surface", .98) })
         {
             if (Application.Current.Resources[source] is not SolidColorBrush color) continue;
             var option = color.Clone(); option.Opacity = bitmap is null ? 1 : opacity; option.Freeze();

@@ -99,12 +99,13 @@
                 <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" Margin="12,9,30,9" VerticalAlignment="Center" IsHitTestVisible="False"/>
                 <Path Data="M 0,0 L 4,4 L 8,0" Stroke="{DynamicResource TextSecondary}" StrokeThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" IsHitTestVisible="False"/>
                 <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
-                    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="9" Padding="5" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"><ScrollViewer MaxHeight="260"><ItemsPresenter/></ScrollViewer></Border>
+                    <Border Background="{DynamicResource ThemePopupSurface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="9" Padding="5" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"><ScrollViewer MaxHeight="260"><ItemsPresenter/></ScrollViewer></Border>
                 </Popup>
             </Grid>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="ComboBoxItem">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="Padding" Value="11,8"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem"><Border x:Name="Frame" CornerRadius="6" Padding="{TemplateBinding Padding}" Background="Transparent"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Frame" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style>
@@ -122,6 +123,14 @@
     </Style>
     <Style TargetType="ScrollBar">
         <Setter Property="Width" Value="7"/><Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar"><Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="Vertical"><Track.Thumb><Thumb><Thumb.Template><ControlTemplate TargetType="Thumb"><Border CornerRadius="3" Background="{DynamicResource Stroke}" Margin="1"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb></Track></ControlTemplate></Setter.Value></Setter>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+            <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="Vertical"><Track.Thumb>
+                <Thumb MinHeight="24"><Thumb.Template><ControlTemplate TargetType="Thumb">
+                    <Border x:Name="Grip" CornerRadius="3" Background="{DynamicResource TextSecondary}" Opacity="0.28" Margin="2,2"/>
+                    <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="0.5"/></Trigger><Trigger Property="IsDragging" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="0.72"/></Trigger></ControlTemplate.Triggers>
+                </ControlTemplate></Thumb.Template></Thumb>
+            </Track.Thumb></Track>
+            <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0"/></Trigger></ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
     </Style>
 </ResourceDictionary>

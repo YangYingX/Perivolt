@@ -393,5 +393,5 @@
   "左侧": "Left",
   "居中": "Center",
   "右侧": "Right",
-  "立绘包独立存放，按角色主题 ID 自动匹配；不联网、不随安装包分发。": "Artwork stays in a separate folder and matches theme IDs. Offline; images are excluded from the installer."
+  "立绘包独立存放，按角色主题 ID 自动匹配。": "Artwork stays in a separate folder and matches theme IDs."
 }

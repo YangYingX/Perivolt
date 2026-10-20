@@ -225,6 +225,7 @@ public sealed class AppController : IDisposable
     }
 
     public DesktopWidgetWindow? Widget => widget;
+    public string? TaskbarError => taskbar?.LastError;
 
     private void SyncTaskbar()
     {

@@ -244,6 +244,7 @@ public partial class MainWindow : Window
         var settings = _controller.Settings;
         LanguageCombo.SelectedValue = settings.Language;
         TaskbarBox.IsChecked = settings.TaskbarEnabled;
+        TaskbarHintText.Text = _controller.TaskbarError ?? L.T("仅显示在线设备；可微调位置以避开开始按钮或系统小组件。");
         var taskbarChoices = new[] { new DeviceChoice(null, L.T("自动显示最低电量设备")) }.Concat(_cards.Select(card => new DeviceChoice(card.Id, card.Name))).ToList();
         if (settings.TaskbarDeviceId is { } savedId && !taskbarChoices.Any(choice => choice.Id == savedId))
         {

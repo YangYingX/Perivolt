@@ -1,4 +1,4 @@
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '1.0.1')
+param([ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')][string]$Version = '1.0.2-preview.4')
 
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
@@ -20,7 +20,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $taskRoot 'Assets\powerhub.ico') -Pa
 }
 
 $taskBaseName = "PowerHub-Setup-$Version-x64"
-& $taskCompiler "/DAppVersion=$Version" "/O$taskOutput" "/F$taskBaseName" $taskScript
+$taskFileVersion = $Version.Split('-')[0]
+$taskPayloadVersion = (Get-Item -LiteralPath (Join-Path $taskPayload 'PowerHub.exe')).VersionInfo.ProductVersion
+if ($taskPayloadVersion -ne $Version -and -not $taskPayloadVersion.StartsWith($Version + '+')) { throw "安装器版本 $Version 与程序版本 $taskPayloadVersion 不一致。" }
+& $taskCompiler "/DAppVersion=$Version" "/DAppFileVersion=$taskFileVersion" "/O$taskOutput" "/F$taskBaseName" $taskScript
 if ($LASTEXITCODE -ne 0) { throw "安装器编译失败，退出码 $LASTEXITCODE。" }
 
 $taskInstaller = Join-Path $taskOutput "$taskBaseName.exe"

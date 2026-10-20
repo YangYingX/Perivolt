@@ -62,7 +62,7 @@
             <StackPanel>
                 <ToggleButton x:Name="PART_Header" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" ContentTemplateSelector="{TemplateBinding HeaderTemplateSelector}" ContentStringFormat="{TemplateBinding HeaderStringFormat}" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Foreground="{TemplateBinding Foreground}" FontSize="16" FontWeight="SemiBold" Cursor="Hand" FocusVisualStyle="{x:Null}" HorizontalContentAlignment="Stretch">
                     <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="HeaderSurface" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="7" Padding="0,4">
+                        <Border x:Name="HeaderSurface" Background="Transparent" Padding="0,4">
                             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"/>
                                 <Path x:Name="Arrow" Grid.Column="1" Data="M 0,0 L 4,4 L 8,0" Width="10" Height="6" Stretch="Uniform" Stroke="{DynamicResource TextSecondary}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="14,0,2,0" RenderTransformOrigin="0.5,0.5"/>
@@ -70,8 +70,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="RenderTransform"><Setter.Value><RotateTransform Angle="180"/></Setter.Value></Setter></Trigger>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="HeaderSurface" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="HeaderSurface" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Arrow" Property="Stroke" Value="{DynamicResource Accent}"/></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="HeaderSurface" Property="Opacity" Value="0.4"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate></ToggleButton.Template>

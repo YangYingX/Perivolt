@@ -1,5 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.0.1"
+  #define AppVersion "1.0.2-preview.4"
+#endif
+#ifndef AppFileVersion
+  #define AppFileVersion "1.0.2"
 #endif
 
 [Setup]
@@ -9,7 +12,7 @@ AppVersion={#AppVersion}
 AppVerName=电栖 · Perivolt {#AppVersion}
 AppPublisher=Perivolt contributors
 AppComments=Windows 外设电量中心
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#AppFileVersion}
 VersionInfoDescription=电栖 · Perivolt 安装程序
 DefaultDirName={code:DefaultInstallDirectory}
 DisableDirPage=no
@@ -46,8 +49,11 @@ Name: "startup"; Description: "登录 Windows 后自动启动电栖"; GroupDescr
 Source: "..\dist\PowerHub\*"; DestDir: "{app}"; Excludes: "*.pdb,artifacts,artifacts\*,settings.json,settings.*.json,battery-*.jsonl"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{userprograms}\电栖"; Filename: "{app}\PowerHub.exe"; WorkingDir: "{app}"; Check: not WizardNoIcons
-Name: "{userdesktop}\电栖"; Filename: "{app}\PowerHub.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userprograms}\电栖"; Filename: "{app}\PowerHub.exe"; Parameters: "--show"; WorkingDir: "{app}"; Check: not WizardNoIcons
+Name: "{userdesktop}\电栖"; Filename: "{app}\PowerHub.exe"; Parameters: "--show"; WorkingDir: "{app}"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\PowerHub.exe"; Parameters: "--show"; WorkingDir: "{app}"; Description: "启动电栖"; Flags: nowait postinstall skipifsilent
 
 [InstallDelete]
 Type: files; Name: "{userprograms}\PowerHub.lnk"

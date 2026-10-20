@@ -7,16 +7,16 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using PowerHub.Controls;
 using PowerHub.Models;
-using PowerHub.Native;
 using PowerHub.Services;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using TextBlock = System.Windows.Controls.TextBlock;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
+using TextElement = System.Windows.Documents.TextElement;
 
 namespace PowerHub;
 
-public sealed class TaskbarBatteryWindow : Window
+public sealed class TaskbarBatteryWindow : IDisposable
 {
     private readonly AppSettings settings;
     private readonly Border surface = new() { CornerRadius = new CornerRadius(6), Margin = new Thickness(4), Padding = new Thickness(8, 3, 8, 3) };
@@ -31,28 +31,23 @@ public sealed class TaskbarBatteryWindow : Window
     private Rect lastPlacement = Rect.Empty;
     private bool placing;
     private Brush? customNameColor;
+    private HwndSource? source;
+    private IntPtr parent;
+    public string? LastError { get; private set; }
+    public bool IsVisible => source is { IsDisposed: false } && IsWindowVisible(source.Handle);
 
     public TaskbarBatteryWindow(AppSettings settings)
     {
         this.settings = settings;
-        Width = 192; Height = 48; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
-        AllowsTransparency = true; Background = Brushes.Transparent; ShowInTaskbar = false; ShowActivated = false; Topmost = true;
-        UseLayoutRounding = true; SnapsToDevicePixels = true; FontFamily = new System.Windows.Media.FontFamily("Segoe UI, Microsoft YaHei UI");
+        surface.UseLayoutRounding = true; surface.SnapsToDevicePixels = true;
+        TextElement.SetFontFamily(surface, new System.Windows.Media.FontFamily("Segoe UI, Microsoft YaHei UI"));
         content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
         content.ColumnDefinitions.Add(new ColumnDefinition()); content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         content.RowDefinitions.Add(new RowDefinition()); content.RowDefinitions.Add(new RowDefinition());
         content.Children.Add(icon); content.Children.Add(name); content.Children.Add(battery);
         progress.Children.Add(track); progress.Children.Add(fill); content.Children.Add(progress);
         surface.Child = content;
-        Content = surface;
-        SourceInitialized += (_, _) =>
-        {
-            OverlayNative.SetMousePassthrough(this, true);
-            HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(OnMessage);
-        };
-        Loaded += (_, _) => UpdatePlacement();
         positionTimer.Tick += (_, _) => UpdatePlacement();
-        Closed += (_, _) => positionTimer.Stop();
     }
 
     public void UpdateDevices(IReadOnlyList<DeviceStatus> devices)
@@ -62,7 +57,6 @@ public sealed class TaskbarBatteryWindow : Window
             : online.OrderByDescending(device => device.IsBatteryLow == true).ThenBy(device => device.BatteryPercent ?? 101).FirstOrDefault();
         if (!settings.TaskbarEnabled || selected is null) { Suspend(); return; }
         var appearance = new DeviceCard(selected, settings);
-        Title = L.AppName;
         name.Text = appearance.Name;
         battery.Text = selected.BatteryText;
         battery.Visibility = appearance.BatteryPercentageVisibility;
@@ -79,12 +73,35 @@ public sealed class TaskbarBatteryWindow : Window
         if (settings.Devices.TryGetValue(selected.Id, out var preference) && BatteryPalette.TryParseColor(preference.NameColor, out var color))
         { var custom = new SolidColorBrush(color); custom.Freeze(); customNameColor = custom; }
         ApplyTaskbarTheme();
-        new WindowInteropHelper(this).EnsureHandle();
         positionTimer.Start();
         UpdatePlacement();
     }
 
-    public void Suspend() { positionTimer.Stop(); Hide(); lastPlacement = Rect.Empty; }
+    public void Suspend() { positionTimer.Stop(); Detach(); LastError = null; }
+    public void Close() => Dispose();
+    public void Dispose() { positionTimer.Stop(); Detach(); }
+
+    private void Detach()
+    {
+        if (source is { IsDisposed: false }) { source.RootVisual = null; source.Dispose(); }
+        source = null; parent = IntPtr.Zero; lastPlacement = Rect.Empty;
+    }
+
+    private void Attach(IntPtr taskbar)
+    {
+        Detach();
+        if (!AreDpiAwarenessContextsEqual(GetThreadDpiAwarenessContext(), GetWindowDpiAwarenessContext(taskbar)))
+            throw new InvalidOperationException(L.T("任务栏 DPI 模式不兼容，未挂载电量条。"));
+        source = new HwndSource(new HwndSourceParameters("Perivolt.TaskbarBattery")
+        {
+            ParentWindow = taskbar, WindowStyle = 0x44000000, // WS_CHILD | WS_CLIPSIBLINGS; never a desktop overlay.
+            ExtendedWindowStyle = 0x08000020, // NOACTIVATE | TRANSPARENT; input stays with the taskbar.
+            UsesPerPixelTransparency = true, Width = 1, Height = 1, HwndSourceHook = OnMessage
+        });
+        if (GetParent(source.Handle) != taskbar)
+        { Detach(); throw new InvalidOperationException(L.T("无法嵌入任务栏，未启用悬浮替代。")); }
+        source.RootVisual = surface; parent = taskbar;
+    }
 
     private void ApplyTaskbarTheme()
     {
@@ -108,24 +125,27 @@ public sealed class TaskbarBatteryWindow : Window
         try
         {
             var taskbar = FindWindow("Shell_TrayWnd", null);
-            if (taskbar == IntPtr.Zero || !IsWindowVisible(taskbar) || !GetWindowRect(taskbar, out var bar)) { Hide(); return; }
-            var screen = System.Windows.Forms.Screen.FromHandle(taskbar).Bounds;
+            if (taskbar == IntPtr.Zero || !GetClientRect(taskbar, out var bar)) { Detach(); LastError = L.T("任务栏暂不可用，等待恢复。"); return; }
+            if (parent != taskbar || source is null || source.IsDisposed || !IsWindow(source.Handle)) Attach(taskbar);
             var dpiValue = GetDpiForWindow(taskbar) / 96d;
             var dpi = new DpiScale(dpiValue > 0 ? dpiValue : 1, dpiValue > 0 ? dpiValue : 1);
-            var bounds = new Rect(screen.Left, screen.Top, screen.Width, screen.Height);
             var taskbarBounds = new Rect(bar.Left, bar.Top, Math.Max(0, bar.Right - bar.Left), Math.Max(0, bar.Bottom - bar.Top));
             var vertical = taskbarBounds.Height > taskbarBounds.Width;
-            var rectangle = ComputePlacement(taskbarBounds, bounds, vertical ? 0u : 3u, settings.TaskbarLeftOffset, dpi);
-            if (rectangle.IsEmpty) { Hide(); return; }
+            var rectangle = ComputePlacement(taskbarBounds, taskbarBounds, vertical ? 0u : 3u, settings.TaskbarLeftOffset, dpi);
+            if (rectangle.IsEmpty) { ShowWindow(source!.Handle, 0); return; }
             if (rectangle != lastPlacement || !IsVisible)
             {
                 SetLayout(vertical);
-                Width = rectangle.Width / dpi.DpiScaleX; Height = rectangle.Height / dpi.DpiScaleY;
-                OverlayNative.MovePixels(this, (int)Math.Round(rectangle.X), (int)Math.Round(rectangle.Y), (int)Math.Round(rectangle.Width), (int)Math.Round(rectangle.Height));
-                if (!IsVisible) Show();
+                surface.Width = rectangle.Width / dpi.DpiScaleX; surface.Height = rectangle.Height / dpi.DpiScaleY;
+                if (!SetWindowPos(source!.Handle, IntPtr.Zero, (int)Math.Round(rectangle.X), (int)Math.Round(rectangle.Y),
+                    (int)Math.Round(rectangle.Width), (int)Math.Round(rectangle.Height), 0x0050))
+                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
                 lastPlacement = rectangle;
             }
+            LastError = null;
         }
+        catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        { Detach(); LastError = error.Message; }
         finally { placing = false; }
     }
 
@@ -161,12 +181,19 @@ public sealed class TaskbarBatteryWindow : Window
     private IntPtr OnMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (message is 0x001A or 0x031A) ApplyTaskbarTheme();
-        if (message is 0x007E or 0x02E0 or 0x001A or 0x031A) { lastPlacement = Rect.Empty; Dispatcher.BeginInvoke(new Action(UpdatePlacement)); }
+        if (message is 0x007E or 0x02E0 or 0x001A or 0x031A) { lastPlacement = Rect.Empty; surface.Dispatcher.BeginInvoke(new Action(UpdatePlacement)); }
         return IntPtr.Zero;
     }
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindow(string className, string? windowName);
-    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out NativeRect rectangle);
+    [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr window, out NativeRect rectangle);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
+    [DllImport("user32.dll")] private static extern IntPtr GetParent(IntPtr window);
     [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr window);
+    [DllImport("user32.dll")] private static extern IntPtr GetThreadDpiAwarenessContext();
+    [DllImport("user32.dll")] private static extern IntPtr GetWindowDpiAwarenessContext(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool AreDpiAwarenessContextsEqual(IntPtr first, IntPtr second);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
 }

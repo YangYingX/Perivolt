@@ -18,7 +18,7 @@ foreach ($taskExtension in $taskExtensions) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 if ($Publish) {
-    & $taskDotnet publish $taskProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:EnableCompressionInSingleFile=true -o (Join-Path $taskRoot 'dist\PowerHub')
+    & $taskDotnet publish $taskProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o (Join-Path $taskRoot 'dist\PowerHub')
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 $taskOutput = if ($Publish) { Join-Path $taskRoot 'dist\PowerHub' } else { Join-Path $taskRoot 'bin\Debug\net10.0-windows10.0.19041.0' }

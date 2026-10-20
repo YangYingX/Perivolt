@@ -11,7 +11,7 @@
     <AssemblyName>PowerHub</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/powerhub.ico</ApplicationIcon>
-    <Version>1.0.1</Version>
+    <Version>1.0.2-preview.4</Version>
     <Description>Windows 外设电量中心</Description>
     <Product>电栖 · Perivolt</Product>
     <Title>电栖 · Perivolt</Title>
@@ -25,5 +25,6 @@
     <None Remove="Extensions/**/bin/**/*;Extensions/**/obj/**/*" />
     <None Update="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Update="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Update="scripts/Diagnose-Startup.cmd" TargetPath="Diagnose-Startup.cmd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 </Project>

@@ -6,14 +6,14 @@
 
 电栖（Perivolt，原 PowerHub）是原生 C# / .NET 10 / WPF 桌面程序。当前稳定发行版为 **1.0.1**，本分支为 **1.0.2 开发预览**。支持 **Windows 10 2004（build 19041）及以上、Windows 11，x64**。发布包自带运行时，无需安装 .NET SDK。为兼容覆盖升级，程序文件名、设置目录、启动项标识与 GitHub 仓库地址暂时保留 PowerHub。
 
-开发预览新增：简体中文、繁體中文、English、日本語即时切换；独立任务栏左端电量条；锁定桌面卡片时鼠标穿透并保留解锁按钮；整张设备卡片按电量填充；不同连接方式的可撤销设备关联。设置入口和限制见[开发预览说明](docs/perivolt-preview.md)。预览包不代表 1.0.2 正式发布，自动下载安装仍按[既有计划](docs/auto-update-plan.md)另行实现。
+开发预览新增：简体中文、繁體中文、English、日本語即时切换；任务栏子窗口电量条；锁定桌面卡片时鼠标穿透并保留解锁按钮；整张设备卡片按电量填充；不同连接方式的可撤销设备关联。设置入口和限制见[开发预览说明](docs/perivolt-preview.md)。预览包不代表 1.0.2 正式发布，自动下载安装仍按[既有计划](docs/auto-update-plan.md)另行实现。
 
 ## 下载与启动
 
 从 [1.0.1 发行页](https://github.com/YangYingX/PowerHub/releases/tag/v1.0.1) 下载 Windows 安装程序或便携 ZIP，也可通过 [最新发行版](https://github.com/YangYingX/PowerHub/releases/latest) 获取后续更新。
 
 - **安装版**：运行 `PowerHub-Setup-1.0.1-x64.exe`，优先选择非系统固定磁盘（如 `D:\Apps\PowerHub`），始终显示目录选择页；没有可用的非系统盘时需要手动选择，不自动回退到 C 盘。无需管理员权限，目录需可写。桌面快捷方式与开机启动均可选。
-- **便携版**：完整解压 ZIP，运行其中的 `PowerHub.exe`；保留同目录的 `plugins` 和第三方声明文件。
+- **便携版**：完整解压 ZIP，运行其中的 `PowerHub.exe`；保留所有 DLL、运行时、`plugins` 和第三方声明文件，不能只复制 EXE。
 
 默认常驻托盘：左键打开面板，右键进入快捷设置。关闭面板后继续监测，完全退出请使用托盘菜单。重复启动会打开已有实例；`--show` 可直接显示面板。
 

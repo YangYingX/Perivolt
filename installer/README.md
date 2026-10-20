@@ -1,4 +1,4 @@
-# PowerHub 安装器
+# 电栖 · Perivolt 安装器
 
 先运行 `scripts\Build.ps1 -Publish`，确认 `dist\PowerHub` 包含发布程序和第三方声明，再运行 `scripts\Build-Installer.ps1`。本地编译器位置为 `.tools\inno\compiler\ISCC.exe`；脚本只编译，不运行安装器或应用。
 
@@ -7,3 +7,5 @@
 支持 Windows 10 build 19041 及更新版本的 x64 兼容系统。桌面快捷方式和开机启动均为可选项。设置独立保存到 `%LOCALAPPDATA%\PowerHub`；卸载删除已安装程序和 PowerHub 启动项，保留用户设置。
 
 简体中文界面由本项目编写必要消息覆盖，`ChineseSimplified.isl` 中明确标注来源；罕见错误使用 Inno Setup 原始消息回退。这不是官方中文翻译。安装引擎来自 [Inno Setup](https://jrsoftware.org/)，保留其自身版权信息。
+
+安装载荷改为自带运行时的文件夹部署，首次运行不依赖单文件临时解压。快捷方式使用 --show，安装完成页可启动面板。Diagnose-Startup.cmd 随安装包提供；托管启动错误写入本地日志，运行时加载错误通过脚本收集。预览构建须给 Build-Installer.ps1 提供与载荷一致的版本号，脚本会拒绝版本错配。

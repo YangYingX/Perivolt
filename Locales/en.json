@@ -255,7 +255,7 @@
   "请输入 1–100 的整数。": "Enter an integer from 1 to 100.",
   "调整波浪、沙流和充电呼吸的明显程度。": "Adjust waves, flowing sand and the charging pulse.",
   "跟随系统": "System",
-  "轻量贴边显示，鼠标可穿透，不占用任务栏按钮。": "A light edge overlay with click-through. No taskbar buttons are reserved.",
+  "轻量贴边显示，鼠标可穿透，不占用任务栏按钮。": "A taskbar child window that follows its parent. No topmost desktop overlay.",
   "轻量运行": "Light footprint",
   "较长间隔可以减少设备查询。": "Longer intervals reduce device queries.",
   "连接固定的外设后显示电量": "Connect a pinned device to see its battery",
@@ -354,5 +354,11 @@
   "{0} · 100%，本轮充电已完成": "{0} · 100%, charging completed",
   "无法准备设置目录：{0}": "Cannot prepare settings folder: {0}",
   "程序遇到异常：{0}": "The app encountered an error: {0}",
-  "已保存设备": "Saved device"
+  "已保存设备": "Saved device",
+  "未能写入启动日志。": "Could not write the startup log.",
+  "本地日志：{0}": "Local log: {0}",
+  "程序未能正常启动：{0}": "The app could not start correctly: {0}",
+  "任务栏 DPI 模式不兼容，未挂载电量条。": "The taskbar DPI mode is incompatible; the strip was not attached.",
+  "无法嵌入任务栏，未启用悬浮替代。": "Could not attach to the taskbar. No floating substitute is used.",
+  "任务栏暂不可用，等待恢复。": "The taskbar is unavailable. Waiting for it to return."
 }

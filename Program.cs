@@ -20,6 +20,14 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        AppDomain.CurrentDomain.UnhandledException += (_, error) =>
+        { if (error.ExceptionObject is Exception exception) StartupDiagnostics.Write(exception); };
+        try { return Run(args); }
+        catch (Exception error) { StartupDiagnostics.Report(error); return 1; }
+    }
+
+    private static int Run(string[] args)
+    {
         if (args.Contains("--self-check"))
         {
             AttachConsole(unchecked((uint)-1));
@@ -81,7 +89,13 @@ public static class Program
         var instancePrefix = previewInstance ? @"Local\PowerHub.Preview" : @"Local\PowerHub";
         using var showSignal = capturing ? null : new EventWaitHandle(false, EventResetMode.AutoReset, instancePrefix + ".ShowPanel");
         using var instanceMutex = capturing ? null : new Mutex(false, instancePrefix + ".TrayApp", out _);
-        if (!capturing && !instanceMutex!.WaitOne(0))
+        var acquired = capturing;
+        if (!capturing)
+        {
+            try { acquired = instanceMutex!.WaitOne(0); }
+            catch (AbandonedMutexException) { acquired = true; }
+        }
+        if (!acquired)
         {
             showSignal!.Set();
             return 0;
@@ -97,13 +111,15 @@ public static class Program
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
         {
             if (capturing) Console.Error.WriteLine(error.Message);
-            else System.Windows.MessageBox.Show(L.F("无法准备设置目录：{0}", error.Message), L.AppName, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            else StartupDiagnostics.Report(error);
             return 1;
         }
         var application = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
         application.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary { Source = new Uri("/PowerHub;component/Themes/Controls.xaml", UriKind.Relative) });
         using var themes = new ThemeService();
-        var settings = new SettingsStore(dataDirectory).Load();
+        var store = new SettingsStore(dataDirectory);
+        var firstRun = !File.Exists(store.FilePath);
+        var settings = store.Load();
         if (ArgumentValue(args, "--theme") is { } theme) { settings.Theme = theme; settings.Normalize(); }
         using var controller = new AppController(dataDirectory, themes, settings, capturing);
         RegisteredWaitHandle? registration = null;
@@ -112,7 +128,7 @@ public static class Program
         application.DispatcherUnhandledException += (_, eventArgs) =>
         {
             if (capturing) { Console.Error.WriteLine(eventArgs.Exception); application.Shutdown(1); }
-            else System.Windows.MessageBox.Show(L.F("程序遇到异常：{0}", eventArgs.Exception.Message), L.AppName, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            else StartupDiagnostics.Report(eventArgs.Exception);
             eventArgs.Handled = true;
         };
         application.Startup += async (_, _) =>
@@ -120,7 +136,8 @@ public static class Program
             try
             {
                 MainWindow? panel = null;
-                if (capturing || previewInstance || args.Contains("--show") || !settings.StartInTray) panel = controller.ShowPanel(ArgumentValue(args, "--page") ?? "devices");
+                if (capturing || previewInstance || args.Contains("--show") || firstRun && !args.Contains("--startup") || !settings.StartInTray)
+                    panel = controller.ShowPanel(ArgumentValue(args, "--page") ?? "devices");
                 await controller.StartAsync();
                 if (!capturing) return;
                 if (widgetScreenshot is not null)
@@ -140,7 +157,7 @@ public static class Program
             {
                 Console.Error.WriteLine(error);
                 if (capturing) application.Shutdown(1);
-                else System.Windows.MessageBox.Show($"启动失败：{error.Message}", "PowerHub");
+                else { StartupDiagnostics.Report(error); application.Shutdown(1); }
             }
         };
         try { return application.Run(); }

@@ -1,57 +1,91 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using PowerHub.Controls;
 using PowerHub.Models;
+using PowerHub.Native;
 using PowerHub.Services;
 using Brush = System.Windows.Media.Brush;
-using Brushes = System.Windows.Media.Brushes;
-using TextBlock = System.Windows.Controls.TextBlock;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
+using TextBlock = System.Windows.Controls.TextBlock;
 using TextElement = System.Windows.Documents.TextElement;
+using Point = System.Windows.Point;
+using Size = System.Windows.Size;
+using SystemColors = System.Windows.SystemColors;
 
 namespace PowerHub;
 
 public sealed class TaskbarBatteryWindow : IDisposable
 {
     private readonly AppSettings settings;
-    private readonly Border surface = new() { CornerRadius = new CornerRadius(6), Margin = new Thickness(4), Padding = new Thickness(8, 3, 8, 3) };
+    private readonly Action? positionChanged;
+    private readonly Border surface = new() { BorderThickness = new Thickness(1), UseLayoutRounding = true, SnapsToDevicePixels = true, ClipToBounds = true };
     private readonly Grid content = new();
-    private readonly Grid progress = new() { Height = 3, Margin = new Thickness(0, 4, 10, 0), VerticalAlignment = VerticalAlignment.Top };
+    private readonly Border iconSurface = new() { Width = 26, Height = 26, CornerRadius = new CornerRadius(6), VerticalAlignment = VerticalAlignment.Center };
+    private readonly Grid progress = new() { Height = 3, VerticalAlignment = VerticalAlignment.Bottom, IsHitTestVisible = false };
     private readonly Border track = new() { CornerRadius = new CornerRadius(1.5) };
     private readonly CardBatteryFill fill = new() { IsHitTestVisible = false };
-    private readonly TextBlock name = new() { FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 10, 0) };
-    private readonly TextBlock battery = new() { FontSize = 13, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-    private readonly System.Windows.Shapes.Path icon = new() { Width = 18, Height = 18, Stretch = Stretch.Uniform, StrokeThickness = 1.6, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock name = new() { FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+    private readonly TextBlock battery = new() { FontSize = 12, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+    private readonly Grid reading = new();
+    private readonly System.Windows.Shapes.Path charging = new() { Data = Geometry.Parse("M5,0 L0,7 H4 L3,12 L9,4 H5 Z"), Width = 7, Height = 11, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center };
+    private readonly System.Windows.Shapes.Path icon = new() { Width = 17, Height = 17, Stretch = Stretch.Uniform, StrokeThickness = 1.6, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
     private readonly DispatcherTimer positionTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer dragTimer = new() { Interval = TimeSpan.FromMilliseconds(32) };
     private Rect lastPlacement = Rect.Empty;
+    private TaskbarNative.Snapshot? layout;
+    private Rect[]? occupied;
+    private DateTime lastOccupancyRead;
+    private bool readingOccupancy;
     private bool placing;
+    private bool disposed;
+    private bool pointerDown;
+    private bool dragging;
+    private Point dragStart;
+    private double dragStartOffset;
+    private int savedOffset;
     private Brush? customNameColor;
+    private (bool Light, bool HighContrast)? theme;
     private HwndSource? source;
     private IntPtr parent;
     public string? LastError { get; private set; }
     public bool IsVisible => source is { IsDisposed: false } && IsWindowVisible(source.Handle);
 
-    public TaskbarBatteryWindow(AppSettings settings)
+    public TaskbarBatteryWindow(AppSettings settings, Action? positionChanged = null)
     {
         this.settings = settings;
-        surface.UseLayoutRounding = true; surface.SnapsToDevicePixels = true;
+        this.positionChanged = positionChanged;
         TextElement.SetFontFamily(surface, new System.Windows.Media.FontFamily("Segoe UI, Microsoft YaHei UI"));
-        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
-        content.ColumnDefinitions.Add(new ColumnDefinition()); content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        content.RowDefinitions.Add(new RowDefinition()); content.RowDefinitions.Add(new RowDefinition());
-        content.Children.Add(icon); content.Children.Add(name); content.Children.Add(battery);
+        TextOptions.SetTextFormattingMode(surface, TextFormattingMode.Display);
+        System.Windows.Documents.Typography.SetNumeralAlignment(battery, FontNumeralAlignment.Tabular);
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        content.ColumnDefinitions.Add(new ColumnDefinition());
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        for (var row = 0; row < 3; row++) content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        reading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        reading.ColumnDefinitions.Add(new ColumnDefinition());
+        reading.Children.Add(charging); reading.Children.Add(battery); Grid.SetColumn(battery, 1);
+        iconSurface.Child = icon;
+        content.Children.Add(iconSurface); content.Children.Add(name); content.Children.Add(reading);
         progress.Children.Add(track); progress.Children.Add(fill); content.Children.Add(progress);
         surface.Child = content;
+        surface.MouseLeftButtonDown += OnDragStart;
+        surface.MouseMove += OnDragMove;
+        surface.MouseLeftButtonUp += (_, e) => { FinishDrag(); e.Handled = true; };
+        surface.LostMouseCapture += (_, _) => { if ((GetAsyncKeyState(1) & 0x8000) == 0) FinishDrag(); };
         positionTimer.Tick += (_, _) => UpdatePlacement();
+        // A non-activating taskbar child cannot rely on background mouse capture outside its bounds.
+        dragTimer.Tick += (_, _) => { if ((GetAsyncKeyState(1) & 0x8000) != 0) UpdateDrag(); else FinishDrag(); };
     }
 
     public void UpdateDevices(IReadOnlyList<DeviceStatus> devices)
     {
+        if (disposed) return;
         var online = devices.Where(device => device.ConnectionKnown && device.IsConnected && device.HasBattery);
         var selected = settings.TaskbarDeviceId is { } id ? online.FirstOrDefault(device => device.Id == id)
             : online.OrderByDescending(device => device.IsBatteryLow == true).ThenBy(device => device.BatteryPercent ?? 101).FirstOrDefault();
@@ -60,29 +94,32 @@ public sealed class TaskbarBatteryWindow : IDisposable
         name.Text = appearance.Name;
         battery.Text = selected.BatteryText;
         battery.Visibility = appearance.BatteryPercentageVisibility;
+        charging.Visibility = appearance.IsCharging ? Visibility.Visible : Visibility.Collapsed;
         icon.Data = appearance.IconGeometry;
-        fill.Percent = selected.BatteryPercent; fill.Fill = appearance.BatteryBrush;
-        if (fill.Fill is LinearGradientBrush gradient)
-        {
-            var horizontal = gradient.Clone(); horizontal.StartPoint = new System.Windows.Point(0, 0); horizontal.EndPoint = new System.Windows.Point(1, 0);
-            horizontal.Freeze(); fill.Fill = horizontal;
-        }
+        fill.Percent = selected.BatteryPercent; fill.Fill = CardBatteryFill.CreateHorizontalBrush(appearance.BatteryBrush);
         fill.ColorOpacity = appearance.ColorOpacity; fill.FillOpacity = 1;
         fill.AnimationsEnabled = appearance.AnimationsEnabled;
+        fill.IsCharging = appearance.IsCharging; fill.AnimationIntensity = appearance.AnimationIntensity;
+        surface.ToolTip = $"{appearance.Name} · {selected.BatteryText}\n{L.T("拖动调整任务栏位置")}";
         customNameColor = null;
         if (settings.Devices.TryGetValue(selected.Id, out var preference) && BatteryPalette.TryParseColor(preference.NameColor, out var color))
         { var custom = new SolidColorBrush(color); custom.Freeze(); customNameColor = custom; }
-        ApplyTaskbarTheme();
+        ApplyTaskbarTheme(true);
+        lastPlacement = Rect.Empty;
         positionTimer.Start();
         UpdatePlacement();
     }
 
-    public void Suspend() { positionTimer.Stop(); Detach(); LastError = null; }
+    public void Suspend() { positionTimer.Stop(); Detach(); layout = null; occupied = null; LastError = null; }
     public void Close() => Dispose();
-    public void Dispose() { positionTimer.Stop(); Detach(); }
+    public void Dispose() { disposed = true; Suspend(); }
 
     private void Detach()
     {
+        pointerDown = dragging = false;
+        dragTimer.Stop();
+        surface.ReleaseMouseCapture();
+        surface.Visibility = Visibility.Collapsed;
         if (source is { IsDisposed: false }) { source.RootVisual = null; source.Dispose(); }
         source = null; parent = IntPtr.Zero; lastPlacement = Rect.Empty;
     }
@@ -90,20 +127,27 @@ public sealed class TaskbarBatteryWindow : IDisposable
     private void Attach(IntPtr taskbar)
     {
         Detach();
-        if (!AreDpiAwarenessContextsEqual(GetThreadDpiAwarenessContext(), GetWindowDpiAwarenessContext(taskbar)))
-            throw new InvalidOperationException(L.T("任务栏 DPI 模式不兼容，未挂载电量条。"));
-        source = new HwndSource(new HwndSourceParameters("Perivolt.TaskbarBattery")
+        // Match the parent only while creating the child; never change the process DPI mode.
+        var previousContext = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(taskbar));
+        if (previousContext == IntPtr.Zero) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        try
         {
-            ParentWindow = taskbar, WindowStyle = 0x44000000, // WS_CHILD | WS_CLIPSIBLINGS; never a desktop overlay.
-            ExtendedWindowStyle = 0x08000020, // NOACTIVATE | TRANSPARENT; input stays with the taskbar.
-            UsesPerPixelTransparency = true, Width = 1, Height = 1, HwndSourceHook = OnMessage
-        });
+            source = new HwndSource(new HwndSourceParameters("Perivolt.TaskbarBattery")
+            {
+                ParentWindow = taskbar, WindowStyle = 0x44000000, // WS_CHILD | WS_CLIPSIBLINGS.
+                ExtendedWindowStyle = 0x08000000, // NOACTIVATE; accept mouse input for dragging.
+                UsesPerPixelTransparency = true, Width = 1, Height = 1, HwndSourceHook = OnMessage
+            });
+        }
+        finally { SetThreadDpiAwarenessContext(previousContext); }
         if (GetParent(source.Handle) != taskbar)
         { Detach(); throw new InvalidOperationException(L.T("无法嵌入任务栏，未启用悬浮替代。")); }
+        if (!AreDpiAwarenessContextsEqual(GetWindowDpiAwarenessContext(source.Handle), GetWindowDpiAwarenessContext(taskbar)))
+        { Detach(); throw new InvalidOperationException(L.T("任务栏 DPI 模式不兼容，未挂载电量条。")); }
         source.RootVisual = surface; parent = taskbar;
     }
 
-    private void ApplyTaskbarTheme()
+    private void ApplyTaskbarTheme(bool force = false)
     {
         var light = false;
         try
@@ -112,32 +156,57 @@ public sealed class TaskbarBatteryWindow : IDisposable
             light = key?.GetValue("SystemUsesLightTheme") is int value && value != 0;
         }
         catch (Exception error) when (error is System.Security.SecurityException or UnauthorizedAccessException) { }
-        var foreground = new SolidColorBrush(light ? System.Windows.Media.Color.FromRgb(30, 38, 48) : System.Windows.Media.Color.FromRgb(239, 243, 249));
-        foreground.Freeze(); battery.Foreground = icon.Stroke = foreground; name.Foreground = customNameColor ?? foreground;
-        surface.Background = new SolidColorBrush(light ? System.Windows.Media.Color.FromArgb(12, 0, 0, 0) : System.Windows.Media.Color.FromArgb(18, 255, 255, 255));
-        track.Background = new SolidColorBrush(light ? System.Windows.Media.Color.FromArgb(32, 0, 0, 0) : System.Windows.Media.Color.FromArgb(48, 255, 255, 255));
+        var current = (Light: light, HighContrast: SystemParameters.HighContrast);
+        if (!force && theme == current) return;
+        theme = current;
+        var foreground = current.HighContrast ? SystemColors.WindowTextBrush : Solid(light ? 0xFF26303Cu : 0xFFF2F5FAu);
+        battery.Foreground = icon.Stroke = foreground;
+        name.Foreground = current.HighContrast ? foreground : customNameColor ?? Solid(light ? 0xFF536171u : 0xFFBFC9D6u);
+        surface.Background = current.HighContrast ? SystemColors.WindowBrush : Solid(light ? 0xA8FFFFFFu : 0x682E3541u);
+        surface.BorderBrush = current.HighContrast ? foreground : Solid(light ? 0x20000000u : 0x24FFFFFFu);
+        iconSurface.Background = current.HighContrast ? SystemColors.WindowBrush : Solid(light ? 0x0C000000u : 0x10FFFFFFu);
+        track.Background = current.HighContrast ? foreground : Solid(light ? 0x24000000u : 0x30FFFFFFu);
+        charging.Fill = current.HighContrast ? foreground : Solid(light ? 0xFF16805Fu : 0xFF8FE4C5u);
+        surface.CornerRadius = new CornerRadius(Environment.OSVersion.Version.Build >= 22000 ? 8 : 4);
+    }
+
+    private static SolidColorBrush Solid(uint argb)
+    {
+        var brush = new SolidColorBrush(System.Windows.Media.Color.FromArgb((byte)(argb >> 24), (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb));
+        brush.Freeze(); return brush;
     }
 
     public void UpdatePlacement()
     {
-        if (placing || !positionTimer.IsEnabled) return;
+        if (placing || disposed || !positionTimer.IsEnabled) return;
         placing = true;
         try
         {
-            var taskbar = FindWindow("Shell_TrayWnd", null);
-            if (taskbar == IntPtr.Zero || !GetClientRect(taskbar, out var bar)) { Detach(); LastError = L.T("任务栏暂不可用，等待恢复。"); return; }
-            if (parent != taskbar || source is null || source.IsDisposed || !IsWindow(source.Handle)) Attach(taskbar);
-            var dpiValue = GetDpiForWindow(taskbar) / 96d;
-            var dpi = new DpiScale(dpiValue > 0 ? dpiValue : 1, dpiValue > 0 ? dpiValue : 1);
-            var taskbarBounds = new Rect(bar.Left, bar.Top, Math.Max(0, bar.Right - bar.Left), Math.Max(0, bar.Bottom - bar.Top));
-            var vertical = taskbarBounds.Height > taskbarBounds.Width;
-            var rectangle = ComputePlacement(taskbarBounds, taskbarBounds, vertical ? 0u : 3u, settings.TaskbarLeftOffset, dpi);
-            if (rectangle.IsEmpty) { ShowWindow(source!.Handle, 0); return; }
+            if (!TaskbarNative.TryGetTaskbar(out var snapshot))
+            { Detach(); layout = null; occupied = null; LastError = L.T("任务栏暂不可用，等待恢复。"); return; }
+            if (layout != snapshot)
+            {
+                FinishDrag();
+                layout = snapshot; occupied = null; lastPlacement = Rect.Empty;
+            }
+            if (parent != snapshot.Handle || source is null || source.IsDisposed || !IsWindow(source.Handle) || GetParent(source.Handle) != snapshot.Handle)
+                Attach(snapshot.Handle);
+            ApplyTaskbarTheme();
+            if (!readingOccupancy && (occupied is null || DateTime.UtcNow - lastOccupancyRead >= TimeSpan.FromSeconds(1)))
+                ReadOccupancy(snapshot);
+            if (occupied is null) { HideStrip(L.T("正在识别任务栏布局…")); return; }
+            if (DateTime.UtcNow - lastOccupancyRead > TimeSpan.FromSeconds(5))
+            { HideStrip(L.T("无法识别任务栏空闲区域，等待重试。")); return; }
+            var rectangle = ComputePlacement(snapshot.Bounds, snapshot.MonitorBounds, snapshot.Edge, settings.TaskbarLeftOffset, snapshot.DpiScale, occupied);
+            if (rectangle.IsEmpty) { HideStrip(L.T("任务栏空间不足，已暂时隐藏电量条。")); return; }
             if (rectangle != lastPlacement || !IsVisible)
             {
-                SetLayout(vertical);
-                surface.Width = rectangle.Width / dpi.DpiScaleX; surface.Height = rectangle.Height / dpi.DpiScaleY;
-                if (!SetWindowPos(source!.Handle, IntPtr.Zero, (int)Math.Round(rectangle.X), (int)Math.Round(rectangle.Y),
+                var vertical = snapshot.Edge is 0 or 2;
+                var size = new Size(rectangle.Width / snapshot.DpiScale.DpiScaleX, rectangle.Height / snapshot.DpiScale.DpiScaleY);
+                SetLayout(vertical, size);
+                surface.Width = size.Width; surface.Height = size.Height;
+                surface.Visibility = Visibility.Visible;
+                if (!SetWindowPos(source!.Handle, IntPtr.Zero, (int)Math.Round(rectangle.X - snapshot.ClientOrigin.X), (int)Math.Round(rectangle.Y - snapshot.ClientOrigin.Y),
                     (int)Math.Round(rectangle.Width), (int)Math.Round(rectangle.Height), 0x0050))
                     throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
                 lastPlacement = rectangle;
@@ -149,50 +218,165 @@ public sealed class TaskbarBatteryWindow : IDisposable
         finally { placing = false; }
     }
 
-    private void SetLayout(bool vertical)
+    private async void ReadOccupancy(TaskbarNative.Snapshot snapshot)
     {
-        name.Visibility = progress.Visibility = vertical ? Visibility.Collapsed : Visibility.Visible;
-        content.ColumnDefinitions[0].Width = vertical ? new GridLength(1, GridUnitType.Star) : new GridLength(28);
-        content.ColumnDefinitions[1].Width = vertical ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-        surface.Padding = vertical ? new Thickness(2) : new Thickness(8, 3, 8, 3);
-        icon.HorizontalAlignment = vertical ? HorizontalAlignment.Center : HorizontalAlignment.Left;
-        battery.HorizontalAlignment = vertical ? HorizontalAlignment.Center : HorizontalAlignment.Right;
-        battery.FontSize = vertical ? 10 : 13;
-        Grid.SetColumn(name, 1); Grid.SetColumn(progress, 1); Grid.SetRow(progress, 1);
-        Grid.SetColumn(battery, vertical ? 0 : 2); Grid.SetRow(battery, vertical ? 1 : 0);
-        Grid.SetRowSpan(icon, vertical ? 1 : 2); Grid.SetRowSpan(battery, vertical ? 1 : 2);
+        readingOccupancy = true;
+        Rect[]? result = null;
+        try { result = await Task.Run(() => TaskbarNative.ReadOccupiedBounds(snapshot.Handle)); }
+        catch (Exception error) when (error is InvalidOperationException or COMException or UnauthorizedAccessException) { }
+        finally { readingOccupancy = false; }
+        if (disposed || !positionTimer.IsEnabled || layout != snapshot) return;
+        occupied = result;
+        lastOccupancyRead = DateTime.UtcNow;
+        if (result is null) { HideStrip(L.T("无法识别任务栏空闲区域，等待重试。")); return; }
+        UpdatePlacement();
     }
 
-    internal static Rect ComputePlacement(Rect taskbar, Rect screen, uint edge, double offset, DpiScale dpi)
+    private void HideStrip(string reason)
+    {
+        FinishDrag();
+        surface.Visibility = Visibility.Collapsed;
+        if (source is { IsDisposed: false }) ShowWindow(source.Handle, 0);
+        LastError = reason;
+    }
+
+    private void SetLayout(bool vertical, Size size)
+    {
+        var compact = !vertical && (size.Width < 156 || size.Height < 30);
+        var small = vertical ? size.Height < 68 : size.Height < 36;
+        surface.Cursor = vertical ? System.Windows.Input.Cursors.SizeNS : System.Windows.Input.Cursors.SizeWE;
+        surface.Padding = vertical ? new Thickness(5, small ? 3 : 6, 5, small ? 3 : 6) : new Thickness(7, small ? 2 : 4, 7, small ? 2 : 4);
+        content.VerticalAlignment = VerticalAlignment.Center;
+        content.ColumnDefinitions[0].Width = vertical ? new GridLength(0) : GridLength.Auto;
+        content.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
+        content.ColumnDefinitions[2].Width = vertical ? new GridLength(0) : GridLength.Auto;
+        iconSurface.Width = iconSurface.Height = Math.Min(small ? 20 : 26, vertical ? size.Width - 12 : size.Height - (small ? 6 : 10));
+        icon.Width = icon.Height = Math.Min(small ? 15 : 17, iconSurface.Width - 2);
+        iconSurface.Margin = vertical ? new Thickness(0, 0, 0, 3) : new Thickness(0, 0, 8, 0);
+        iconSurface.HorizontalAlignment = vertical ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        name.Visibility = vertical || compact ? Visibility.Collapsed : Visibility.Visible;
+        reading.HorizontalAlignment = vertical ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        reading.MaxWidth = vertical ? Math.Max(0, size.Width - 14) : compact ? Math.Max(0, size.Width - 48) : 78;
+        battery.FontSize = vertical ? 11 : 12;
+        progress.Visibility = fill.Percent.HasValue && (vertical || size.Height >= 28) ? Visibility.Visible : Visibility.Collapsed;
+        progress.Height = small ? 2 : 3;
+        progress.Margin = new Thickness(0, vertical ? 5 : 3, 0, 0);
+        Grid.SetColumn(iconSurface, vertical ? 1 : 0); Grid.SetRow(iconSurface, 0); Grid.SetRowSpan(iconSurface, vertical ? 1 : 2);
+        Grid.SetColumn(name, 1); Grid.SetRow(name, 0);
+        Grid.SetColumn(reading, vertical ? 1 : compact ? 1 : 2); Grid.SetRow(reading, vertical ? 1 : 0);
+        Grid.SetColumnSpan(reading, !vertical && compact ? 2 : 1);
+        Grid.SetColumn(progress, 1); Grid.SetRow(progress, vertical ? 2 : 1); Grid.SetColumnSpan(progress, vertical ? 1 : 2);
+    }
+
+    internal static Rect ComputePlacement(Rect taskbar, Rect screen, uint edge, double offset, DpiScale dpi, IReadOnlyList<Rect>? occupied = null)
     {
         var visible = Rect.Intersect(taskbar, screen);
-        if (visible.IsEmpty) return Rect.Empty;
-        if (edge is 1 or 3)
+        if (visible.IsEmpty || dpi.DpiScaleX <= 0 || dpi.DpiScaleY <= 0) return Rect.Empty;
+        var vertical = edge is 0 or 2;
+        var scale = vertical ? dpi.DpiScaleY : dpi.DpiScaleX;
+        var crossScale = vertical ? dpi.DpiScaleX : dpi.DpiScaleY;
+        var crossSize = vertical ? visible.Width : visible.Height;
+        if (crossSize < (vertical ? 48 : 32) * crossScale) return Rect.Empty;
+        var start = (vertical ? visible.Top : visible.Left) + 4 * scale;
+        var end = (vertical ? visible.Bottom : visible.Right) - 4 * scale;
+        var preferred = (vertical ? taskbar.Top : taskbar.Left) + (double.IsFinite(offset) ? Math.Max(0, offset) : 0) * scale;
+        var minimum = (vertical ? 54 : 96) * scale;
+        var desired = (vertical ? 76 : visible.Height < 36 * crossScale ? 112 : 200) * scale;
+        var spans = (occupied ?? []).Select(bounds => Rect.Intersect(bounds, visible)).Where(bounds => !bounds.IsEmpty && bounds.Width > 0 && bounds.Height > 0)
+            .Select(bounds => (Start: (vertical ? bounds.Top : bounds.Left) - 5 * scale, End: (vertical ? bounds.Bottom : bounds.Right) + 5 * scale))
+            .Where(span => span.End > start && span.Start < end).OrderBy(span => span.Start).ToArray();
+        var best = double.PositiveInfinity;
+        var bestStart = 0d;
+        var bestSize = 0d;
+        void Consider(double from, double to)
         {
-            if (visible.Height < 20 * dpi.DpiScaleY) return Rect.Empty;
-            var width = Math.Min(192 * dpi.DpiScaleX, visible.Width);
-            return new Rect(Math.Clamp(visible.Left + offset * dpi.DpiScaleX, visible.Left, visible.Right - width), visible.Top, width, visible.Height);
+            if (to - from < minimum) return;
+            var length = Math.Min(desired, to - from);
+            var position = Math.Clamp(preferred, from, to - length);
+            var distance = Math.Abs(position - preferred);
+            if (distance >= best) return;
+            best = distance; bestStart = position; bestSize = length;
         }
-        if (visible.Width < 20 * dpi.DpiScaleX) return Rect.Empty;
-        var height = Math.Min(52 * dpi.DpiScaleY, visible.Height);
-        return new Rect(visible.Left, Math.Clamp(visible.Top + offset * dpi.DpiScaleY, visible.Top, visible.Bottom - height), visible.Width, height);
+        var cursor = start;
+        foreach (var span in spans) { Consider(cursor, Math.Min(span.Start, end)); cursor = Math.Max(cursor, span.End); }
+        Consider(cursor, end);
+        if (bestSize == 0) return Rect.Empty;
+        var thickness = Math.Min((vertical ? 104 : 40) * crossScale, crossSize - 8 * crossScale);
+        var across = (vertical ? visible.Left : visible.Top) + (crossSize - thickness) / 2;
+        return vertical ? new Rect(across, bestStart, thickness, bestSize) : new Rect(bestStart, across, bestSize, thickness);
+    }
+
+    private void OnDragStart(object sender, MouseButtonEventArgs e)
+    {
+        if (layout is not { } snapshot || lastPlacement.IsEmpty || !GetPhysicalCursorPos(out var cursor)) return;
+        pointerDown = true;
+        surface.CaptureMouse();
+        dragging = false;
+        savedOffset = settings.TaskbarLeftOffset;
+        dragStart = new Point(cursor.X, cursor.Y);
+        dragStartOffset = snapshot.Edge is 0 or 2 ? (lastPlacement.Top - snapshot.Bounds.Top) / snapshot.DpiScale.DpiScaleY
+            : (lastPlacement.Left - snapshot.Bounds.Left) / snapshot.DpiScale.DpiScaleX;
+        dragTimer.Start();
+        e.Handled = true;
+    }
+
+    private void OnDragMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!pointerDown) return;
+        if (e.LeftButton != MouseButtonState.Pressed) { FinishDrag(); return; }
+        UpdateDrag();
+        e.Handled = true;
+    }
+
+    private void UpdateDrag()
+    {
+        if (!pointerDown || layout is not { } snapshot || !GetPhysicalCursorPos(out var cursor)) return;
+        var vertical = snapshot.Edge is 0 or 2;
+        var delta = vertical ? (cursor.Y - dragStart.Y) / snapshot.DpiScale.DpiScaleY : (cursor.X - dragStart.X) / snapshot.DpiScale.DpiScaleX;
+        if (!dragging && Math.Abs(delta) < (vertical ? SystemParameters.MinimumVerticalDragDistance : SystemParameters.MinimumHorizontalDragDistance)) return;
+        dragging = true;
+        var offset = (int)Math.Clamp(Math.Round(dragStartOffset + delta), 0, 32767);
+        if (settings.TaskbarLeftOffset == offset) return;
+        settings.TaskbarLeftOffset = offset;
+        UpdatePlacement();
+    }
+
+    private void FinishDrag()
+    {
+        if (!pointerDown) return;
+        var changed = dragging;
+        pointerDown = dragging = false;
+        dragTimer.Stop();
+        surface.ReleaseMouseCapture();
+        if (!changed) return;
+        if (layout is { } snapshot && !lastPlacement.IsEmpty)
+        {
+            var offset = snapshot.Edge is 0 or 2 ? (lastPlacement.Top - snapshot.Bounds.Top) / snapshot.DpiScale.DpiScaleY
+                : (lastPlacement.Left - snapshot.Bounds.Left) / snapshot.DpiScale.DpiScaleX;
+            settings.TaskbarLeftOffset = (int)Math.Clamp(Math.Round(offset), 0, 32767);
+        }
+        if (settings.TaskbarLeftOffset != savedOffset) positionChanged?.Invoke();
     }
 
     private IntPtr OnMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (message is 0x001A or 0x031A) ApplyTaskbarTheme();
-        if (message is 0x007E or 0x02E0 or 0x001A or 0x031A) { lastPlacement = Rect.Empty; surface.Dispatcher.BeginInvoke(new Action(UpdatePlacement)); }
+        if (message == 0x0021) { handled = true; return new IntPtr(3); } // MA_NOACTIVATE.
+        if (message is 0x007E or 0x02E0 or 0x001A or 0x031A)
+        {
+            theme = null; lastPlacement = Rect.Empty; occupied = null;
+            surface.Dispatcher.BeginInvoke(new Action(UpdatePlacement));
+        }
         return IntPtr.Zero;
     }
-    [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindow(string className, string? windowName);
-    [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr window, out NativeRect rectangle);
+
+    [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
     [DllImport("user32.dll")] private static extern IntPtr GetParent(IntPtr window);
-    [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr window);
-    [DllImport("user32.dll")] private static extern IntPtr GetThreadDpiAwarenessContext();
+    [DllImport("user32.dll")] private static extern bool GetPhysicalCursorPos(out NativePoint point);
+    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] private static extern IntPtr GetWindowDpiAwarenessContext(IntPtr window);
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] private static extern bool AreDpiAwarenessContextsEqual(IntPtr first, IntPtr second);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
     [DllImport("user32.dll", SetLastError = true)] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);

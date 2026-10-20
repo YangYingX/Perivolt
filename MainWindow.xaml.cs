@@ -251,7 +251,7 @@ public partial class MainWindow : Window
         var settings = _controller.Settings;
         LanguageCombo.SelectedValue = settings.Language;
         TaskbarBox.IsChecked = settings.TaskbarEnabled;
-        TaskbarHintText.Text = _controller.TaskbarError ?? L.T("仅显示在线设备；可微调位置以避开开始按钮或系统小组件。");
+        TaskbarHintText.Text = _controller.TaskbarError ?? L.T("按住电量条拖动调整位置；横向左右移动，竖向上下移动。");
         var taskbarChoices = new[] { new DeviceChoice(null, L.T("自动显示最低电量设备")) }.Concat(_cards.Select(card => new DeviceChoice(card.Id, card.Name))).ToList();
         if (settings.TaskbarDeviceId is { } savedId && !taskbarChoices.Any(choice => choice.Id == savedId))
         {
@@ -668,7 +668,7 @@ public partial class MainWindow : Window
     }
     private void OnTaskbarClick(object sender, RoutedEventArgs e) => Apply(settings => settings.TaskbarEnabled = TaskbarBox.IsChecked == true);
     private void OnTaskbarDeviceChanged(object sender, SelectionChangedEventArgs e) { if (!_updating) Apply(settings => settings.TaskbarDeviceId = TaskbarDeviceCombo.SelectedValue as string); }
-    private void OnTaskbarOffsetLostFocus(object sender, RoutedEventArgs e) { if (!_updating && int.TryParse(TaskbarOffsetBox.Text, out var offset)) Apply(settings => settings.TaskbarLeftOffset = Math.Clamp(offset, 0, 1600)); }
+    private void OnTaskbarOffsetLostFocus(object sender, RoutedEventArgs e) { if (!_updating && int.TryParse(TaskbarOffsetBox.Text, out var offset)) Apply(settings => settings.TaskbarLeftOffset = Math.Clamp(offset, 0, 32767)); }
     private void OnStartInTrayClick(object sender, RoutedEventArgs e) => Apply(settings => settings.StartInTray = StartInTrayBox.IsChecked == true);
     private void OnStartWithWindowsClick(object sender, RoutedEventArgs e) { var enabled = StartWithWindowsBox.IsChecked == true; Apply(settings => settings.StartWithWindows = enabled); if (_controller.Settings.StartWithWindows != enabled) SettingsStatusText.Text = _controller.StatusText; }
     private void OnThemeClick(object sender, RoutedEventArgs e) { if (sender is RadioButton { Tag: string theme }) Apply(settings => settings.Theme = theme); }

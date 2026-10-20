@@ -9,3 +9,5 @@
 简体中文界面由本项目编写必要消息覆盖，`ChineseSimplified.isl` 中明确标注来源；罕见错误使用 Inno Setup 原始消息回退。这不是官方中文翻译。安装引擎来自 [Inno Setup](https://jrsoftware.org/)，保留其自身版权信息。
 
 安装载荷改为自带运行时的文件夹部署，首次运行不依赖单文件临时解压。快捷方式使用 --show，安装完成页可启动面板。Diagnose-Startup.cmd 随安装包提供；托管启动错误写入本地日志，运行时加载错误通过脚本收集。预览构建须给 Build-Installer.ps1 提供与载荷一致的版本号，脚本会拒绝版本错配。
+
+从 1.0.3 起，安装器和主程序便携包不附带群星映色角色主题包；发布脚本和安装器均排除 `plugins\character-themes`。需要该主题包时按[插件说明](../docs/plugins.md)单独安装，原有用户设置继续保留。

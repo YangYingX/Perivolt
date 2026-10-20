@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.0.2"
+  #define AppVersion "1.0.3"
 #endif
 #ifndef AppFileVersion
-  #define AppFileVersion "1.0.2"
+  #define AppFileVersion "1.0.3"
 #endif
 
 [Setup]
@@ -46,7 +46,7 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Name: "startup"; Description: "登录 Windows 后自动启动电栖"; GroupDescription: "启动选项："; Flags: unchecked
 
 [Files]
-Source: "..\dist\PowerHub\*"; DestDir: "{app}"; Excludes: "*.pdb,artifacts,artifacts\*,settings.json,settings.*.json,battery-*.jsonl"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\PowerHub\*"; DestDir: "{app}"; Excludes: "*.pdb,artifacts,artifacts\*,settings.json,settings.*.json,battery-*.jsonl,plugins\character-themes,plugins\character-themes\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{userprograms}\电栖"; Filename: "{app}\PowerHub.exe"; Parameters: "--show"; WorkingDir: "{app}"; Check: not WizardNoIcons

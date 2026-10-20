@@ -44,10 +44,13 @@ public sealed class BatteryVisual : Control
     private static readonly Geometry OceanClip = Frozen(new EllipseGeometry(Center, 26.5, 26.5));
     private static readonly Geometry BarClip = Frozen(new RectangleGeometry(new Rect(9, 26, 47, 18), 3, 3));
     private static readonly Geometry BarSegments = CreateSegments();
+    private static readonly Geometry ChargingBolt = Frozen(Geometry.Parse(
+        "M59,5 L51,16 L56,16 L53,25 L63,12 L57.5,12 Z"));
     private static readonly Geometry SandVessel = Frozen(Geometry.Parse(
         "M24,13 L46,13 C46,23 43,28 37.5,33.8 C36.9,34.3 36.9,35.7 37.5,36.2 " +
         "C43,42 46,47 46,57 L24,57 C24,47 27,42 32.5,36.2 C33.1,35.7 33.1,34.3 32.5,33.8 C27,28 24,23 24,13 Z"));
     private static readonly Pen GlintPen = Frozen(new Pen(Brushes.White, .8));
+    private static readonly Pen ChargingOutlinePen = Frozen(new Pen(Brushes.Black, 2) { LineJoin = PenLineJoin.Round });
     private Transform _layoutTransform = Transform.Identity;
     private Pen? _accentPen;
     private Pen? _trackPen;
@@ -112,8 +115,8 @@ public sealed class BatteryVisual : Control
 
     private void UpdateRendering()
     {
-        if (IsLoaded && IsVisible && ColorOpacity > 0 && AnimationsEnabled && HasPercent &&
-            (DisplayStyle is "Bar" or "Hourglass" or "Ocean" || DisplayStyle == "Ring" && IsCharging))
+        if (IsLoaded && IsVisible && ColorOpacity > 0 && AnimationsEnabled &&
+            (IsCharging || HasPercent && (DisplayStyle is "Bar" or "Hourglass" or "Ocean")))
         {
             if (_subscribed) return;
             _lastFrame = 0;
@@ -166,15 +169,26 @@ public sealed class BatteryVisual : Control
             case "Hourglass": DrawHourglass(context, percent); break;
             case "Fill":
                 context.DrawRoundedRectangle(TrackBrush, null, new Rect(2, 13, 66, 44), 8, 8);
-                context.PushClip(new RectangleGeometry(new Rect(2, 13, 66, 44), 8, 8));
-                context.PushOpacity(FillOpacity);
-                context.DrawRectangle(_horizontalFill ??= CardBatteryFill.CreateHorizontalBrush(Foreground), null,
-                    new Rect(2, 13, 66 * percent, 44));
-                context.Pop(); context.Pop();
+                CardBatteryFill.DrawSurface(context, new Rect(2, 13, 66, 44),
+                    _horizontalFill ??= CardBatteryFill.CreateHorizontalBrush(Foreground), percent,
+                    FillOpacity, IsCharging && AnimationsEnabled, _phase, AnimationIntensity);
                 break;
+            case "Charge": break;
             default: DrawOcean(context, percent); break;
         }
+        if (IsCharging) DrawCharging(context);
         context.Pop();
+        context.Pop();
+    }
+
+    private void DrawCharging(DrawingContext context)
+    {
+        var breathing = AnimationsEnabled ? (Math.Sin(_phase * 1.5) + 1) / 2 : 1;
+        context.PushOpacity(1 - .08 * AnimationIntensity * (1 - breathing));
+        context.PushOpacity(.3);
+        context.DrawGeometry(null, ChargingOutlinePen, ChargingBolt);
+        context.Pop();
+        context.DrawGeometry(Foreground, null, ChargingBolt);
         context.Pop();
     }
 

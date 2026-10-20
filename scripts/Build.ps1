@@ -13,6 +13,9 @@ $taskConfiguration = if ($Publish) { 'Release' } else { 'Debug' }
 & $taskDotnet build $taskProject -c $taskConfiguration
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $taskExtensions = Get-ChildItem -LiteralPath (Join-Path $taskRoot 'Extensions') -Filter '*.csproj' -Recurse
+if ($Publish) {
+    $taskExtensions = $taskExtensions | Where-Object { $_.Directory.Name -ne 'CharacterThemes' }
+}
 foreach ($taskExtension in $taskExtensions) {
     & $taskDotnet build $taskExtension.FullName -c $taskConfiguration -p:BuildProjectReferences=false
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -22,6 +25,12 @@ if ($Publish) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 $taskOutput = if ($Publish) { Join-Path $taskRoot 'dist\PowerHub' } else { Join-Path $taskRoot 'bin\Debug\net10.0-windows10.0.19041.0' }
+if ($Publish) {
+    $taskOptionalTheme = [System.IO.Path]::GetFullPath((Join-Path $taskOutput 'plugins\character-themes'))
+    $taskPublishRoot = [System.IO.Path]::GetFullPath($taskOutput).TrimEnd('\') + '\'
+    if (-not $taskOptionalTheme.StartsWith($taskPublishRoot, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid optional plugin path' }
+    if (Test-Path -LiteralPath $taskOptionalTheme) { Remove-Item -LiteralPath $taskOptionalTheme -Recurse -Force }
+}
 foreach ($taskExtension in $taskExtensions) {
     $taskManifests = Get-ChildItem -LiteralPath $taskExtension.DirectoryName -Filter '*.json' -Recurse |
         Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' -and ($_.Name -eq 'plugin.json' -or $_.Name.EndsWith('.plugin.json')) }

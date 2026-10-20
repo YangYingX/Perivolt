@@ -12,7 +12,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/powerhub.ico</ApplicationIcon>
     <CetCompat>false</CetCompat>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Description>Windows 外设电量中心</Description>
     <Product>电栖 · Perivolt</Product>
     <Title>电栖 · Perivolt</Title>

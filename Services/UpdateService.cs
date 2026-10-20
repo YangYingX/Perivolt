@@ -9,7 +9,7 @@ namespace PowerHub.Services;
 
 public sealed class UpdateService : IDisposable
 {
-    private const string Endpoint = "https://api.github.com/repos/YangYingX/PowerHub/releases/latest";
+    private const string Endpoint = "https://api.github.com/repos/YangYingX/Perivolt/releases/latest";
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromHours(12) };
     private CancellationTokenSource? request;
     private bool disposed;
@@ -111,7 +111,7 @@ public sealed class UpdateService : IDisposable
             throw new InvalidDataException("Invalid release version.");
         if (version <= current) return null;
         // Construct a repository-local URL instead of trusting a URL from remote JSON.
-        return (version.ToString(3), new Uri($"https://github.com/YangYingX/PowerHub/releases/tag/{Uri.EscapeDataString(tag)}"));
+        return (version.ToString(3), new Uri($"https://github.com/YangYingX/Perivolt/releases/tag/{Uri.EscapeDataString(tag)}"));
     }
 
     public void Dispose()

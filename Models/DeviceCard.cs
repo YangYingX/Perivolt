@@ -40,11 +40,11 @@ public sealed class DeviceCard(DeviceStatus status, AppSettings settings)
     public Brush BatteryBrush => BatteryPalette.GetBrush(settings.GetBatteryColors(Id), Status.BatteryPercent);
     public string Subtitle => $"{L.T(Status.Connection)} · {Status.ConnectionText}";
     public string UpdatedLabel => L.F("读取于 {0}", Status.UpdatedText);
-    public string Note => Status.IsCharging == true ? L.T("正在充电，提醒已暂停") : !Status.HasBattery ? L.T("暂未提供可读取的电量") : L.T("电量低时会按你的设置提醒");
+    public string Note => Status.IsCharging == true ? L.T("低电量提醒已暂停") : !Status.HasBattery ? L.T("暂未提供可读取的电量") : L.T("电量低时会按你的设置提醒");
     public string PinLabel => settings.IsPinned(Id) ? L.T("✓ 已固定") : L.T("+ 固定桌面");
     public bool IsPinned => settings.IsPinned(Id);
     public bool AlertsEnabled => !settings.Devices.TryGetValue(Id, out var preference) || preference.NotificationsEnabled;
     public string ThresholdOverride => settings.Devices.TryGetValue(Id, out var preference) ? preference.LowBatteryThreshold?.ToString() ?? "" : "";
-    public string ReminderText => !settings.IsDeviceNotificationEnabled(Id) ? L.T("提醒已关闭") : Status.BatteryPercent is null && Status.BatteryLevel is not null
+    public string ReminderText => Status.IsCharging == true ? L.T("正在充电") : !settings.IsDeviceNotificationEnabled(Id) ? L.T("提醒已关闭") : Status.BatteryPercent is null && Status.BatteryLevel is not null
         ? L.T("低电量档位时提醒") : L.F("{0}% 时提醒", settings.GetThreshold(Id));
 }

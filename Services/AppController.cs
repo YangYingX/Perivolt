@@ -233,7 +233,7 @@ public sealed class AppController : IDisposable
     {
         if (previewMode) return;
         if (!Settings.TaskbarEnabled) { taskbar?.Suspend(); return; }
-        taskbar ??= new TaskbarBatteryWindow(Settings);
+        taskbar ??= new TaskbarBatteryWindow(Settings, () => ApplySettings());
         taskbar.UpdateDevices(Devices);
     }
 

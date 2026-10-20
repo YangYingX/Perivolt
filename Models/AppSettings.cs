@@ -66,7 +66,7 @@ public sealed class AppSettings : IJsonOnDeserializing
             artwork.Position = artwork.Position is "Left" or "Center" ? artwork.Position : "Right";
             if (string.IsNullOrWhiteSpace(artwork.Path)) artwork.Path = null;
         }
-        TaskbarLeftOffset = Math.Clamp(TaskbarLeftOffset, 0, 1600);
+        TaskbarLeftOffset = Math.Clamp(TaskbarLeftOffset, 0, 32767);
         if (string.IsNullOrWhiteSpace(TaskbarDeviceId)) TaskbarDeviceId = null;
         CardFillOpacity = ClampFinite(CardFillOpacity, .1, 1, .85);
         Theme = Theme?.Trim().ToLowerInvariant() switch

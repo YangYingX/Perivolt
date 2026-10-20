@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using PowerHub.Models;
 using Forms = System.Windows.Forms;
 
@@ -20,6 +21,9 @@ public sealed class TrayService : IDisposable
     private readonly AppSettings _settings;
     private readonly ReminderPolicy _reminderPolicy = new();
     private readonly Icon _batteryIcon;
+    private readonly HwndSource _menuOwner;
+    private readonly FrameworkElement _menuTarget = new();
+    private bool _disposed;
 
     public TrayService(Action show, Action refresh, Action exit, Action openWidgetSettings, Action openSettings, AppSettings settings, Action settingsChanged)
     {
@@ -36,24 +40,35 @@ public sealed class TrayService : IDisposable
                 case "exit": exit(); break;
             }
         };
+        _menuOwner = new HwndSource(new HwndSourceParameters("Perivolt.TrayMenuOwner")
+        {
+            WindowStyle = unchecked((int)0x90000000), // WS_POPUP | WS_VISIBLE.
+            ExtendedWindowStyle = 0x00000080, // WS_EX_TOOLWINDOW.
+            Width = 1, Height = 1, PositionX = -32000, PositionY = -32000,
+            UsesPerPixelTransparency = true
+        }) { RootVisual = _menuTarget };
         _batteryIcon = CreateBatteryIcon();
         _icon = new Forms.NotifyIcon { Icon = _batteryIcon, Text = L.T("PowerHub · 外设电量中心"), Visible = true };
         _icon.MouseClick += (_, args) =>
         {
             if (args.Button == Forms.MouseButtons.Left) show();
-            else if (args.Button == Forms.MouseButtons.Right) OpenMenu();
+            else if (args.Button == Forms.MouseButtons.Right)
+                _menuTarget.Dispatcher.BeginInvoke(new Action(OpenMenu), DispatcherPriority.ContextIdle);
         };
         _icon.BalloonTipClicked += (_, _) => show();
     }
 
     private void OpenMenu()
     {
+        if (_disposed) return;
         if (_menu is not null) _menu.IsOpen = false;
         _menu = new TrayMenu(_settings, _command, _settingsChanged);
         _menu.Refresh(_devices);
+        _menu.PlacementTarget = _menuTarget;
         _menu.Placement = PlacementMode.MousePoint;
+        // Finish the shell's click notification, then activate the owner before WPF takes capture.
+        SetForegroundWindow(_menuOwner.Handle);
         _menu.IsOpen = true;
-        if (PresentationSource.FromVisual(_menu) is HwndSource source) SetForegroundWindow(source.Handle);
         _menu.Focus();
     }
 
@@ -106,7 +121,9 @@ public sealed class TrayService : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         if (_menu is not null) _menu.IsOpen = false;
+        _menuOwner.Dispose();
         _icon.Visible = false;
         _icon.Dispose();
         _batteryIcon.Dispose();

@@ -2,7 +2,7 @@
 
 先运行 `scripts\Build.ps1 -Publish`，确认 `dist\PowerHub` 包含发布程序和第三方声明，再运行 `scripts\Build-Installer.ps1`。本地编译器位置为 `.tools\inno\compiler\ISCC.exe`；脚本只编译，不运行安装器或应用。
 
-当前正式版为 `1.0.6`；安装器显示项目根目录的个人非商业许可，发布者署名为“阳影X (YangYingX)”。构建脚本会核对载荷中的许可、署名和第三方声明与源码一致，避免用旧载荷打包新许可。`LICENSE`、`NOTICE.md`、`AUTHORS.md` 和 `LICENSES/MIT-legacy.txt` 随包保留；1.0.5 及以前的发行文件和原 MIT 授权保持不变。
+当前正式版为 `1.0.7`，安装包文件名为 `Perivolt-Setup-1.0.7-x64.exe`；安装器显示项目根目录的个人非商业许可，发布者署名为“阳影X (YangYingX)”。构建脚本会核对载荷中的许可、署名和第三方声明与源码一致，避免用旧载荷打包新许可。`LICENSE`、`NOTICE.md`、`AUTHORS.md` 和 `LICENSES/MIT-legacy.txt` 随包保留；1.0.5 及以前的发行文件和原 MIT 授权保持不变。
 
 按当前用户安装，优先推荐 D: 至 Z: 中可用的非系统固定磁盘（如 `D:\Apps\Perivolt`）。目录选择页始终显示；已有非系统盘安装路径可以沿用。没有可用候选时必须手动选择目录，静默安装需要明确提供 `/DIR="路径"`，不会自动回退到 C 盘。程序无需管理员权限，所选目录需可写。
 

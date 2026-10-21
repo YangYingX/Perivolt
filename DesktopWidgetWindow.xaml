@@ -165,8 +165,7 @@
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding DisplayStyle}" Value="Bar"><Setter Property="Width" Value="60"/></DataTrigger>
                                                     <DataTrigger Binding="{Binding DisplayStyle}" Value="Hourglass"><Setter Property="Width" Value="Auto"/></DataTrigger>
-                                                    <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Bar"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Width" Value="52"/><Setter Property="Height" Value="40"/></MultiDataTrigger>
-                                                    <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Hourglass"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Height" Value="36"/></MultiDataTrigger>
+                                                    <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Bar"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Width" Value="52"/></MultiDataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Grid.Style>
@@ -177,8 +176,7 @@
                                                     <Setter Property="Width" Value="{Binding BatteryVisualSize}"/><Setter Property="Height" Value="{Binding BatteryVisualSize}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding DisplayStyle}" Value="Bar"><Setter Property="Width" Value="60"/></DataTrigger>
-                                                        <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Bar"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Width" Value="52"/><Setter Property="Height" Value="40"/></MultiDataTrigger>
-                                                        <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Hourglass"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Width" Value="36"/><Setter Property="Height" Value="36"/></MultiDataTrigger>
+                                                        <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Bar"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Width" Value="52"/></MultiDataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </controls:BatteryVisual.Style>

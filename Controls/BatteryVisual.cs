@@ -44,14 +44,20 @@ public sealed class BatteryVisual : Control
     private static readonly Geometry OceanClip = Frozen(new EllipseGeometry(Center, 26.5, 26.5));
     private static readonly Geometry BarClip = Frozen(new RectangleGeometry(new Rect(7, 14, 52, 28), 3, 3));
     private static readonly Geometry BarSegments = CreateSegments();
-    private static readonly Transform HourglassTransform = Frozen(new ScaleTransform(1.15, 1.08, 35, 35));
     private static readonly Geometry ChargingBolt = Frozen(Geometry.Parse(
         "M59,5 L51,16 L56,16 L53,25 L63,12 L57.5,12 Z"));
     private static readonly Geometry BarChargingBolt = Frozen(Geometry.Parse(
         "M63,2 L57,11 L61,11 L58,18 L68,7 L63,7 Z"));
     private static readonly Geometry SandVessel = Frozen(Geometry.Parse(
-        "M20,13 L50,13 C50,23 46,28 37.5,33.8 C36.9,34.3 36.9,35.7 37.5,36.2 " +
-        "C46,42 50,47 50,57 L20,57 C20,47 24,42 32.5,36.2 C33.1,35.7 33.1,34.3 32.5,33.8 C24,28 20,23 20,13 Z"));
+        "M18,6 L52,6 C56,6 58,8 58,12 C58,22 49,29 40,34 Q38.5,35 40,36 " +
+        "C49,41 58,48 58,58 C58,62 56,64 52,64 L18,64 C14,64 12,62 12,58 " +
+        "C12,48 21,41 30,36 Q31.5,35 30,34 C21,29 12,22 12,12 C12,8 14,6 18,6 Z"));
+    private static readonly Geometry UpperSandChamber = Frozen(Geometry.Parse(
+        "M18,10 L52,10 C53.2,10 54,10.8 54,12 C54,21 46,27 38,32.5 " +
+        "C36,33.8 34,33.8 32,32.5 C24,27 16,21 16,12 C16,10.8 16.8,10 18,10 Z"));
+    private static readonly Geometry LowerSandChamber = Frozen(Geometry.Parse(
+        "M18,60 L52,60 C53.2,60 54,59.2 54,58 C54,49 46,43 38,37.5 " +
+        "C36,36.2 34,36.2 32,37.5 C24,43 16,49 16,58 C16,59.2 16.8,60 18,60 Z"));
     private static readonly Pen GlintPen = Frozen(new Pen(Brushes.White, .8));
     private static readonly Pen ChargingOutlinePen = Frozen(new Pen(Brushes.Black, 2) { LineJoin = PenLineJoin.Round });
     private Transform _layoutTransform = Transform.Identity;
@@ -128,7 +134,8 @@ public sealed class BatteryVisual : Control
     private void UpdateRendering()
     {
         if (IsLoaded && IsVisible && ColorOpacity > 0 && AnimationsEnabled &&
-            (IsCharging || HasPercent && (DisplayStyle is "Bar" or "Hourglass" or "Ocean")))
+            (IsCharging || HasPercent && (DisplayStyle is "Bar" or "Hourglass" or "Ocean") ||
+                DisplayStyle == "Fill" && Percent is > 0 and < 100))
         {
             if (_subscribed) return;
             _lastFrame = 0;
@@ -163,10 +170,14 @@ public sealed class BatteryVisual : Control
 
     private void UpdateLayoutTransform()
     {
-        var height = DisplayStyle == "Bar" ? 56 : 70;
-        var scale = Math.Min(ActualWidth / 70, ActualHeight / height);
+        if (DisplayStyle == "Bar")
+        {
+            _layoutTransform = Frozen(new MatrixTransform(ActualWidth / 70, 0, 0, ActualHeight / 56, 0, 0));
+            return;
+        }
+        var scale = Math.Min(ActualWidth / 70, ActualHeight / 70);
         _layoutTransform = Frozen(new MatrixTransform(scale, 0, 0, scale,
-            (ActualWidth - 70 * scale) / 2, (ActualHeight - height * scale) / 2));
+            (ActualWidth - 70 * scale) / 2, (ActualHeight - 70 * scale) / 2));
     }
 
     protected override void OnRender(DrawingContext context)
@@ -190,7 +201,7 @@ public sealed class BatteryVisual : Control
                 context.DrawRoundedRectangle(TrackBrush, null, new Rect(2, 13, 66, 44), 8, 8);
                 CardBatteryFill.DrawSurface(context, new Rect(2, 13, 66, 44),
                     _horizontalFill ??= CardBatteryFill.CreateHorizontalBrush(Foreground), percent,
-                    FillOpacity, IsCharging && AnimationsEnabled, _phase, AnimationIntensity);
+                    FillOpacity, IsCharging && AnimationsEnabled, _phase, AnimationIntensity, animateBoundary: AnimationsEnabled);
                 break;
             case "Charge": break;
             default: DrawOcean(context, percent); break;
@@ -270,25 +281,20 @@ public sealed class BatteryVisual : Control
 
     private void DrawHourglass(DrawingContext context, double percent)
     {
-        context.PushTransform(HourglassTransform);
-        context.PushOpacity(.22);
+        context.PushOpacity(.25);
         context.DrawGeometry(TrackBrush, null, SandVessel);
         context.Pop();
-        context.PushOpacity(.4);
-        context.DrawGeometry(null, _shapeOutlinePen, SandVessel);
-        context.DrawLine(_accentPen, new Point(17, 8), new Point(53, 8));
-        context.DrawLine(_accentPen, new Point(17, 62), new Point(53, 62));
-        context.Pop();
-        if (!HasPercent) { context.Pop(); return; }
+        context.DrawGeometry(null, _thinTrackPen, SandVessel);
+        if (!HasPercent) return;
         // Remaining charge occupies the upper chamber; spent charge collects beneath it.
         // The chamber narrows toward the waist, so height alone understates the remaining sand.
-        var upperSurface = 33 - 20 * Math.Sqrt(percent);
-        var lowerSurface = 57 - 20 * (1 - percent);
+        var upperSurface = 34 - 24 * Math.Sqrt(percent);
+        var lowerSurface = 60 - 22 * (1 - percent);
         context.PushClip(SandVessel);
         context.PushOpacity(FillOpacity);
         if (percent > 0)
         {
-            context.PushClip(new RectangleGeometry(new Rect(19, 13, 32, 22)));
+            context.PushClip(UpperSandChamber);
             context.DrawGeometry(Foreground, null, Wave(upperSurface, _phase * .7,
                 AnimationsEnabled ? Math.Min(.6 * AnimationIntensity, 5 * Math.Min(percent, 1 - percent)) : 0));
             context.Pop();
@@ -296,14 +302,16 @@ public sealed class BatteryVisual : Control
         if (percent < 1)
         {
             var sway = AnimationsEnabled ? Math.Sin(_phase * .8) * .3 * AnimationIntensity : 0;
+            context.PushClip(LowerSandChamber);
             context.PushOpacity(.3);
-            context.DrawGeometry(Foreground, null, Polygon(new Point(19, 58), new Point(51, 58),
-                new Point(49, Math.Min(57, lowerSurface + 5)), new Point(35 + sway, lowerSurface),
-                new Point(21, Math.Min(57, lowerSurface + 5))));
+            context.DrawGeometry(Foreground, null, Polygon(new Point(15, 61), new Point(55, 61),
+                new Point(53, Math.Min(60, lowerSurface + 4)), new Point(35 + sway, lowerSurface),
+                new Point(17, Math.Min(60, lowerSurface + 4))));
+            context.Pop();
             context.Pop();
         }
         context.Pop();
-        if (AnimationsEnabled && percent > .01 && lowerSurface > 37)
+        if (AnimationsEnabled && percent > .01 && percent < 1)
         {
             context.PushOpacity(FillOpacity * .65);
             context.DrawLine(_wavePen, new Point(35, 33.5), new Point(35, lowerSurface));
@@ -318,11 +326,6 @@ public sealed class BatteryVisual : Control
             }
             context.Pop();
         }
-        context.PushOpacity(.2);
-        context.DrawLine(GlintPen, new Point(23, 17), new Point(25, 23));
-        context.DrawLine(GlintPen, new Point(23, 52), new Point(25, 47));
-        context.Pop();
-        context.Pop();
         context.Pop();
     }
 

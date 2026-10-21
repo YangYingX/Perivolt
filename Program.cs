@@ -1,3 +1,5 @@
+// Perivolt · 阳影X (YangYingX) · https://github.com/YangYingX/Perivolt
+// Licensing and historical permissions: LICENSE and NOTICE.md.
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Encodings.Web;

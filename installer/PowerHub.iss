@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.0.5"
+  #define AppVersion "1.0.6"
 #endif
 #ifndef AppFileVersion
-  #define AppFileVersion "1.0.5"
+  #define AppFileVersion "1.0.6"
 #endif
 
 [Setup]
@@ -10,10 +10,13 @@ AppId={{F8421AA2-85D8-4E06-B227-BDBD43B58BC9}
 AppName=电栖 · Perivolt
 AppVersion={#AppVersion}
 AppVerName=电栖 · Perivolt {#AppVersion}
-AppPublisher=Perivolt contributors
+AppPublisher=阳影X (YangYingX)
+AppPublisherURL=https://github.com/YangYingX/Perivolt
+LicenseFile=..\LICENSE
 AppComments=Windows 外设电量中心
 VersionInfoVersion={#AppFileVersion}
 VersionInfoDescription=电栖 · Perivolt 安装程序
+VersionInfoCopyright=Copyright (c) 2026 阳影X (YangYingX)
 DefaultDirName={code:DefaultInstallDirectory}
 DisableDirPage=no
 DefaultGroupName=电栖

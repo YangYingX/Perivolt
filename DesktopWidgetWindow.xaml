@@ -156,22 +156,53 @@
                                             </controls:OutlinedText.Style>
                                         </controls:OutlinedText>
                                     </StackPanel>
-                                    <Grid Grid.Column="1" VerticalAlignment="Center" Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}"
+                                    <Grid Grid.Column="1" VerticalAlignment="Center"
                                           ToolTip="{Binding BatteryDescription}" AutomationProperties.Name="{Binding BatteryDescription}">
-                                        <controls:BatteryVisual Visibility="{Binding BatteryGraphicVisibility}" Width="{Binding BatteryVisualSize}" Height="{Binding BatteryVisualSize}" HorizontalAlignment="Center" Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}"/>
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Width" Value="{Binding BatteryVisualSize}"/>
+                                                <Setter Property="Height" Value="{Binding BatteryVisualSize}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DisplayStyle}" Value="Bar"><Setter Property="Width" Value="60"/></DataTrigger>
+                                                    <DataTrigger Binding="{Binding DisplayStyle}" Value="Hourglass"><Setter Property="Width" Value="Auto"/></DataTrigger>
+                                                    <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Bar"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Width" Value="52"/><Setter Property="Height" Value="40"/></MultiDataTrigger>
+                                                    <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Hourglass"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Height" Value="36"/></MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <controls:BatteryVisual Visibility="{Binding BatteryGraphicVisibility}" Percent="{Binding Percent}" DisplayStyle="{Binding DisplayStyle}" AnimationsEnabled="{Binding AnimationsEnabled}" FillOpacity="{Binding FillOpacity}" ColorOpacity="{Binding ColorOpacity}" AnimationIntensity="{Binding AnimationIntensity}" IsCharging="{Binding IsCharging}" Foreground="{Binding BatteryBrush}" TrackBrush="{DynamicResource RingTrack}">
+                                            <controls:BatteryVisual.Style>
+                                                <Style TargetType="controls:BatteryVisual">
+                                                    <Setter Property="Width" Value="{Binding BatteryVisualSize}"/><Setter Property="Height" Value="{Binding BatteryVisualSize}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DisplayStyle}" Value="Bar"><Setter Property="Width" Value="60"/></DataTrigger>
+                                                        <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Bar"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Width" Value="52"/><Setter Property="Height" Value="40"/></MultiDataTrigger>
+                                                        <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Hourglass"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Width" Value="36"/><Setter Property="Height" Value="36"/></MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </controls:BatteryVisual.Style>
+                                        </controls:BatteryVisual>
                                         <controls:BatteryVisual DisplayStyle="Charge" ColorOpacity="{Binding ColorOpacity}" IsCharging="{Binding IsCharging}" AnimationsEnabled="{Binding AnimationsEnabled}" AnimationIntensity="{Binding AnimationIntensity}" Foreground="{DynamicResource Accent}" Visibility="{Binding CardFillVisibility}"/>
-                                        <controls:OutlinedText Text="{Binding BatteryLabel}" Visibility="{Binding BatteryPercentageVisibility}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold">
+                                        <Grid Visibility="{Binding BatteryPercentageVisibility}">
+                                            <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding DisplayStyle}" Value="Hourglass"><Setter Property="Grid.Column" Value="1"/><Setter Property="Margin" Value="4,0,0,0"/><Setter Property="MinWidth" Value="36"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+                                        <controls:OutlinedText Text="{Binding BatteryLabel}" VerticalAlignment="Center" FontWeight="SemiBold">
                                             <controls:OutlinedText.Style>
                                                 <Style TargetType="controls:OutlinedText">
                                                     <Setter Property="FontSize" Value="12"/>
+                                                    <Setter Property="HorizontalAlignment" Value="Center"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Compact}" Value="True">
                                                             <Setter Property="FontSize" Value="10"/>
                                                         </DataTrigger>
+                                                        <DataTrigger Binding="{Binding DisplayStyle}" Value="Bar"><Setter Property="FontSize" Value="13"/></DataTrigger>
+                                                        <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding DisplayStyle}" Value="Bar"/><Condition Binding="{Binding Compact}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="FontSize" Value="12"/></MultiDataTrigger>
+                                                        <DataTrigger Binding="{Binding DisplayStyle}" Value="Hourglass"><Setter Property="HorizontalAlignment" Value="Right"/><Setter Property="FontSize" Value="12"/></DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </controls:OutlinedText.Style>
                                         </controls:OutlinedText>
+                                        </Grid>
                                     </Grid>
                                 </Grid>
                             </Border>

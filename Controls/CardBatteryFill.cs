@@ -20,6 +20,7 @@ public sealed class CardBatteryFill : FrameworkElement
     public static readonly DependencyProperty UseSubtleFillProperty = DependencyProperty.Register(nameof(UseSubtleFill), typeof(bool), typeof(CardBatteryFill), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
     private static readonly Brush AmbientMask = CreateMask();
     private static readonly Brush Sheen = CreateSheen();
+    [ThreadStatic] private static Dictionary<double, Brush>? _endMasks;
     private Brush? _horizontalFill;
     private bool _subscribed;
     private double _lastFrame;
@@ -104,6 +105,8 @@ public sealed class CardBatteryFill : FrameworkElement
         var charged = new Rect(rail.X, rail.Y, rail.Width * Math.Clamp(percent, 0, 1), rail.Height);
         if (charged.Width > 0)
         {
+            var fadeEnd = !subtle && percent < 1;
+            if (fadeEnd) context.PushOpacityMask(EndMask(charged.Width));
             if (subtle) context.DrawRoundedRectangle(fill, null, charged, 1.5, 1.5);
             else context.DrawRectangle(fill, null, charged);
             if (isCharging)
@@ -115,6 +118,7 @@ public sealed class CardBatteryFill : FrameworkElement
                 context.DrawRectangle(Sheen, null, new Rect(x, rail.Y, width, rail.Height));
                 context.Pop(); context.Pop();
             }
+            if (fadeEnd) context.Pop();
         }
         context.Pop(); context.Pop();
     }
@@ -124,6 +128,20 @@ public sealed class CardBatteryFill : FrameworkElement
         var mask = new LinearGradientBrush(Colors.Transparent, Colors.White, new Point(0, 0), new Point(0, 1));
         mask.Freeze();
         return mask;
+    }
+
+    private static Brush EndMask(double width)
+    {
+        var masks = _endMasks ??= new Dictionary<double, Brush>();
+        if (masks.TryGetValue(width, out var mask)) return mask;
+        var fade = Math.Min(12, width / 2);
+        var brush = new LinearGradientBrush(new GradientStopCollection
+        {
+            new(Colors.White, 0), new(Colors.White, 1 - fade / width), new(Colors.Transparent, 1)
+        }, new Point(0, 0), new Point(1, 0));
+        brush.Freeze();
+        if (masks.Count >= 64) masks.Clear();
+        return masks[width] = brush;
     }
 
     private static Brush CreateSheen()

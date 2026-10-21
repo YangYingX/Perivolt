@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <Authors>阳影X (YangYingX)</Authors>
+    <Company>阳影X</Company>
+    <Copyright>Copyright (c) 2026 阳影X (YangYingX)</Copyright>
+    <RepositoryUrl>https://github.com/YangYingX/Perivolt</RepositoryUrl>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="Developer" Value="阳影X (YangYingX)" />
+    <AssemblyMetadata Include="ProjectOrigin" Value="https://github.com/YangYingX/Perivolt" />
+    <AssemblyMetadata Include="ProjectLicense" Value="LicenseRef-Perivolt-Personal-Noncommercial-1.0; historical and third-party rights retained" />
+  </ItemGroup>
+</Project>

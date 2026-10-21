@@ -12,10 +12,11 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/powerhub.ico</ApplicationIcon>
     <CetCompat>false</CetCompat>
-    <Version>1.0.5</Version>
+    <Version>1.0.6</Version>
     <Description>Windows 外设电量中心</Description>
     <Product>电栖 · Perivolt</Product>
     <Title>电栖 · Perivolt</Title>
+    <AssemblyTitle>电栖 · Perivolt</AssemblyTitle>
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="DiagnosticUploadEndpoint" Value="$(DiagnosticUploadEndpoint)" />
@@ -27,6 +28,7 @@
     <None Remove="Extensions/**/bin/**/*;Extensions/**/obj/**/*" />
     <None Update="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Update="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Update="NOTICE.md;AUTHORS.md;LICENSES/MIT-legacy.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Update="scripts/Diagnose-Startup.cmd" TargetPath="Diagnose-Startup.cmd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
   <Target Name="BrandPublishedAppHost" AfterTargets="Publish"

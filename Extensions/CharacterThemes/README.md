@@ -17,13 +17,13 @@
 
 终末地名单核对至 2026-10-20，包含截至「祀」的 12 位特许寻访六星角色：莱万汀、洁尔佩塔、伊冯、洛茜、汤汤、庄方宜、弭弗、卡缪、诀、梨诺、提弗洛斯、祀。19 套主题均可匹配个人单独准备的本地立绘。
 
-角色名字保留中文，游戏分组和控件支持应用的四种语言。没有附带游戏立绘、官方 Logo、语音、字体；配色及几何装饰为本项目设计。属于非官方同好主题，游戏及角色权利归各权利方，MIT 仅适用于本仓库自身代码与原创装饰。
+角色名字保留中文，游戏分组和控件支持应用的四种语言。没有附带游戏立绘、官方 Logo、语音、字体；配色及几何装饰为本项目设计。属于非官方同好主题，游戏及角色权利归各权利方。已发布的 1.1.1 包及主项目 v1.0.5 及以前版本的 MIT 授权保留；许可变更后的新增原创修改按根目录 [LICENSE](../../LICENSE) 提供，不覆盖游戏角色和商标等第三方权利。开发者：阳影X（YangYingX），来源：[YangYingX/Perivolt](https://github.com/YangYingX/Perivolt)。
 
 ## 独立本地立绘
 
 1.1.1 新生成背景的目录为 `Perivolt-CharacterBackgrounds-1.1.1-LocalOnly/artwork`，独立本地包包含 135 张成品背景及其索引与提示词，不含插件 DLL。旧的 `Perivolt-CharacterArtwork-LocalOnly` 是绘制时核对身份的原设参考包；查看本轮生成效果时请选择新版背景目录。
 
-在主题列表选中角色或形态后，点击“选择立绘文件夹”，指定独立本地包的 `artwork` 目录。文件按完整主题 ID 命名，例如 `endfield-si.png`、`arknights-amiya.png`、`arknights-amiya-guard.png`、`arknights-amiya-medic.png`、`arknights-chen-dawnstreak.png`，支持 PNG/JPEG。可为当前选项单独选图、切换显示、设置透明度与左中右位置；这些设置按主题 ID 各自保存。立绘继续保存在本地独立包，不随程序安装包、公开仓库或发行附件分发；应用不联网获取图片，个人准备的素材不受本仓库 MIT 许可覆盖。
+在主题列表选中角色或形态后，点击“选择立绘文件夹”，指定独立本地包的 `artwork` 目录。文件按完整主题 ID 命名，例如 `endfield-si.png`、`arknights-amiya.png`、`arknights-amiya-guard.png`、`arknights-amiya-medic.png`、`arknights-chen-dawnstreak.png`，支持 PNG/JPEG。可为当前选项单独选图、切换显示、设置透明度与左中右位置；这些设置按主题 ID 各自保存。立绘继续保存在本地独立包，不随程序安装包、公开仓库或发行附件分发；应用不联网获取图片，个人准备的素材不受本仓库许可覆盖。
 
 名单核对来源（开发时参考，运行时不会访问）：
 

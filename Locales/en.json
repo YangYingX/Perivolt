@@ -437,5 +437,7 @@
   "下载已取消，当前版本继续运行。": "Download canceled. The current version is still running.",
   "下载或校验未完成，当前版本继续运行。可重试或前往发行页下载。": "Download or verification failed. The current version is still running. Retry or use the release page.",
   "设置未保存，已暂停安装。请检查权限后重试。": "Settings could not be saved. Installation paused. Check permissions and retry.",
-  "未能打开安装器。可重试，或前往发行页手动下载。": "Could not open the installer. Retry or download it from the release page."
+  "未能打开安装器。可重试，或前往发行页手动下载。": "Could not open the installer. Retry or download it from the release page.",
+  "开发者：阳影X（GitHub：YangYingX）": "Developer: 阳影X (GitHub: YangYingX)",
+  "个人非商业使用免费；企业使用及商业用途须事先获得开发者授权。": "Free for personal, noncommercial use. Business use and commercial purposes require prior authorization from the developer."
 }

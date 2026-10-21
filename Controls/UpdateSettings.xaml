@@ -20,6 +20,8 @@
                 <Button x:Name="DownloadButton" Content="{loc:T '下载并安装'}" Click="OnDownload" Padding="14,8" Margin="0,0,10,6" Visibility="Collapsed"/>
                 <Button x:Name="ReleaseButton" Content="{loc:T '查看发行页'}" Click="OnOpenRelease" Padding="12,8" Margin="0,0,0,6" Visibility="Collapsed"/>
             </WrapPanel>
+            <TextBlock Text="{loc:T '开发者：阳影X（GitHub：YangYingX）'}" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,12,0,0" TextWrapping="Wrap"/>
+            <TextBlock Text="{loc:T '个人非商业使用免费；企业使用及商业用途须事先获得开发者授权。'}" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
         </StackPanel>
     </Border>
 </UserControl>

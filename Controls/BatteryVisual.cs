@@ -17,7 +17,7 @@ public sealed class BatteryVisual : Control
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, OnPercentChanged));
     public static readonly DependencyProperty DisplayStyleProperty = DependencyProperty.Register(
         nameof(DisplayStyle), typeof(string), typeof(BatteryVisual),
-        new FrameworkPropertyMetadata("Ring", FrameworkPropertyMetadataOptions.AffectsRender, OnMotionModeChanged));
+        new FrameworkPropertyMetadata("Ring", FrameworkPropertyMetadataOptions.AffectsRender, OnDisplayStyleChanged));
     public static readonly DependencyProperty AnimationsEnabledProperty = DependencyProperty.Register(
         nameof(AnimationsEnabled), typeof(bool), typeof(BatteryVisual),
         new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender, OnAnimationChanged));
@@ -42,10 +42,13 @@ public sealed class BatteryVisual : Control
 
     private static readonly Point Center = new(35, 35);
     private static readonly Geometry OceanClip = Frozen(new EllipseGeometry(Center, 26.5, 26.5));
-    private static readonly Geometry BarClip = Frozen(new RectangleGeometry(new Rect(9, 26, 47, 18), 3, 3));
+    private static readonly Geometry BarClip = Frozen(new RectangleGeometry(new Rect(7, 14, 52, 28), 3, 3));
     private static readonly Geometry BarSegments = CreateSegments();
+    private static readonly Transform HourglassTransform = Frozen(new ScaleTransform(1.15, 1.08, 35, 35));
     private static readonly Geometry ChargingBolt = Frozen(Geometry.Parse(
         "M59,5 L51,16 L56,16 L53,25 L63,12 L57.5,12 Z"));
+    private static readonly Geometry BarChargingBolt = Frozen(Geometry.Parse(
+        "M63,2 L57,11 L61,11 L58,18 L68,7 L63,7 Z"));
     private static readonly Geometry SandVessel = Frozen(Geometry.Parse(
         "M24,13 L46,13 C46,23 43,28 37.5,33.8 C36.9,34.3 36.9,35.7 37.5,36.2 " +
         "C43,42 46,47 46,57 L24,57 C24,47 27,42 32.5,36.2 C33.1,35.7 33.1,34.3 32.5,33.8 C27,28 24,23 24,13 Z"));
@@ -55,6 +58,7 @@ public sealed class BatteryVisual : Control
     private Pen? _accentPen;
     private Pen? _trackPen;
     private Pen? _thinTrackPen;
+    private Pen? _shapeOutlinePen;
     private Pen? _wavePen;
     private Brush? _horizontalFill;
     private bool _subscribed;
@@ -106,12 +110,20 @@ public sealed class BatteryVisual : Control
     {
         var control = (BatteryVisual)sender;
         control._accentPen = control._trackPen = control._thinTrackPen = null;
+        control._shapeOutlinePen = null;
         control._wavePen = null;
         control._horizontalFill = null;
     }
 
     private static void OnMotionModeChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args) =>
         ((BatteryVisual)sender).UpdateRendering();
+
+    private static void OnDisplayStyleChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+    {
+        var control = (BatteryVisual)sender;
+        control.UpdateLayoutTransform();
+        control.UpdateRendering();
+    }
 
     private void UpdateRendering()
     {
@@ -145,10 +157,16 @@ public sealed class BatteryVisual : Control
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
     {
         base.OnRenderSizeChanged(sizeInfo);
-        var scale = Math.Min(ActualWidth, ActualHeight) / 70;
-        _layoutTransform = Frozen(new MatrixTransform(scale, 0, 0, scale,
-            (ActualWidth - 70 * scale) / 2, (ActualHeight - 70 * scale) / 2));
+        UpdateLayoutTransform();
         InvalidateVisual();
+    }
+
+    private void UpdateLayoutTransform()
+    {
+        var height = DisplayStyle == "Bar" ? 56 : 70;
+        var scale = Math.Min(ActualWidth / 70, ActualHeight / height);
+        _layoutTransform = Frozen(new MatrixTransform(scale, 0, 0, scale,
+            (ActualWidth - 70 * scale) / 2, (ActualHeight - height * scale) / 2));
     }
 
     protected override void OnRender(DrawingContext context)
@@ -158,6 +176,7 @@ public sealed class BatteryVisual : Control
         _accentPen ??= new Pen(Foreground, 4.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         _trackPen ??= new Pen(TrackBrush, 4.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         _thinTrackPen ??= new Pen(TrackBrush, 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+        _shapeOutlinePen ??= new Pen(Foreground, 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         _wavePen ??= new Pen(Foreground, .9);
         var percent = HasPercent ? Percent!.Value / 100d : 0;
         context.PushTransform(_layoutTransform);
@@ -183,12 +202,13 @@ public sealed class BatteryVisual : Control
 
     private void DrawCharging(DrawingContext context)
     {
+        var bolt = DisplayStyle == "Bar" ? BarChargingBolt : ChargingBolt;
         var breathing = AnimationsEnabled ? (Math.Sin(_phase * 1.5) + 1) / 2 : 1;
         context.PushOpacity(1 - .08 * AnimationIntensity * (1 - breathing));
         context.PushOpacity(.3);
-        context.DrawGeometry(null, ChargingOutlinePen, ChargingBolt);
+        context.DrawGeometry(null, ChargingOutlinePen, bolt);
         context.Pop();
-        context.DrawGeometry(Foreground, null, ChargingBolt);
+        context.DrawGeometry(Foreground, null, bolt);
         context.Pop();
     }
 
@@ -220,16 +240,18 @@ public sealed class BatteryVisual : Control
     private void DrawBar(DrawingContext context, double percent)
     {
         context.PushOpacity(.25);
-        context.DrawRoundedRectangle(TrackBrush, null, new Rect(5, 22, 55, 26), 6, 6);
+        context.DrawRoundedRectangle(TrackBrush, null, new Rect(3, 10, 60, 36), 6, 6);
         context.Pop();
-        context.DrawRoundedRectangle(null, _thinTrackPen, new Rect(5, 22, 55, 26), 6, 6);
-        context.DrawRoundedRectangle(TrackBrush, null, new Rect(62, 29, 3, 12), 1.5, 1.5);
+        context.PushOpacity(.55);
+        context.DrawRoundedRectangle(null, _shapeOutlinePen, new Rect(3, 10, 60, 36), 6, 6);
+        context.DrawRoundedRectangle(Foreground, null, new Rect(65, 20, 4, 16), 1.5, 1.5);
+        context.Pop();
         context.PushOpacity(.45);
         context.DrawGeometry(TrackBrush, null, BarSegments);
         context.Pop();
         if (!HasPercent || percent <= 0) return;
         context.PushClip(BarClip);
-        context.PushClip(new RectangleGeometry(new Rect(9, 26, 47 * percent, 18)));
+        context.PushClip(new RectangleGeometry(new Rect(7, 14, 52 * percent, 28)));
         context.PushOpacity(FillOpacity);
         context.DrawGeometry(Foreground, null, BarSegments);
         context.Pop();
@@ -239,7 +261,7 @@ public sealed class BatteryVisual : Control
             var width = 5 * AnimationIntensity;
             context.PushOpacity(FillOpacity * (IsCharging ? .55 : .35));
             context.DrawGeometry(Brushes.White, null, Polygon(
-                new Point(x - width, 25), new Point(x, 25), new Point(x - 7, 45), new Point(x - width - 7, 45)));
+                new Point(x - width, 13), new Point(x, 13), new Point(x - 7, 43), new Point(x - width - 7, 43)));
             context.Pop();
         }
         context.Pop();
@@ -248,13 +270,16 @@ public sealed class BatteryVisual : Control
 
     private void DrawHourglass(DrawingContext context, double percent)
     {
+        context.PushTransform(HourglassTransform);
         context.PushOpacity(.22);
         context.DrawGeometry(TrackBrush, null, SandVessel);
         context.Pop();
-        context.DrawGeometry(null, _thinTrackPen, SandVessel);
-        context.DrawLine(_trackPen, new Point(20, 8), new Point(50, 8));
-        context.DrawLine(_trackPen, new Point(20, 62), new Point(50, 62));
-        if (!HasPercent) return;
+        context.PushOpacity(.65);
+        context.DrawGeometry(null, _shapeOutlinePen, SandVessel);
+        context.DrawLine(_accentPen, new Point(20, 8), new Point(50, 8));
+        context.DrawLine(_accentPen, new Point(20, 62), new Point(50, 62));
+        context.Pop();
+        if (!HasPercent) { context.Pop(); return; }
         // Remaining charge occupies the upper chamber; spent charge collects beneath it.
         var upperSurface = 13 + 20 * (1 - percent);
         var lowerSurface = 57 - 20 * (1 - percent);
@@ -293,6 +318,7 @@ public sealed class BatteryVisual : Control
         context.PushOpacity(.35);
         context.DrawLine(GlintPen, new Point(27, 17), new Point(28.5, 23));
         context.DrawLine(GlintPen, new Point(27, 52), new Point(28.5, 47));
+        context.Pop();
         context.Pop();
         context.Pop();
     }
@@ -378,7 +404,7 @@ public sealed class BatteryVisual : Control
     {
         var group = new GeometryGroup();
         for (var index = 0; index < 8; index++)
-            group.Children.Add(new RectangleGeometry(new Rect(9.6 + index * 5.8, 27, 4, 16), 1.3, 1.3));
+            group.Children.Add(new RectangleGeometry(new Rect(7.5 + index * 6.4, 15, 5.2, 26), 1.3, 1.3));
         return Frozen(group);
     }
 

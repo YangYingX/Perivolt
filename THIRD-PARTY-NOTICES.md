@@ -1,9 +1,13 @@
 # Third-party notices
 
-PowerHub's own code is licensed under the repository [MIT License](LICENSE).
-Third-party components retain their own copyrights and licenses. The project's
-MIT license does not replace or relicense any dependency, plugin, protocol
-documentation, runtime, or installer engine.
+Perivolt is developed by 阳影X (YangYingX). New original changes owned or
+licensable by the developer after this licensing change use the repository's
+[Personal Noncommercial License](LICENSE). Code and copies already released
+through v1.0.5 retain the [historical MIT permission](LICENSES/MIT-legacy.txt).
+Third-party and adapted components retain their own copyrights and licenses.
+The project's new restrictions do not revoke their existing permissions or
+relicense any third-party dependency, plugin, protocol documentation, runtime,
+or installer engine. Attribution and the transition boundary are recorded in [NOTICE.md](NOTICE.md).
 
 ## BatteryMonitor
 

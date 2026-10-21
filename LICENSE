@@ -1,21 +1,66 @@
-MIT License
+﻿Perivolt 个人非商业许可 1.0
+Perivolt Personal Noncommercial License 1.0
+License identifier: LicenseRef-Perivolt-Personal-Noncommercial-1.0
 
-Copyright (c) 2026 YangYingX and PowerHub contributors
+Copyright (c) 2026 阳影X (YangYingX)
+Project: https://github.com/YangYingX/Perivolt
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. 适用范围与既有权利
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+本许可适用于仓库引入本许可之日起，由阳影X拥有或有权许可的新增原创修改、
+文档、原创图标及其他原创材料（下称“受许可材料”）。
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+v1.0.5 标签（feebae52fa1dafb94f202fb19993e3bfeed021d4）及此前已按 MIT 发布的
+代码和副本继续享有原 MIT 许可，不因本次变更而撤回或附加新的限制。
+原 MIT 文本保存在 LICENSES/MIT-legacy.txt。复用历史 MIT 材料时，仍须保留其
+版权及许可声明。无法仅靠本许可阻止他人按原 MIT 条款使用历史版本。
+
+第三方组件、改编自第三方的部分、运行时、安装引擎及他人素材继续适用各自
+许可；本许可不限制这些许可已经授予的权利。详见 THIRD-PARTY-NOTICES.md。
+本许可不声称取得其他贡献者的版权；对无权许可的材料不授予或改变许可。
+
+2. 免费的个人非商业授权
+
+在遵守本许可的前提下，自然人可以为独立的个人非商业目的免费使用、阅读、
+研究、复制、编译、修改受许可材料，并免费分发原版或修改版。
+“个人非商业目的”不包括代表企业或机构开展活动、工作用途、收费服务、
+销售、广告变现或其他以商业利益或报酬为目的的活动。
+
+3. 企业和商业授权
+
+以下行为须事先取得阳影X针对相应用途的单独书面授权：
+- 企业或机构部署、内部使用，或员工、承包商代表其使用受许可材料；
+- 收费销售、收费下载、付费解锁、商业捆绑、广告变现或收费服务；
+- 将受许可材料或其修改版集成到商业产品，或用于商业改造、代工与转售。
+
+没有收费并不当然使企业内部使用或商业产品集成成为个人非商业用途。
+商业授权联系入口：https://github.com/YangYingX 。
+单独授权的范围和条件以双方书面约定为准；未明确授予的权利予以保留。
+
+4. 分发、署名与修改说明
+
+分发受许可材料或包含受许可材料的修改版时，须同时提供本许可、NOTICE.md、
+适用的历史和第三方许可，保留“阳影X (YangYingX)”的开发者署名和项目来源。
+修改版须清楚标注修改事实，不得冒充作者本人或官方发行版。
+不得仅为隐瞒来源而删除或伪造受许可材料中的署名、版权和来源标识。
+技术重构或界面调整可以移动标识，但须在易于查阅的署名/许可位置保留等效信息。
+向下游提供受许可材料时须保留本许可条件，不得擅自授予商业使用权。
+本条不改变历史 MIT 或第三方许可材料已有的修改、分发及商业使用权。
+
+5. 品牌、素材与贡献
+
+本许可不授予冒充“阳影X”或官方“电栖 / Perivolt”发行方的权利，也不授予
+第三方商标、游戏角色、图片、字体等素材的权利。新增贡献的版权仍属于其作者，
+除非另有单独书面约定；提交贡献不自动构成版权转让或允许作者代其商业授权。
+
+6. 免责声明与终止
+
+软件按“现状”提供，不对适销性、特定用途适用性或不侵权作保证。在适用法律
+允许的范围内，作者和权利人不对使用、无法使用或分发软件产生的损失承担责任。
+违反本许可时，本许可授予的权利终止；依法取得的其他许可权利不受本条撤回。
+
+7. 性质与文本
+
+这是源码公开、限制企业和商业用途的自定义许可，不是 MIT、GPL、AGPL，
+也不是 OSI 批准的开源许可证。本许可不保证能通过技术手段阻止违规复制。
+中文条款为本许可的正式文本。

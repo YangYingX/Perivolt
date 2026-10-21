@@ -1,4 +1,4 @@
-param([ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')][string]$Version = '1.0.5')
+param([ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')][string]$Version = '1.0.6')
 
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
@@ -10,9 +10,15 @@ $taskScript = Join-Path $taskRoot 'installer\PowerHub.iss'
 if (-not (Test-Path -LiteralPath $taskCompiler -PathType Leaf)) {
     throw "未找到 Inno Setup 编译器：$taskCompiler"
 }
-foreach ($required in @('Perivolt.exe', 'THIRD-PARTY-NOTICES.md')) {
+foreach ($required in @('Perivolt.exe', 'THIRD-PARTY-NOTICES.md', 'LICENSE', 'NOTICE.md', 'AUTHORS.md', 'LICENSES\MIT-legacy.txt')) {
     if (-not (Test-Path -LiteralPath (Join-Path $taskPayload $required) -PathType Leaf)) {
         throw "发布目录缺少 $required。请先运行 scripts\Build.ps1 -Publish。"
+    }
+}
+foreach ($notice in @('THIRD-PARTY-NOTICES.md', 'LICENSE', 'NOTICE.md', 'AUTHORS.md', 'LICENSES\MIT-legacy.txt')) {
+    if ((Get-FileHash -LiteralPath (Join-Path $taskPayload $notice) -Algorithm SHA256).Hash -ne
+        (Get-FileHash -LiteralPath (Join-Path $taskRoot $notice) -Algorithm SHA256).Hash) {
+        throw "发布目录的 $notice 与源码不一致。请先重新运行 scripts\Build.ps1 -Publish。"
     }
 }
 if (-not (Test-Path -LiteralPath (Join-Path $taskRoot 'Assets\powerhub.ico') -PathType Leaf)) {

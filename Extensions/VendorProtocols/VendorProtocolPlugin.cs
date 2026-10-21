@@ -15,9 +15,11 @@ public sealed class VendorProtocolPlugin : IPowerHubPlugin
         var path=request.Path;var device=request.Device;
         var children=LogitechBatteryReader.TryRead(path,device,caps,out var detail);
         if(children is not null)
-            return new(device with { ConnectionKnown=false,IsConnected=false,HasProtocolConnectionState=true,
-                Source="Logitech HID++ 接收器", Message="接收器本次未返回在线外设电量" },detail,children);
+            return new(device with { Connection="2.4G 接收器",HasProtocolConnectionState=true,
+                BatteryPercent=null,BatteryLevel=null,IsCharging=null,IsBatteryLow=null,UpdatedAt=null,
+                Source="Logitech HID++ 接收器", Message="已发现接收器；本次未确认无线外设的连接与电量" },detail,children);
         var reading=WeishengBatteryReader.TryRead(path,device,caps,out detail);
+        reading ??= AkkoMouseBatteryReader.TryRead(path,device,caps,out detail);
         reading ??= RazerBatteryReader.TryRead(path,device,caps,out detail);
         reading ??= CompxBatteryReader.TryRead(path,device,caps,out detail);
         reading ??= MchoseHeadsetBatteryReader.TryRead(path,device,caps,out detail);

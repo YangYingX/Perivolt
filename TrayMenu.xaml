@@ -2,7 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:loc="clr-namespace:PowerHub.Controls"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="324" StaysOpen="False" HasDropShadow="False"
+             Width="288" StaysOpen="False" HasDropShadow="False"
              Background="Transparent" BorderThickness="0" Padding="0"
              Foreground="{DynamicResource TextPrimary}" FontFamily="Segoe UI, Microsoft YaHei UI"
              FontSize="13" UseLayoutRounding="True" SnapsToDevicePixels="True"
@@ -19,13 +19,15 @@
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
             <Setter Property="Margin" Value="0,3,0,0"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
         </Style>
         <Style TargetType="MenuItem">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,9,8,9"/>
+            <Setter Property="Padding" Value="8,6,6,6"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -35,16 +37,16 @@
                         <Grid>
                             <Border x:Name="Row" Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="9" Padding="{TemplateBinding Padding}">
+                                    CornerRadius="7" Padding="{TemplateBinding Padding}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="20"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="20"/>
-                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="18"/>
+                                        <ColumnDefinition Width="10"/>
                                     </Grid.ColumnDefinitions>
                                     <ContentPresenter ContentSource="Icon" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                    <ContentPresenter Grid.Column="1" ContentSource="Header" Margin="10,0,0,0"
+                                    <ContentPresenter Grid.Column="1" ContentSource="Header" Margin="8,0,0,0"
                                                       RecognizesAccessKey="True" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="CheckedMark" Grid.Column="2" Text="&#xE73E;"
                                                FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
@@ -57,13 +59,13 @@
                                 </Grid>
                             </Border>
                             <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsSubmenuOpen}"
-                                   Placement="Right" HorizontalOffset="-10" VerticalOffset="-10"
+                                   Placement="Right" HorizontalOffset="-8" VerticalOffset="-8"
                                    AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
-                                <Border Margin="12" Padding="6" MinWidth="222" CornerRadius="13"
+                                <Border Margin="10" Padding="5" MinWidth="210" CornerRadius="11"
                                         Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1"
                                         TextElement.Foreground="{DynamicResource TextPrimary}"
                                         TextElement.FontFamily="Segoe UI, Microsoft YaHei UI" TextElement.FontSize="13">
-                                    <Border.Effect><DropShadowEffect Color="#000000" Opacity="0.15" BlurRadius="18" ShadowDepth="4"/></Border.Effect>
+                                    <Border.Effect><DropShadowEffect Color="#000000" Opacity="0.15" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
                                     <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
                                 </Border>
                             </Popup>
@@ -98,20 +100,20 @@
             <Setter Property="IsHitTestVisible" Value="False"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="Template">
-                <Setter.Value><ControlTemplate TargetType="MenuItem"><ContentPresenter ContentSource="Header" Margin="12,9,12,11"/></ControlTemplate></Setter.Value>
+                <Setter.Value><ControlTemplate TargetType="MenuItem"><ContentPresenter ContentSource="Header" Margin="10,6,10,7"/></ControlTemplate></Setter.Value>
             </Setter>
         </Style>
         <Style x:Key="MenuDivider" TargetType="Separator">
             <Setter Property="Template">
-                <Setter.Value><ControlTemplate TargetType="Separator"><Border Height="1" Background="{DynamicResource Stroke}" Margin="12,6"/></ControlTemplate></Setter.Value>
+                <Setter.Value><ControlTemplate TargetType="Separator"><Border Height="1" Background="{DynamicResource Stroke}" Margin="10,4"/></ControlTemplate></Setter.Value>
             </Setter>
         </Style>
     </ContextMenu.Resources>
     <ContextMenu.Template>
         <ControlTemplate TargetType="ContextMenu">
             <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1"
-                    CornerRadius="16" Padding="6" Margin="12">
-                <Border.Effect><DropShadowEffect Color="#000000" Opacity="0.18" BlurRadius="21" ShadowDepth="5"/></Border.Effect>
+                    CornerRadius="12" Padding="5" Margin="10">
+                <Border.Effect><DropShadowEffect Color="#000000" Opacity="0.18" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
                 <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"/>
             </Border>
         </ControlTemplate>
@@ -121,21 +123,23 @@
         <MenuItem.Header>
             <StackPanel>
                 <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="35"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <Border Width="32" Height="32" CornerRadius="10" Background="{DynamicResource AccentSoft}" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="31"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border Width="28" Height="28" CornerRadius="8" Background="{DynamicResource AccentSoft}" VerticalAlignment="Center">
                         <TextBlock Text="&#xE945;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18"
                                    Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <StackPanel Grid.Column="1" Margin="9,0,0,0">
-                        <TextBlock Text="{loc:T 'AppName'}" FontSize="16" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:T 'AppName'}" FontSize="15" FontWeight="SemiBold"/>
                         <TextBlock Text="{loc:T '外设电量中心'}" FontSize="10" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
                     </StackPanel>
                 </Grid>
-                <Border CornerRadius="7" Background="{DynamicResource SurfaceAlt}" Padding="9,7" Margin="0,13,0,0">
-                    <StackPanel Orientation="Horizontal">
+                <Border CornerRadius="6" Background="{DynamicResource SurfaceAlt}" Padding="8,5" Margin="0,8,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <Ellipse x:Name="StatusDot" Width="5" Height="5" Fill="{DynamicResource TextSecondary}" Margin="0,0,7,0"/>
-                        <TextBlock x:Name="StatusSummary" Text="{loc:T '暂无在线设备'}" FontSize="10" Foreground="{DynamicResource TextSecondary}"/>
-                    </StackPanel>
+                        <TextBlock x:Name="StatusSummary" Grid.Column="1" Text="{loc:T '暂无在线设备'}" FontSize="10" Foreground="{DynamicResource TextSecondary}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
                 </Border>
             </StackPanel>
         </MenuItem.Header>

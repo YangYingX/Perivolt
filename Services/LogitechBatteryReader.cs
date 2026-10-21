@@ -43,6 +43,7 @@ internal static class LogitechBatteryReader
             return devices;
         }
 
+        var batteryQueries = new List<string>();
         using var budget = new CancellationTokenSource(TimeSpan.FromMilliseconds(700));
         try
         {
@@ -60,23 +61,33 @@ internal static class LogitechBatteryReader
             using var shortReader = new FileStream(shortReaderHandle, FileAccess.Read, 1, isAsync: true);
             using var reader = new FileStream(readerHandle, FileAccess.Read, 1, isAsync: true);
             byte softwareId = 12;
+            var captureBatteryQueries = true;
             byte[]? Query(byte slot, byte feature, byte function, byte p0 = 0, byte p1 = 0)
             {
                 softwareId = (byte)(softwareId % 15 + 1);
-                return Exchange(writer, shortReader, reader, caps.OutputReportByteLength, caps.InputReportByteLength, input.Length, slot, feature,
-                    (byte)((function << 4) | softwareId), p0, p1, budget.Token);
+                var command = (byte)((function << 4) | softwareId);
+                var response = Exchange(writer, shortReader, reader, caps.OutputReportByteLength, caps.InputReportByteLength, input.Length, slot, feature,
+                    command, p0, p1, budget.Token);
+                var error = response is not null && IsErrorResponse(response, slot, feature, command);
+                if (captureBatteryQueries)
+                    batteryQueries.Add($"slot={slot} feature={feature:X2} fn={function:X1} args={p0:X2}{p1:X2}: " +
+                        (response is null ? "无匹配响应" : error ? $"设备错误 {response[5]:X2} ({Convert.ToHexString(response.AsSpan(0, 7))})" : Convert.ToHexString(response.AsSpan(0, 7))));
+                return error ? null : response;
             }
 
             for (byte slot = 1; slot <= profile.Slots && !budget.IsCancellationRequested; slot++)
             {
                 BatteryReading? battery = null;
                 var unified = Query(slot, 0, 0, 0x10, 0x04);
-                if (unified is null) continue;
-                if (unified[4] is > 0 and < 0xFF)
+                if (unified is not null && unified[4] is > 0 and < 0xFF)
                 {
                     var capabilities = Query(slot, unified[4], 0);
                     var status = capabilities is null ? null : Query(slot, unified[4], 1);
-                    if (capabilities is not null && status is not null && TryParseUnified(capabilities, status, out var reading)) battery = reading;
+                    if (capabilities is not null && status is not null)
+                    {
+                        if (TryParseUnified(capabilities, status, out var reading)) battery = reading;
+                        else batteryQueries.Add($"slot={slot}: 0x1004 响应字段未通过校验");
+                    }
                 }
                 if (battery is null && !budget.IsCancellationRequested)
                 {
@@ -84,7 +95,11 @@ internal static class LogitechBatteryReader
                     if (legacy is not null && legacy[4] is > 0 and < 0xFF)
                     {
                         var status = Query(slot, legacy[4], 0);
-                        if (status is not null && TryParseLevelStatus(status, out var reading)) battery = reading;
+                        if (status is not null)
+                        {
+                            if (TryParseLevelStatus(status, out var reading)) battery = reading;
+                            else batteryQueries.Add($"slot={slot}: 0x1000 响应字段未通过校验");
+                        }
                     }
                 }
                 if (battery is not { } value) continue;
@@ -100,6 +115,7 @@ internal static class LogitechBatteryReader
                 });
             }
 
+            captureBatteryQueries = false;
             // Names are optional; a slow name query must never discard a valid battery sample.
             for (var index = 0; index < devices.Count && !budget.IsCancellationRequested; index++)
             {
@@ -128,6 +144,10 @@ internal static class LogitechBatteryReader
         catch (OperationCanceledException) { detail = $"{prefix}; 查询预算用尽；保留本次已验证的 {devices.Count} 个子设备"; }
         catch (IOException error) { detail = $"{prefix}; 电量接口不可用：{error.Message}"; }
         catch (UnauthorizedAccessException error) { detail = $"{prefix}; 无法读取厂商接口：{error.Message}"; }
+        finally
+        {
+            if (batteryQueries.Count > 0) detail += "; " + string.Join("; ", batteryQueries);
+        }
         return devices;
     }
 
@@ -177,7 +197,8 @@ internal static class LogitechBatteryReader
             {
                 var length = await reader.ReadAsync(response.AsMemory(), cancellation).ConfigureAwait(false);
                 if (length == 0) return null;
-                if (IsErrorResponse(response.AsSpan(0, length), slot, feature, function)) return null;
+                if (IsErrorResponse(response.AsSpan(0, length), slot, feature, function))
+                    return response.AsSpan(0, response[0] == 0x10 ? 7 : 20).ToArray();
                 if (ResponseMatches(response.AsSpan(0, length), slot, feature, function))
                     return response.AsSpan(0, response[0] == 0x10 ? 7 : 20).ToArray();
             }
@@ -199,8 +220,9 @@ internal static class LogitechBatteryReader
     {
         reading = default;
         if (capabilities.Length < 7 || status.Length < 20 || status[0] != 0x11 ||
-            capabilities[4] > 15 || (capabilities[5] & ~3) != 0 || status[4] > 100 ||
+            capabilities[4] > 15 || status[4] > 100 ||
             status[5] is not (0 or 1 or 2 or 4 or 8) || status[6] > 4) return false;
+        // Newer feature versions may set other capability flags; only bit 1 declares percentage support.
         var supportsPercent = (capabilities[5] & 2) != 0;
         var level = status[5] switch { 1 => "极低", 2 => "低", 4 => "中", 8 => "满", _ => null };
         if (!supportsPercent && (level is null || (capabilities[4] & status[5]) == 0)) return false;

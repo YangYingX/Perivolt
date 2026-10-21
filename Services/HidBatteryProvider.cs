@@ -67,7 +67,7 @@ public sealed class HidBatteryProvider(PluginHost plugins)
                     // HidD_GetFeature is synchronous and has no timeout. A worker owns its
                     // handle and preparsed data until it really returns, avoiding use-after-free.
                     // ponytail: at most four stalled drivers; process isolation if recovery is needed.
-                    if (task is null || (alreadyPending && !task.IsCompleted) || !task.Wait(800, cancellationToken))
+                    if (task is null || (alreadyPending && !task.IsCompleted) || !task.Wait(4200, cancellationToken))
                     {
                         var reason = task is null ? "HID 查询槽已占满，稍后重试" : "HID 查询超时；后台等待驱动返回，不重复发起查询";
                         devices.Add(device with { Message = reason });
@@ -140,7 +140,7 @@ public sealed class HidBatteryProvider(PluginHost plugins)
             if (product.Length > 0) device = device with { Name = product };
             if (maker.Length > 0) device = device with { Manufacturer = maker };
             // Serial is intentionally confined to the locally exported diagnostics.
-            detail += $"; VID={device.VendorId:X4}; PID={device.ProductId:X4}; Serial={serial}";
+            detail += $"; VID={device.VendorId:X4}; PID={device.ProductId:X4}; Serial={serial}; Container={device.ContainerId}";
             if (!HidD_GetPreparsedData(handle, out var data))
                 return new(device with { Message = "驱动未提供 HID 描述符，无法查询标准电量" }, $"{detail}; 描述符读取失败 {Marshal.GetLastWin32Error()}");
             try

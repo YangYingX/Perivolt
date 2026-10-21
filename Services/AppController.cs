@@ -19,12 +19,15 @@ public sealed class AppController : IDisposable
     private DesktopWidgetWindow? widget;
     private TaskbarBatteryWindow? taskbar;
     private bool exiting;
+    private bool installingUpdate;
     private Task<PowerHub.Plugins.PluginOutput>? pendingPluginEvaluation;
     public SettingsStore Store { get; }
     public AppSettings Settings { get; }
     public PluginHost Plugins { get; }
     public ThemeBackdrop Backdrop { get; } = new();
     public UpdateService Updates { get; } = new();
+    public string? UpdateInstallDirectory { get; }
+    public DiagnosticUploadService DiagnosticReports { get; }
     private bool startupEnabled;
     private ScanResult? rawScan;
     public ScanResult? LastScan { get; private set; }
@@ -32,6 +35,7 @@ public sealed class AppController : IDisposable
     public int ViewRevision { get; private set; }
     public List<string> Diagnostics { get; } = [];
     public bool IsScanning { get; private set; }
+    internal bool IsExiting => exiting;
     public string StatusText { get; private set; } = L.T("正在准备设备监测…");
     public event Action? Changed;
 
@@ -40,8 +44,10 @@ public sealed class AppController : IDisposable
         Store = new SettingsStore(dataDirectory);
         Settings = settings ?? Store.Load();
         L.SetLanguage(Settings.Language);
+        DiagnosticReports = new DiagnosticUploadService(dataDirectory);
         StatusText = L.T("正在准备设备监测…");
         previewMode = preview;
+        UpdateInstallDirectory = preview ? null : UpdateInstaller.FindInstalledDirectory();
         themes = themeService;
         Plugins = new PluginHost(Program.PluginDirectory, Settings);
         monitor = new BatteryMonitorService(Plugins);
@@ -62,7 +68,13 @@ public sealed class AppController : IDisposable
 
     public async Task StartAsync()
     {
-        if (!previewMode) { timer.Start(); Updates.Configure(Settings.AutoCheckUpdates); }
+        if (exiting) return;
+        if (!previewMode)
+        {
+            timer.Start();
+            Updates.Configure(Settings.AutoCheckUpdates);
+            DiagnosticReports.Configure(Settings.AutoReportDiagnostics);
+        }
         SyncWidget();
         SyncTaskbar();
         await RefreshAsync();
@@ -80,6 +92,7 @@ public sealed class AppController : IDisposable
             var result = await monitor.ScanAsync(true, null, lifetime.Token);
             if (exiting) return;
             rawScan = result;
+            if (!previewMode) DiagnosticReports.ObserveScan(result);
             foreach (var device in result.Devices)
             {
                 if (!Settings.Devices.TryGetValue(device.Id, out var remembered)) Settings.Devices[device.Id] = remembered = new();
@@ -102,6 +115,7 @@ public sealed class AppController : IDisposable
         catch (OperationCanceledException) when (exiting) { }
         catch (Exception error)
         {
+            if (exiting) return;
             LastScan = null;
             rawScan = null;
             ViewRevision++;
@@ -132,8 +146,9 @@ public sealed class AppController : IDisposable
         finally { if (pendingPluginEvaluation.IsCompleted) pendingPluginEvaluation = null; }
     }
 
-    public MainWindow ShowPanel(string page = "devices")
+    public MainWindow? ShowPanel(string page = "devices")
     {
+        if (exiting) return null;
         if (window is null)
         {
             window = new MainWindow(this);
@@ -170,6 +185,7 @@ public sealed class AppController : IDisposable
 
     public void ApplySettings(bool persist = true)
     {
+        if (exiting) return;
         Settings.Normalize();
         var languageChanged = L.SetLanguage(Settings.Language);
         if (rawScan is not null) LastScan = DeviceIdentity.ApplyLinks(rawScan, Settings);
@@ -183,6 +199,7 @@ public sealed class AppController : IDisposable
         timer.Interval = TimeSpan.FromSeconds(Settings.PollIntervalSeconds);
         tray?.ApplySettings();
         if (!previewMode) Updates.Configure(Settings.AutoCheckUpdates);
+        if (!previewMode) DiagnosticReports.Configure(Settings.AutoReportDiagnostics);
         SyncWidget();
         SyncTaskbar();
         if (!previewMode && startupEnabled != Settings.StartWithWindows)
@@ -210,6 +227,7 @@ public sealed class AppController : IDisposable
 
     private void OnSystemThemeChanged()
     {
+        if (exiting) return;
         ViewRevision++;
         widget?.ApplySettings();
         widget?.UpdateDevices(Devices);
@@ -249,34 +267,79 @@ public sealed class AppController : IDisposable
         }
     }
 
+    public async Task DownloadAndInstallUpdateAsync()
+    {
+        if (previewMode || exiting || installingUpdate) return;
+        installingUpdate = true;
+        try
+        {
+            var installer = await Updates.DownloadInstallerAsync();
+            if (installer is null || exiting || !Updates.IsEnabled) return;
+            try
+            {
+                window?.FlushPendingEdits();
+                saveTimer.Stop();
+                Store.Save(Settings);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            {
+                Updates.InstallationFailed(true);
+                return;
+            }
+            if (exiting || !Updates.IsEnabled) return;
+            try { UpdateInstaller.Start(installer, UpdateInstallDirectory, Path.GetDirectoryName(Store.FilePath)!); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException or System.Security.SecurityException)
+            {
+                Updates.InstallationFailed(false);
+                return;
+            }
+            Exit();
+        }
+        finally { installingUpdate = false; }
+    }
+
     public async Task ExportAsync(string path)
     {
-        var snapshot = new { Application = "PowerHub " + UpdateService.CurrentVersion, ExportedAt = DateTimeOffset.Now, LastScan?.ScannedAt, Devices, Diagnostics };
+        var snapshot = new { Application = "PowerHub " + UpdateService.DisplayVersion, ExportedAt = DateTimeOffset.Now, LastScan?.ScannedAt, Devices, Diagnostics };
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(snapshot, Program.JsonOptions));
     }
+
+    public DiagnosticReport? CreateDiagnosticReport() => rawScan is null ? null :
+        DiagnosticReportBuilder.Build(rawScan, UpdateService.DisplayVersion);
 
     public void Exit()
     {
         if (exiting) return;
-        Dispose();
-        System.Windows.Application.Current.Shutdown();
+        try { Dispose(); }
+        finally { System.Windows.Application.Current.Shutdown(); }
     }
 
     public void Dispose()
     {
         if (exiting) return;
         exiting = true;
-        window?.CloseImmediately();
-        taskbar?.Close();
         timer.Stop();
         saveTimer.Stop();
-        lifetime.Cancel();
-        Updates.Dispose();
-        Backdrop.Dispose();
         themes.SystemThemeChanged -= OnSystemThemeChanged;
-        SaveSettings();
-        widget?.CloseForExit();
-        tray?.Dispose();
-        Plugins.Dispose();
+        Cleanup(lifetime.Cancel);
+        Cleanup(() => tray?.Dispose());
+        Cleanup(() => window?.CloseImmediately());
+        Cleanup(() => widget?.CloseForExit());
+        Cleanup(() => taskbar?.Close());
+        Cleanup(Updates.Dispose);
+        Cleanup(DiagnosticReports.Dispose);
+        Cleanup(Backdrop.Dispose);
+        Cleanup(Plugins.Dispose);
+        Cleanup(SaveSettings);
+
+        void Cleanup(Action close)
+        {
+            try { close(); }
+            catch (Exception error)
+            {
+                Diagnostics.Add(error.ToString());
+                StartupDiagnostics.Write(error);
+            }
+        }
     }
 }

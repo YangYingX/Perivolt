@@ -12,8 +12,12 @@ namespace PowerHub;
 
 public static class Program
 {
+    internal static bool IsAppHostExecutable(string? path) =>
+        string.Equals(Path.GetFileName(path), "Perivolt.exe", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(Path.GetFileName(path), "PowerHub.exe", StringComparison.OrdinalIgnoreCase);
+
     public static string PluginDirectory => Path.Combine(
-        string.Equals(Path.GetFileNameWithoutExtension(Environment.ProcessPath), "PowerHub", StringComparison.OrdinalIgnoreCase)
+        IsAppHostExecutable(Environment.ProcessPath)
             ? Path.GetDirectoryName(Environment.ProcessPath)! : AppContext.BaseDirectory, "plugins");
     public static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
@@ -103,7 +107,7 @@ public static class Program
         string dataDirectory;
         try
         {
-            var executableDirectory = string.Equals(Path.GetFileNameWithoutExtension(Environment.ProcessPath), "PowerHub", StringComparison.OrdinalIgnoreCase)
+            var executableDirectory = IsAppHostExecutable(Environment.ProcessPath)
                 ? Path.GetDirectoryName(Environment.ProcessPath)! : AppContext.BaseDirectory;
             dataDirectory = AppPaths.ResolveDataDirectory(ArgumentValue(args, "--data-dir"), capturing, FindWorkspaceRoot(),
                 executableDirectory, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
@@ -127,7 +131,8 @@ public static class Program
             registration = ThreadPool.RegisterWaitForSingleObject(showSignal, (_, _) => application.Dispatcher.BeginInvoke(new Action(() => controller.ShowPanel())), null, Timeout.Infinite, false);
         application.DispatcherUnhandledException += (_, eventArgs) =>
         {
-            if (capturing) { Console.Error.WriteLine(eventArgs.Exception); application.Shutdown(1); }
+            if (controller.IsExiting) { StartupDiagnostics.Write(eventArgs.Exception); application.Shutdown(1); }
+            else if (capturing) { Console.Error.WriteLine(eventArgs.Exception); application.Shutdown(1); }
             else StartupDiagnostics.Report(eventArgs.Exception);
             eventArgs.Handled = true;
         };
@@ -184,7 +189,7 @@ public static class Program
 
     private static string FindWorkspaceRoot()
     {
-        var executableDirectory = string.Equals(Path.GetFileNameWithoutExtension(Environment.ProcessPath), "PowerHub", StringComparison.OrdinalIgnoreCase)
+        var executableDirectory = IsAppHostExecutable(Environment.ProcessPath)
             ? Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory : AppContext.BaseDirectory;
         foreach (var start in new[] { executableDirectory, Environment.CurrentDirectory, AppContext.BaseDirectory })
         {

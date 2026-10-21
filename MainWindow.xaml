@@ -305,6 +305,7 @@
                                 <Border Height="1" Background="{DynamicResource Stroke}" Margin="0,22,0,18"/>
                                 <Grid><StackPanel Margin="0,0,150,0"><TextBlock Text="{loc:T '兼容性诊断'}" FontSize="12"/><TextBlock Text="{loc:T '导出设备信息，帮助后续适配。'}" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel><Button x:Name="ExportButton" Content="{loc:T '导出诊断'}" HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnExport"/></Grid>
                             </StackPanel></Border>
+                            <controls:DiagnosticSettings x:Name="DiagnosticPanel"/>
                             <controls:UpdateSettings x:Name="UpdatePanel"/>
 
                                 </StackPanel>

@@ -1,0 +1,18 @@
+<UserControl x:Class="PowerHub.Controls.DiagnosticSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:loc="clr-namespace:PowerHub.Controls"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="18" Padding="24" Margin="0,0,0,18">
+        <StackPanel>
+            <TextBlock Text="{loc:T '诊断上报'}" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Text="{loc:T '脱敏报告由项目机器人提交到公开的 GitHub 问题区，帮助修复设备兼容问题。'}" Foreground="{DynamicResource TextSecondary}" FontSize="12" Margin="0,8,0,18" TextWrapping="Wrap"/>
+            <CheckBox x:Name="EnabledBox" Click="OnEnabledClick"><TextBlock Text="{loc:T '读取电量连续失败时自动上报'}" TextWrapping="Wrap"/></CheckBox>
+            <TextBlock Text="{loc:T '默认关闭。开启后仅发送设备型号标识、协议和读取结果，不包含用户名、设备名称、序列号、MAC 或文件路径。'}" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,10,0,18" TextWrapping="Wrap"/>
+            <TextBlock x:Name="StatusText" Foreground="{DynamicResource TextSecondary}" FontSize="12" TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                <Button x:Name="UploadButton" Content="{loc:T '预览并手动上报'}" Click="OnUpload" Padding="14,8" Margin="0,0,10,0"/>
+                <Button x:Name="IssueButton" Content="{loc:T '查看 GitHub 问题'}" Click="OnOpenIssue" Padding="14,8" Visibility="Collapsed"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -80,6 +80,7 @@ public sealed class BatteryMonitorService(PluginHost plugins)
                 .ThenByDescending(x => x.IsConnected)
                 .ThenByDescending(x => x.Connection.StartsWith("蓝牙")).First();
             var charging = members.Where(x => x.IsCharging.HasValue).OrderByDescending(BatteryPriority).FirstOrDefault();
+            var protocol = members.FirstOrDefault(x => x.HasProtocolConnectionState);
             var hardware = members.FirstOrDefault(x => x.VendorId.HasValue) ?? named;
             var stableId = members.Select(x => x.BluetoothAddress).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) is { } address
                 ? $"bluetooth:{address}" : members.Select(x => x.ContainerId).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) is { } container
@@ -92,13 +93,14 @@ public sealed class BatteryMonitorService(PluginHost plugins)
                 Connection = connection.Connection,
                 IsConnected = connection.IsConnected,
                 ConnectionKnown = connection.ConnectionKnown,
+                HasProtocolConnectionState = connection.HasProtocolConnectionState,
                 BatteryPercent = battery?.BatteryPercent,
                 BatteryLevel = battery?.BatteryLevel,
                 IsBatteryLow = battery?.IsBatteryLow,
                 PowerSource = members.Select(x => x.PowerSource).FirstOrDefault(x => x is not null),
                 IsCharging = charging?.IsCharging,
-                Source = battery?.Source ?? charging?.Source ?? named.Source,
-                Message = battery?.Message ?? charging?.Message ?? members.OrderByDescending(x => x.Source.StartsWith("HID")).First().Message,
+                Source = battery?.Source ?? charging?.Source ?? protocol?.Source ?? named.Source,
+                Message = battery?.Message ?? charging?.Message ?? protocol?.Message ?? members.OrderByDescending(x => x.Source.StartsWith("HID")).First().Message,
                 UpdatedAt = battery?.UpdatedAt ?? charging?.UpdatedAt,
                 ContainerId = members.Select(x => x.ContainerId).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)),
                 InstanceId = members.Select(x => x.InstanceId).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)),

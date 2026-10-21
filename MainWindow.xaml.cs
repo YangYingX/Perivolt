@@ -53,6 +53,7 @@ public partial class MainWindow : Window
         LanguageCombo.ItemsSource = L.Languages;
         BatteryColorPanel.Initialize(controller);
         BatteryColorPanel.PreviewChanged += (_, _) => UpdateStylePreviews();
+        DiagnosticPanel.Initialize(controller);
         UpdatePanel.Initialize(controller);
         PluginPanel.Initialize(controller);
         PluginThemePanel.Initialize(controller);
@@ -239,6 +240,7 @@ public partial class MainWindow : Window
             if (scopeChanged) BatteryColorPanel.SetDevice(null);
             RefreshPreferences(scopeChanged);
             PluginPanel.Refresh();
+            DiagnosticPanel.Refresh();
             UpdatePanel.Refresh();
         }
         finally { _updating = false; _refreshing = false; }
@@ -406,6 +408,12 @@ public partial class MainWindow : Window
     }
 
     private void CommitPending() { CommitThreshold(); CommitVisualOptions(); BatteryColorPanel.CommitPending(); }
+    internal void FlushPendingEdits()
+    {
+        if (DeviceNameBox.IsKeyboardFocusWithin) SaveDeviceName();
+        if (TaskbarOffsetBox.IsKeyboardFocusWithin) OnTaskbarOffsetLostFocus(TaskbarOffsetBox, new RoutedEventArgs());
+        CommitPending();
+    }
     private void OnSettingsDeviceChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_updating || SettingsDeviceSelector.SelectedItem is not DeviceChoice choice || choice.Id == _selectedDeviceId) return;

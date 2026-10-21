@@ -1,5 +1,15 @@
-param([switch]$Publish)
+param([switch]$Publish, [string]$DiagnosticUploadEndpoint = '')
 $ErrorActionPreference = 'Stop'
+$taskBuildProperties = @()
+if ($DiagnosticUploadEndpoint) {
+    $taskEndpointUri = $null
+    if (-not [Uri]::TryCreate($DiagnosticUploadEndpoint, [UriKind]::Absolute, [ref]$taskEndpointUri) -or
+        $taskEndpointUri.Scheme -ne 'https' -or $taskEndpointUri.UserInfo -or $taskEndpointUri.Query -or
+        $taskEndpointUri.Fragment -or $taskEndpointUri.AbsolutePath -ne '/v1/reports') {
+        throw '诊断接口必须为无凭据、查询参数和片段的 HTTPS /v1/reports 地址。'
+    }
+    $taskBuildProperties += "-p:DiagnosticUploadEndpoint=$($taskEndpointUri.AbsoluteUri)"
+}
 $taskRoot = Split-Path -Parent $PSScriptRoot
 $taskDotnet = Join-Path $taskRoot '.tools\dotnet\dotnet.exe'
 if (-not (Test-Path -LiteralPath $taskDotnet)) { & (Join-Path $PSScriptRoot 'Bootstrap.ps1') }
@@ -10,7 +20,7 @@ $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
 $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
 $taskProject = Join-Path $taskRoot 'PowerHub.csproj'
 $taskConfiguration = if ($Publish) { 'Release' } else { 'Debug' }
-& $taskDotnet build $taskProject -c $taskConfiguration
+& $taskDotnet build $taskProject -c $taskConfiguration @taskBuildProperties
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $taskExtensions = Get-ChildItem -LiteralPath (Join-Path $taskRoot 'Extensions') -Filter '*.csproj' -Recurse
 if ($Publish) {
@@ -21,7 +31,7 @@ foreach ($taskExtension in $taskExtensions) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 if ($Publish) {
-    & $taskDotnet publish $taskProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o (Join-Path $taskRoot 'dist\PowerHub')
+    & $taskDotnet publish $taskProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false @taskBuildProperties -o (Join-Path $taskRoot 'dist\PowerHub')
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 $taskOutput = if ($Publish) { Join-Path $taskRoot 'dist\PowerHub' } else { Join-Path $taskRoot 'bin\Debug\net10.0-windows10.0.19041.0' }

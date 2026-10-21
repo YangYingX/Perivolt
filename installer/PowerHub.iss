@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.0.4"
+  #define AppVersion "1.0.5"
 #endif
 #ifndef AppFileVersion
-  #define AppFileVersion "1.0.4"
+  #define AppFileVersion "1.0.5"
 #endif
 
 [Setup]
@@ -26,15 +26,15 @@ MinVersion=10.0.19041
 WizardStyle=modern dynamic
 WizardSizePercent=110
 SetupIconFile=..\Assets\powerhub.ico
-UninstallDisplayIcon={app}\PowerHub.exe
+UninstallDisplayIcon={app}\Perivolt.exe
 UninstallDisplayName=电栖 · Perivolt
-AppMutex=Local\PowerHub.TrayApp
-CloseApplications=no
+; Allow Restart Manager to close the app before replacing its files.
+CloseApplications=yes
 RestartApplications=no
 Compression=lzma2
 SolidCompression=yes
 OutputDir=..\dist
-OutputBaseFilename=PowerHub-Setup-{#AppVersion}-x64
+OutputBaseFilename=Perivolt-Setup-{#AppVersion}-x64
 ShowLanguageDialog=no
 UsePreviousTasks=yes
 
@@ -46,23 +46,28 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Name: "startup"; Description: "登录 Windows 后自动启动电栖"; GroupDescription: "启动选项："; Flags: unchecked
 
 [Files]
-Source: "..\dist\PowerHub\*"; DestDir: "{app}"; Excludes: "*.pdb,artifacts,artifacts\*,settings.json,settings.*.json,battery-*.jsonl,plugins\character-themes,plugins\character-themes\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\PowerHub\*"; DestDir: "{app}"; Excludes: "PowerHub.exe,*.pdb,artifacts,artifacts\*,settings.json,settings.*.json,battery-*.jsonl,plugins\character-themes,plugins\character-themes\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{userprograms}\电栖"; Filename: "{app}\PowerHub.exe"; Parameters: "--show"; WorkingDir: "{app}"; Check: not WizardNoIcons
-Name: "{userdesktop}\电栖"; Filename: "{app}\PowerHub.exe"; Parameters: "--show"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userprograms}\电栖"; Filename: "{app}\Perivolt.exe"; Parameters: "{code:PostInstallParameters}"; WorkingDir: "{app}"; Check: not WizardNoIcons
+Name: "{userdesktop}\电栖"; Filename: "{app}\Perivolt.exe"; Parameters: "{code:PostInstallParameters}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\PowerHub.exe"; Parameters: "--show"; WorkingDir: "{app}"; Description: "启动电栖"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Perivolt.exe"; Parameters: "{code:PostInstallParameters}"; WorkingDir: "{app}"; Description: "启动电栖"; Flags: nowait postinstall skipifsilent
 
 [InstallDelete]
+Type: files; Name: "{app}\PowerHub.exe"
 Type: files; Name: "{userprograms}\PowerHub.lnk"
 Type: files; Name: "{userdesktop}\PowerHub.lnk"
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "PowerHub"; ValueData: """{app}\PowerHub.exe"" --startup"; Tasks: startup; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "PowerHub"; ValueData: """{app}\Perivolt.exe"" {code:PostInstallParameters|startup}"; Tasks: startup; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "PowerHub"; Tasks: not startup; Flags: deletevalue
 
 [Code]
+var
+  StartupTaskInitialized: Boolean;
+
 function GetDriveType(RootPath: string): Integer;
   external 'GetDriveTypeW@kernel32.dll stdcall';
 
@@ -78,7 +83,7 @@ begin
     if (CompareText(Root, AddBackslash(ExpandConstant('{sd}'))) <> 0) and
        (GetDriveType(Root) = 3) and DirExists(Root) then
     begin
-      Result := Root + 'Apps\PowerHub';
+      Result := Root + 'Apps\Perivolt';
       Exit;
     end;
   end;
@@ -89,30 +94,83 @@ begin
   Result := RecommendedDirectory;
 end;
 
-function HasExplicitDirectory: Boolean;
+function QuoteCommandLineArgument(Value: string): string;
+var
+  Index, Slashes: Integer;
+begin
+  Result := '"';
+  Slashes := 0;
+  for Index := 1 to Length(Value) do
+  begin
+    if Value[Index] = '\' then
+      Slashes := Slashes + 1
+    else
+    begin
+      if Value[Index] = '"' then
+        Result := Result + StringOfChar('\', Slashes * 2 + 1)
+      else
+        Result := Result + StringOfChar('\', Slashes);
+      Result := Result + Value[Index];
+      Slashes := 0;
+    end;
+  end;
+  Result := Result + StringOfChar('\', Slashes * 2) + '"';
+end;
+
+function PostInstallParameters(Param: string): string;
+var
+  DataDirectory: string;
+begin
+  if Param = 'startup' then Result := '--startup'
+  else Result := '--show';
+  DataDirectory := ExpandConstant('{param:PERIVOLT_DATA_DIR|}');
+  if DataDirectory <> '' then
+  begin
+    DataDirectory := RemoveBackslashUnlessRoot(ExpandFileName(DataDirectory));
+    Result := Result + ' --data-dir ' + QuoteCommandLineArgument(DataDirectory);
+  end;
+end;
+
+function HasExplicitTaskSelection: Boolean;
 var
   Index: Integer;
+  Parameter: string;
 begin
   Result := False;
   for Index := 1 to ParamCount do
-    if CompareText(Copy(ParamStr(Index), 1, 5), '/DIR=') = 0 then
+  begin
+    Parameter := Uppercase(ParamStr(Index));
+    if (Pos('/TASKS=', Parameter) = 1) or
+       (Pos('/MERGETASKS=', Parameter) = 1) or
+       (Pos('/LOADINF=', Parameter) = 1) then
       Result := True;
+  end;
 end;
 
 procedure InitializeWizard;
-var
-  PreviousDrive: string;
 begin
-  if not HasExplicitDirectory then
-  begin
-    PreviousDrive := ExtractFileDrive(WizardForm.DirEdit.Text);
-    if (CompareText(PreviousDrive, 'C:') = 0) or
-       (CompareText(PreviousDrive, ExpandConstant('{sd}')) = 0) then
-      WizardForm.DirEdit.Text := RecommendedDirectory;
-  end;
-  WizardForm.SelectDirLabel.Caption := '请选择 PowerHub 的安装位置。优先推荐非系统盘，安装前可自由更改。';
+  WizardForm.SelectDirLabel.Caption := '请选择 Perivolt 的安装位置。优先推荐非系统盘，安装前可自由更改。';
   if WizardForm.DirEdit.Text = '' then
     WizardForm.SelectDirLabel.Caption := '未找到可用的非系统固定磁盘，请手动选择安装目录后继续。';
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+var
+  StartupCommand: string;
+begin
+  if (CurPageID = wpSelectTasks) and not StartupTaskInitialized then
+  begin
+    StartupTaskInitialized := True;
+    if not HasExplicitTaskSelection then
+    begin
+      { Reflect startup changes made in the app after the previous installation. }
+      if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run',
+         'PowerHub', StartupCommand) and (Trim(StartupCommand) <> '') then
+        WizardSelectTasks('startup')
+      else
+        WizardSelectTasks('!startup');
+    end;
+  end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -122,13 +180,24 @@ begin
   begin
     Result := False;
     if WizardSilent then Log('No non-system drive is available. Specify /DIR explicitly.')
-    else MsgBox('请选择安装目录后继续。PowerHub 不会自动安装到 C 盘。', mbInformation, MB_OK);
+    else MsgBox('请选择安装目录后继续。Perivolt 不会自动安装到 C 盘。', mbInformation, MB_OK);
+  end;
+end;
+
+function InitializeUninstall: Boolean;
+begin
+  Result := not CheckForMutexes('Local\PowerHub.TrayApp');
+  if not Result then
+  begin
+    Log('Perivolt is running; uninstall cancelled before removing files.');
+    if not UninstallSilent then
+      MsgBox('电栖仍在运行，请先从托盘退出后再卸载。', mbInformation, MB_OK);
   end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then
-    { Also remove a startup entry enabled later from PowerHub's settings. User settings are preserved. }
+    { Also remove a startup entry enabled later from the app's settings. User settings are preserved. }
     RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'PowerHub');
 end;

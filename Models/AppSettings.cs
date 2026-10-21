@@ -39,6 +39,7 @@ public sealed class AppSettings : IJsonOnDeserializing
     public bool StartInTray { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public bool AutoCheckUpdates { get; set; }
+    public bool AutoReportDiagnostics { get; set; }
     public Dictionary<string, bool> EnabledPlugins { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, Dictionary<string, string>> PluginOptions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool WidgetEnabled { get; set; }

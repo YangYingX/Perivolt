@@ -38,13 +38,15 @@ internal static class MchoseHeadsetBatteryReader
                 UpdatedAt = online ? DateTimeOffset.Now : null, Source = "MCHOSE 耳机系列电量协议",
                 Message = online ? "已读取耳机电量与充电状态" : "接收器报告耳机休眠，已清除电量"
             };
-        }, out var status);
+        }, out var status, timeoutMilliseconds: 2000,
+            allowInputOnlyOutputReport: device.VendorId == 0x3837 && device.ProductId == 0x600A,
+            writeTimeoutMilliseconds: 2000);
         detail = $"MCHOSE {protocol}; VID={device.VendorId:X4}; PID={device.ProductId:X4}; {status}";
         return result ?? device with
         {
-            Category = "耳机", Connection = "2.4G", ConnectionKnown = false, IsConnected = false,
+            Category = "耳机", Connection = "2.4G 接收器",
             BatteryPercent = null, BatteryLevel = null, IsCharging = null, IsBatteryLow = null, UpdatedAt = null,
-            Source = "MCHOSE 耳机系列电量协议", Message = status
+            Source = "MCHOSE 耳机系列电量协议", Message = $"已发现接收器；耳机连接与电量未知；{status}"
         };
     }
 

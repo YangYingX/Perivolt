@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using PowerHub.Models;
 using PowerHub.Plugins;
 using PowerHub.Services;
@@ -21,21 +22,51 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
     private long _wheelRemainder;
     private string? _selectedDeviceId;
     private bool _selectionKnown;
-    private bool _disposed;
+    private volatile bool _disposed;
     private Window? _window;
     private OverviewView? _windowView;
-    private WeakReference<OverviewView>? _popupView;
+    private readonly List<WeakReference<OverviewView>> _popupViews = [];
+    private readonly Dictionary<string, (IPluginTaskbarTarget Target, IPluginTaskbarSurface Surface)> _surfaces = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _uiGate = new();
+    private Dispatcher? _dispatcher;
+    private DispatcherOperation? _stateOperation;
+    private DispatcherTimer? _topologyTimer;
+    private NativeTaskbarTargets? _topology;
+    private TaskbarPreferenceStore? _store;
+    private TaskbarPreferences _preferences = new();
+    private bool _preferencesReady;
+    private bool _taskbarEnabled;
+    private bool _refreshingSurfaces;
+    private string? _storageError;
+    private string? _managerError;
 
     public void Initialize(PluginUiContext context)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_context is not null) throw new InvalidOperationException("Plugin is already initialized");
         _context = context;
+        _dispatcher = Dispatcher.CurrentDispatcher;
+        _store = new TaskbarPreferenceStore(context.DataDirectory, message => PostState(() => { _storageError = message; RefreshViews(); }));
+        _ = _store.Loading.ContinueWith(task =>
+        {
+            if (task.IsCompletedSuccessfully) PostState(() =>
+            {
+                _preferences = task.Result;
+                _preferencesReady = true;
+                SyncTaskbars();
+                RefreshViews();
+            });
+            else { _ = task.Exception; PostState(() => { _storageError ??= "无法读取多屏设置，请检查插件数据目录。多屏显示暂未启用。"; RefreshViews(); }); }
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
     public void Update(PluginUiSnapshot snapshot)
     {
         if (_disposed) return;
         _scannedAt = snapshot.ScannedAt;
+        _taskbarEnabled = snapshot.TaskbarEnabled;
+        _selectedDeviceId = snapshot.TaskbarDeviceId;
+        _selectionKnown = true;
         _devices = snapshot.Devices.Where(device => !string.IsNullOrWhiteSpace(device.Id))
             .DistinctBy(device => device.Id, StringComparer.OrdinalIgnoreCase).ToArray();
         var currentIds = _devices.Select(device => device.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -43,6 +74,7 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
         foreach (var id in _seen.Where(entry => !currentIds.Contains(entry.Key))
             .OrderByDescending(entry => entry.Value.Order).Skip(MissingDeviceLimit).Select(entry => entry.Key).ToArray())
             _seen.Remove(id);
+        SyncTaskbars();
         RefreshViews();
     }
 
@@ -51,9 +83,10 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
         if (_disposed || _context is null) return null;
         _selectedDeviceId = selectedDeviceId;
         _selectionKnown = true;
-        if (_popupView?.TryGetTarget(out var previous) == true) previous.Release();
         var view = new OverviewView(this, popup: true);
-        _popupView = new(view);
+        _popupViews.RemoveAll(reference => !reference.TryGetTarget(out _));
+        _popupViews.Add(new(view));
+        view.Unloaded += OnPopupUnloaded;
         view.Refresh();
         return view;
     }
@@ -105,10 +138,13 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
     {
         if (_disposed) return;
         _disposed = true;
+        StopTaskbars();
+        lock (_uiGate) { _stateOperation?.Abort(); _stateOperation = null; }
+        _store?.Dispose();
         _context = null;
         _wheelRemainder = 0;
-        if (_popupView?.TryGetTarget(out var popup) == true) popup.Release();
-        _popupView = null;
+        foreach (var reference in _popupViews.ToArray()) if (reference.TryGetTarget(out var popup)) ReleasePopup(popup);
+        _popupViews.Clear();
         _windowView?.Release();
         _windowView = null;
         if (_window is { } window)
@@ -123,6 +159,126 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
         _selectedDeviceId = null;
     }
 
+    public Task FlushAsync(CancellationToken cancellationToken) => _store?.FlushAsync(cancellationToken) ?? Task.CompletedTask;
+
+    private void PostState(Action action)
+    {
+        lock (_uiGate)
+        {
+            if (_disposed || _dispatcher is null || _dispatcher.HasShutdownStarted) return;
+            _stateOperation?.Abort();
+            try { _stateOperation = _dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
+            {
+                lock (_uiGate) _stateOperation = null;
+                if (!_disposed) { try { action(); } catch (Exception) { TaskbarFailure(); } }
+            })); }
+            catch (Exception) { _stateOperation = null; }
+        }
+    }
+
+    private void SyncTaskbars()
+    {
+        if (_refreshingSurfaces) return;
+        if (_disposed || !_taskbarEnabled || !_preferencesReady || _context is null || _dispatcher is null)
+        { StopTaskbars(); return; }
+        _refreshingSurfaces = true;
+        try
+        {
+            if (_topology is null)
+            {
+                _topology = new NativeTaskbarTargets(_dispatcher, ReadOffset, SaveOffset, () =>
+                { if (!_disposed && _taskbarEnabled) _context?.RefreshTaskbar?.Invoke(); }, TaskbarFailure);
+                _topologyTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher) { Interval = TimeSpan.FromSeconds(2) };
+                _topologyTimer.Tick += OnTopologyTick;
+                _topologyTimer.Start();
+            }
+            _topology.Refresh();
+            var targets = _preferences.AllDisplays
+                ? _topology.SecondaryTargets.ToDictionary(entry => entry.Key, entry => (IPluginTaskbarTarget)entry.Value, StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, IPluginTaskbarTarget>(StringComparer.OrdinalIgnoreCase);
+            ReconcileSurfaces(targets);
+        }
+        catch (Exception) { TaskbarFailure(); }
+        finally { _refreshingSurfaces = false; }
+    }
+
+    private void ReconcileSurfaces(IReadOnlyDictionary<string, IPluginTaskbarTarget> targets)
+    {
+        foreach (var entry in _surfaces.ToArray())
+        {
+            if (targets.TryGetValue(entry.Key, out var target) && ReferenceEquals(target, entry.Value.Target) && !entry.Value.Surface.IsDisposed) continue;
+            entry.Value.Surface.Dispose();
+            _surfaces.Remove(entry.Key);
+        }
+        _managerError = null;
+        foreach (var entry in targets)
+        {
+            try
+            {
+                if (!_surfaces.TryGetValue(entry.Key, out var owned))
+                {
+                    var surface = _context?.CreateTaskbarSurface?.Invoke(entry.Value);
+                    if (surface is null) continue;
+                    owned = (entry.Value, surface);
+                    _surfaces.Add(entry.Key, owned);
+                }
+                owned.Surface.UpdateDevices(_devices);
+                if (owned.Surface.LastError is not null) _managerError = "部分副屏任务栏暂不可用，等待恢复。";
+            }
+            catch (Exception) { TaskbarFailure(); return; }
+        }
+    }
+
+    private void OnTopologyTick(object? sender, EventArgs args)
+    { try { SyncTaskbars(); RefreshViews(); } catch (Exception) { TaskbarFailure(); } }
+
+    private void TaskbarFailure()
+    {
+        StopTaskbars();
+        _managerError = "多屏任务栏暂不可用，副屏显示已停止。";
+        try { RefreshViews(); } catch (Exception) { }
+    }
+
+    private void StopTaskbars()
+    {
+        if (_topologyTimer is { } timer) { timer.Stop(); timer.Tick -= OnTopologyTick; _topologyTimer = null; }
+        foreach (var owned in _surfaces.Values) { try { owned.Surface.Dispose(); } catch (Exception) { } }
+        _surfaces.Clear();
+        try { _topology?.Dispose(); } catch (Exception) { }
+        _topology = null;
+        _managerError = null;
+    }
+
+    private int ReadOffset(string monitor) => _preferences.MonitorOffsets.TryGetValue(monitor, out var offset) ? offset : 0;
+
+    private void SaveOffset(string monitor, int offset)
+    {
+        if (_disposed || !_preferencesReady || string.IsNullOrWhiteSpace(monitor) || monitor.Length > 128) return;
+        var offsets = new Dictionary<string, int>(_preferences.MonitorOffsets, StringComparer.OrdinalIgnoreCase);
+        offsets.Remove(monitor);
+        if (offsets.Count >= 32) offsets.Remove(offsets.Keys.First());
+        offsets[monitor] = Math.Clamp(offset, 0, 32767);
+        _preferences = _preferences with { MonitorOffsets = offsets };
+        _store?.Save(_preferences);
+    }
+
+    private void SetAllDisplays(bool enabled)
+    {
+        if (_disposed || !_preferencesReady || _preferences.AllDisplays == enabled) return;
+        _preferences = _preferences with { AllDisplays = enabled };
+        _store?.Save(_preferences);
+        SyncTaskbars();
+        RefreshViews();
+    }
+
+    private void OnPopupUnloaded(object sender, RoutedEventArgs args) { if (sender is OverviewView view) ReleasePopup(view); }
+    private void ReleasePopup(OverviewView view)
+    {
+        view.Unloaded -= OnPopupUnloaded;
+        view.Release();
+        _popupViews.RemoveAll(reference => !reference.TryGetTarget(out var target) || ReferenceEquals(target, view));
+    }
+
     private void OnWindowClosed(object? sender, EventArgs args)
     {
         if (sender is Window window) { window.Closed -= OnWindowClosed; window.Content = null; }
@@ -133,7 +289,8 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
 
     private void RefreshViews()
     {
-        if (_popupView?.TryGetTarget(out var popup) == true) popup.Refresh();
+        foreach (var reference in _popupViews.ToArray()) if (reference.TryGetTarget(out var popup)) popup.Refresh();
+        _popupViews.RemoveAll(reference => !reference.TryGetTarget(out _));
         if (_windowView?.IsVisible == true) _windowView.Refresh();
     }
 
@@ -193,6 +350,9 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
         private readonly StackPanel _rows = new();
         private readonly Button _automatic;
         private readonly List<Button> _deviceButtons = [];
+        private readonly CheckBox? _allDisplays;
+        private readonly TextBlock? _multiStatus;
+        private bool _updatingDisplayOption;
 
         public OverviewView(TaskbarToolsPlugin owner, bool popup)
         {
@@ -204,6 +364,7 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
             SetResourceReference(BackgroundProperty, "Surface");
             SetResourceReference(BorderBrushProperty, "Stroke");
             var grid = new Grid();
+            grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
@@ -222,11 +383,22 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
             _selection.Margin = new Thickness(0, 4, 0, 0);
             details.Children.Add(_scanTime); details.Children.Add(_selection);
             Grid.SetRow(details, 1); grid.Children.Add(details);
+            if (!popup)
+            {
+                var options = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
+                _allDisplays = new CheckBox { Content = L.T("在所有显示器的任务栏显示"), Margin = new Thickness(0, 0, 0, 5), ToolTip = L.T("仅增加副屏显示；主屏仍沿用宿主任务栏开关。") };
+                _allDisplays.SetResourceReference(Control.ForegroundProperty, "TextPrimary");
+                _allDisplays.Checked += OnDisplayOptionChanged;
+                _allDisplays.Unchecked += OnDisplayOptionChanged;
+                _multiStatus = Text("", 11, "TextSecondary");
+                options.Children.Add(_allDisplays); options.Children.Add(_multiStatus);
+                Grid.SetRow(options, 2); grid.Children.Add(options);
+            }
             var scroll = new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
-            Grid.SetRow(scroll, 2); grid.Children.Add(scroll);
+            Grid.SetRow(scroll, 3); grid.Children.Add(scroll);
             var hint = Text(L.T("点击已连接且有电量的设备切换任务栏显示；滚轮每格切换。"), 11, "TextSecondary");
             hint.Margin = new Thickness(0, 10, 0, 0);
-            Grid.SetRow(hint, 3); grid.Children.Add(hint);
+            Grid.SetRow(hint, 4); grid.Children.Add(hint);
             Child = grid;
         }
 
@@ -239,6 +411,19 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
             var selected = owner._devices.FirstOrDefault(device => SameId(device.Id, owner._selectedDeviceId))?.Name;
             _selection.Text = !owner._selectionKnown ? L.T("点击设备可切换任务栏显示") : owner._selectedDeviceId is null
                 ? L.T("任务栏：自动显示最低电量设备") : L.T("任务栏设备") + " · " + (selected ?? L.T("已保存设备（当前不可用）"));
+            if (_allDisplays is not null && _multiStatus is not null)
+            {
+                _updatingDisplayOption = true;
+                _allDisplays.IsChecked = owner._preferences.AllDisplays;
+                _allDisplays.IsEnabled = owner._preferencesReady && owner._context?.CreateTaskbarSurface is not null;
+                _updatingDisplayOption = false;
+                _multiStatus.Text = L.T(owner._storageError ?? (!owner._preferencesReady ? "正在载入多屏设置…" :
+                    !owner._taskbarEnabled ? "全局任务栏显示未开启；此选项会在启用后生效。" :
+                    !owner._preferences.AllDisplays ? "仅在主显示器的任务栏显示。" :
+                    owner._context?.CreateTaskbarSurface is null ? "宿主未提供多屏任务栏接口。" :
+                    owner._managerError ?? (owner._surfaces.Count == 0 ? "当前未创建副屏显示；主屏沿用宿主设置。" :
+                    "副屏任务栏会跟随自动隐藏状态；未完整显示时不绘制。")));
+            }
             var now = DateTimeOffset.UtcNow;
             var currentIds = owner._devices.Select(device => device.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var device in owner._devices.OrderByDescending(CanSelect).ThenBy(device => device.Name, StringComparer.CurrentCultureIgnoreCase))
@@ -290,6 +475,8 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
 
         private void OnAutomatic(object sender, RoutedEventArgs args) => _owner?.SelectDevice(null);
         private void OnDevice(object sender, RoutedEventArgs args) { if (sender is Button { Tag: string id }) _owner?.SelectDevice(id); }
+        private void OnDisplayOptionChanged(object sender, RoutedEventArgs args)
+        { if (!_updatingDisplayOption && _allDisplays is not null) _owner?.SetAllDisplays(_allDisplays.IsChecked == true); }
         private static ControlTemplate CreateDeviceButtonTemplate()
         {
             var frame = new FrameworkElementFactory(typeof(Border));
@@ -311,6 +498,7 @@ public sealed class TaskbarToolsPlugin : IInteractivePowerHubPlugin
         public void Release()
         {
             _automatic.Click -= OnAutomatic;
+            if (_allDisplays is not null) { _allDisplays.Checked -= OnDisplayOptionChanged; _allDisplays.Unchecked -= OnDisplayOptionChanged; }
             foreach (var button in _deviceButtons) button.Click -= OnDevice;
             _deviceButtons.Clear(); _rows.Children.Clear(); _owner = null; Child = null; Resources.Clear();
         }

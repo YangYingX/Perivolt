@@ -1,5 +1,6 @@
 using PowerHub.Models;
 using System.Windows;
+using Point = System.Windows.Point;
 
 namespace PowerHub.Plugins;
 
@@ -22,8 +23,35 @@ public interface IInteractivePowerHubPlugin : IPowerHubPlugin
     Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
-public sealed record PluginUiContext(string DataDirectory, Action<string?> SelectTaskbarDevice);
-public sealed record PluginUiSnapshot(IReadOnlyList<DeviceStatus> Devices, DateTimeOffset ScannedAt, IReadOnlyDictionary<string, string> Options);
+public readonly record struct PluginTaskbarLayout(IntPtr Handle, Rect Bounds, Rect MonitorBounds, Point ClientOrigin, uint Edge, DpiScale DpiScale);
+
+public interface IPluginTaskbarTarget
+{
+    PluginTaskbarLayout? ReadLayout();
+    event Action? LayoutChanged;
+    int InitialOffset { get; }
+    void SaveOffset(int offset);
+}
+
+public interface IPluginTaskbarSurface : IDisposable
+{
+    bool IsDisposed { get; }
+    bool IsVisible { get; }
+    string? LastError { get; }
+    void UpdateDevices(IReadOnlyList<DeviceStatus> devices);
+    void Suspend();
+}
+
+public sealed record PluginUiContext(string DataDirectory, Action<string?> SelectTaskbarDevice)
+{
+    public Func<IPluginTaskbarTarget, IPluginTaskbarSurface?>? CreateTaskbarSurface { get; init; }
+    public Action? RefreshTaskbar { get; init; }
+}
+public sealed record PluginUiSnapshot(IReadOnlyList<DeviceStatus> Devices, DateTimeOffset ScannedAt, IReadOnlyDictionary<string, string> Options)
+{
+    public bool TaskbarEnabled { get; init; }
+    public string? TaskbarDeviceId { get; init; }
+}
 
 public sealed record PluginContext(IReadOnlyList<DeviceStatus> Devices, DateTimeOffset Now, IReadOnlyDictionary<string, string> Options);
 public sealed record PluginOutput(bool SuppressLowBatteryAlerts = false, IReadOnlyList<PluginNotification>? Notifications = null);

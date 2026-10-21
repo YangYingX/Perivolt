@@ -18,6 +18,8 @@ public sealed class PluginHost : IDisposable
     private string? interactiveDataDirectory;
     private Dispatcher? interactiveDispatcher;
     private Action<string?>? selectTaskbarDevice;
+    private Func<IPluginTaskbarTarget, IPluginTaskbarSurface>? createTaskbarSurface;
+    private Action? refreshTaskbar;
     private bool disposed;
     public event Action? InteractiveChanged;
     public string DirectoryPath { get; }
@@ -132,6 +134,10 @@ public sealed class PluginHost : IDisposable
     }
 
     public void ConfigureInteractive(string dataDirectory, Dispatcher dispatcher, Action<string?> selectTaskbarDevice)
+        => ConfigureInteractive(dataDirectory, dispatcher, selectTaskbarDevice, null, null);
+
+    public void ConfigureInteractive(string dataDirectory, Dispatcher dispatcher, Action<string?> selectTaskbarDevice,
+        Func<IPluginTaskbarTarget, IPluginTaskbarSurface>? createTaskbarSurface, Action? refreshTaskbar)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(selectTaskbarDevice);
@@ -147,6 +153,8 @@ public sealed class PluginHost : IDisposable
             interactiveDispatcher = dispatcher;
             interactiveDataDirectory = directory;
             this.selectTaskbarDevice = selectTaskbarDevice;
+            this.createTaskbarSurface = createTaskbarSurface;
+            this.refreshTaskbar = refreshTaskbar;
         }
     }
 
@@ -164,7 +172,11 @@ public sealed class PluginHost : IDisposable
             {
                 IReadOnlyDictionary<string, string> options;
                 lock (gate) options = state.Entry.Options.ToDictionary(option => option.Key, option => option.Value, StringComparer.OrdinalIgnoreCase);
-                ((IInteractivePowerHubPlugin)runtime.Plugin).Update(new(snapshot, scannedAt, options));
+                ((IInteractivePowerHubPlugin)runtime.Plugin).Update(new(snapshot, scannedAt, options)
+                {
+                    TaskbarEnabled = settings.TaskbarEnabled,
+                    TaskbarDeviceId = settings.TaskbarDeviceId
+                });
             }
             catch (Exception error) { Fault(state, error); }
             finally { Release(runtime); }
@@ -285,12 +297,35 @@ public sealed class PluginHost : IDisposable
                         catch (DirectoryNotFoundException) { }
                     }
                     Directory.CreateDirectory(directory);
+                    var surfaceFactory = createTaskbarSurface;
+                    var taskbarRefresh = refreshTaskbar;
                     ((IInteractivePowerHubPlugin)runtime.Plugin).Initialize(new(directory, selectedId =>
                     {
                         interactiveDispatcher!.VerifyAccess();
                         if (!IsInteractiveActive(state, runtime)) return;
                         selectTaskbarDevice!(selectedId);
-                    }));
+                    })
+                    {
+                        CreateTaskbarSurface = state.Manifest.ApiVersion == 3 && surfaceFactory is not null ? target =>
+                        {
+                            interactiveDispatcher!.VerifyAccess();
+                            if (!IsInteractiveActive(state, runtime)) return null;
+                            runtime.TaskbarSurfaces.RemoveAll(surface => surface.IsDisposed);
+                            var surface = surfaceFactory(target);
+                            if (!IsInteractiveActive(state, runtime))
+                            {
+                                surface.Dispose();
+                                return null;
+                            }
+                            runtime.TaskbarSurfaces.Add(surface);
+                            return surface;
+                        } : null,
+                        RefreshTaskbar = state.Manifest.ApiVersion == 3 && taskbarRefresh is not null ? () =>
+                        {
+                            interactiveDispatcher!.VerifyAccess();
+                            if (IsInteractiveActive(state, runtime)) taskbarRefresh();
+                        } : null
+                    });
                     runtime.Initialized = true;
                 }
                 finally { runtime.Initializing = false; }
@@ -501,7 +536,13 @@ public sealed class PluginHost : IDisposable
             pendingInteractiveDisposals.Remove(runtime);
         }
         try { runtime.Plugin.Dispose(); } catch (Exception) { }
-        finally { try { runtime.Context.Unload(); } catch (Exception) { } }
+        finally
+        {
+            foreach (var surface in runtime.TaskbarSurfaces)
+                try { if (!surface.IsDisposed) surface.Dispose(); } catch (Exception) { }
+            runtime.TaskbarSurfaces.Clear();
+            try { runtime.Context.Unload(); } catch (Exception) { }
+        }
     }
 
     private void UpdateOptionsLocked(PluginState state)
@@ -527,7 +568,7 @@ public sealed class PluginHost : IDisposable
     private static bool IsInteractiveId(string id) => id.Length > 0 && char.IsAsciiLetterOrDigit(id[0]) &&
         id.All(character => char.IsAsciiLetterOrDigit(character) || character == '-');
     private static bool IsCompatible(PluginManifest manifest) => manifest.Kind == "interactive"
-        ? manifest.ApiVersion == 2 && IsInteractiveId(manifest.Id)
+        ? manifest.ApiVersion is 2 or 3 && IsInteractiveId(manifest.Id)
         : manifest.ApiVersion == 1 && manifest.Kind is "device" or "theme" or "utility";
     private static string ErrorText(Exception error) => (error is TargetInvocationException { InnerException: { } inner } ? inner.Message : error.Message).Replace('\r', ' ').Replace('\n', ' ');
 
@@ -577,6 +618,7 @@ public sealed class PluginHost : IDisposable
         internal bool Disposed;
         internal bool Retired;
         internal bool DisposalQueued;
+        internal List<IPluginTaskbarSurface> TaskbarSurfaces { get; } = [];
         internal IReadOnlyList<PluginThemeEntry>? Themes;
     }
 

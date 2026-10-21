@@ -10,6 +10,7 @@ using Microsoft.Win32;
 using PowerHub.Controls;
 using PowerHub.Models;
 using PowerHub.Native;
+using PowerHub.Plugins;
 using PowerHub.Services;
 using Brush = System.Windows.Media.Brush;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
@@ -21,12 +22,14 @@ using SystemColors = System.Windows.SystemColors;
 
 namespace PowerHub;
 
-public sealed class TaskbarBatteryWindow : IDisposable
+public sealed class TaskbarBatteryWindow : IPluginTaskbarSurface
 {
     private readonly AppSettings settings;
     private readonly Action? positionChanged;
     private readonly Func<string?, IReadOnlyList<FrameworkElement>>? createPluginPopup;
     private readonly Func<string?, int, bool>? handlePluginWheel;
+    private readonly IPluginTaskbarTarget? externalTarget;
+    private int externalOffset;
     private Popup? pluginPopup;
     private DispatcherTimer? pluginCloseTimer;
     private string? selectedDeviceId;
@@ -48,6 +51,7 @@ public sealed class TaskbarBatteryWindow : IDisposable
     private Rect[]? occupied;
     private DateTime lastOccupancyRead;
     private bool readingOccupancy;
+    private long occupancyGeneration;
     private bool placing;
     private bool disposed;
     private bool pointerDown;
@@ -60,15 +64,30 @@ public sealed class TaskbarBatteryWindow : IDisposable
     private HwndSource? source;
     private IntPtr parent;
     public string? LastError { get; private set; }
+    public bool IsDisposed => disposed;
     public bool IsVisible => source is { IsDisposed: false } && IsWindowVisible(source.Handle);
+
+    private int Offset
+    {
+        get => externalTarget is null ? settings.TaskbarLeftOffset : externalOffset;
+        set { if (externalTarget is null) settings.TaskbarLeftOffset = value; else externalOffset = value; }
+    }
 
     public TaskbarBatteryWindow(AppSettings settings, Action? positionChanged = null,
         Func<string?, IReadOnlyList<FrameworkElement>>? createPluginPopup = null, Func<string?, int, bool>? handlePluginWheel = null)
+        : this(settings, positionChanged, createPluginPopup, handlePluginWheel, null) { }
+
+    public TaskbarBatteryWindow(AppSettings settings, Action? positionChanged,
+        Func<string?, IReadOnlyList<FrameworkElement>>? createPluginPopup, Func<string?, int, bool>? handlePluginWheel,
+        IPluginTaskbarTarget? externalTarget)
     {
         this.settings = settings;
         this.positionChanged = positionChanged;
         this.createPluginPopup = createPluginPopup;
         this.handlePluginWheel = handlePluginWheel;
+        this.externalTarget = externalTarget;
+        externalOffset = Math.Clamp(externalTarget?.InitialOffset ?? 64, 0, 32767);
+        if (externalTarget is not null) externalTarget.LayoutChanged += OnTargetLayoutChanged;
         TextElement.SetFontFamily(surface, new System.Windows.Media.FontFamily("Segoe UI, Microsoft YaHei UI"));
         TextOptions.SetTextFormattingMode(surface, TextFormattingMode.Display);
         System.Windows.Documents.Typography.SetNumeralAlignment(battery, FontNumeralAlignment.Tabular);
@@ -124,9 +143,37 @@ public sealed class TaskbarBatteryWindow : IDisposable
         UpdatePlacement();
     }
 
-    public void Suspend() { positionTimer.Stop(); Detach(); layout = null; occupied = null; LastError = null; }
+    public void Suspend() { positionTimer.Stop(); occupancyGeneration++; Detach(); layout = null; occupied = null; LastError = null; }
     public void Close() => Dispose();
-    public void Dispose() { disposed = true; Suspend(); }
+    public void Dispose()
+    {
+        if (disposed) return;
+        disposed = true;
+        if (externalTarget is not null) externalTarget.LayoutChanged -= OnTargetLayoutChanged;
+        Suspend();
+    }
+
+    private void OnTargetLayoutChanged()
+    {
+        if (disposed || !positionTimer.IsEnabled) return;
+        if (!surface.Dispatcher.CheckAccess())
+        {
+            if (!surface.Dispatcher.HasShutdownStarted) surface.Dispatcher.BeginInvoke(new Action(OnTargetLayoutChanged));
+            return;
+        }
+        ClosePluginPopup();
+        UpdatePlacement();
+    }
+
+    private TaskbarNative.Snapshot? ReadLayout()
+    {
+        if (externalTarget is null) return TaskbarNative.TryGetTaskbar(out var snapshot) ? snapshot : null;
+        if (externalTarget.ReadLayout() is not { } value || value.Handle == IntPtr.Zero ||
+            !TaskbarNative.IsFullyVisible(value.Bounds, value.MonitorBounds, value.Edge) ||
+            !double.IsFinite(value.DpiScale.DpiScaleX) || !double.IsFinite(value.DpiScale.DpiScaleY) ||
+            value.DpiScale.DpiScaleX <= 0 || value.DpiScale.DpiScaleY <= 0) return null;
+        return new(value.Handle, value.Bounds, value.MonitorBounds, value.ClientOrigin, value.Edge, value.DpiScale);
+    }
 
     public void ClosePluginPopup()
     {
@@ -243,12 +290,13 @@ public sealed class TaskbarBatteryWindow : IDisposable
         placing = true;
         try
         {
-            if (!TaskbarNative.TryGetTaskbar(out var snapshot))
-            { Detach(); layout = null; occupied = null; LastError = L.T("任务栏暂不可用，等待恢复。"); return; }
+            if (ReadLayout() is not { } snapshot)
+            { occupancyGeneration++; Detach(); layout = null; occupied = null; LastError = L.T("任务栏暂不可用，等待恢复。"); return; }
             if (layout != snapshot)
             {
                 ClosePluginPopup();
                 FinishDrag();
+                occupancyGeneration++;
                 layout = snapshot; occupied = null; lastPlacement = Rect.Empty;
             }
             if (parent != snapshot.Handle || source is null || source.IsDisposed || !IsWindow(source.Handle) || GetParent(source.Handle) != snapshot.Handle)
@@ -259,7 +307,7 @@ public sealed class TaskbarBatteryWindow : IDisposable
             if (occupied is null) { HideStrip(L.T("正在识别任务栏布局…")); return; }
             if (DateTime.UtcNow - lastOccupancyRead > TimeSpan.FromSeconds(5))
             { HideStrip(L.T("无法识别任务栏空闲区域，等待重试。")); return; }
-            var rectangle = ComputePlacement(snapshot.Bounds, snapshot.MonitorBounds, snapshot.Edge, settings.TaskbarLeftOffset, snapshot.DpiScale, occupied);
+            var rectangle = ComputePlacement(snapshot.Bounds, snapshot.MonitorBounds, snapshot.Edge, Offset, snapshot.DpiScale, occupied);
             if (rectangle.IsEmpty) { HideStrip(L.T("任务栏空间不足，已暂时隐藏电量条。")); return; }
             if (rectangle != lastPlacement || !IsVisible)
             {
@@ -275,19 +323,21 @@ public sealed class TaskbarBatteryWindow : IDisposable
             }
             LastError = null;
         }
-        catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or UnauthorizedAccessException or ArgumentException or NotSupportedException)
-        { Detach(); LastError = error.Message; }
+        catch (Exception error) when (externalTarget is not null || error is InvalidOperationException or System.ComponentModel.Win32Exception or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        { occupancyGeneration++; Detach(); layout = null; occupied = null; LastError = error.Message; }
         finally { placing = false; }
     }
 
     private async void ReadOccupancy(TaskbarNative.Snapshot snapshot)
     {
         readingOccupancy = true;
+        var generation = occupancyGeneration;
         Rect[]? result = null;
-        try { result = await Task.Run(() => TaskbarNative.ReadOccupiedBounds(snapshot.Handle)); }
-        catch (Exception error) when (error is InvalidOperationException or COMException or UnauthorizedAccessException) { }
+        try { result = await Task.Run(() => TaskbarNative.ReadOccupiedBounds(snapshot.Handle, ReadLayout, externalTarget is null)); }
+        catch (Exception error) when (externalTarget is not null || error is InvalidOperationException or COMException or UnauthorizedAccessException or ArgumentException) { }
         finally { readingOccupancy = false; }
-        if (disposed || !positionTimer.IsEnabled || layout != snapshot) return;
+        if (disposed || !positionTimer.IsEnabled) return;
+        if (generation != occupancyGeneration || layout != snapshot) { UpdatePlacement(); return; }
         occupied = result;
         lastOccupancyRead = DateTime.UtcNow;
         if (result is null) { HideStrip(L.T("无法识别任务栏空闲区域，等待重试。")); return; }
@@ -333,6 +383,7 @@ public sealed class TaskbarBatteryWindow : IDisposable
 
     internal static Rect ComputePlacement(Rect taskbar, Rect screen, uint edge, double offset, DpiScale dpi, IReadOnlyList<Rect>? occupied = null)
     {
+        if (!TaskbarNative.IsFullyVisible(taskbar, screen, edge)) return Rect.Empty;
         var visible = Rect.Intersect(taskbar, screen);
         if (visible.IsEmpty || dpi.DpiScaleX <= 0 || dpi.DpiScaleY <= 0) return Rect.Empty;
         var vertical = edge is 0 or 2;
@@ -376,7 +427,7 @@ public sealed class TaskbarBatteryWindow : IDisposable
         pointerDown = true;
         surface.CaptureMouse();
         dragging = false;
-        savedOffset = settings.TaskbarLeftOffset;
+        savedOffset = Offset;
         dragStart = new Point(cursor.X, cursor.Y);
         dragStartOffset = snapshot.Edge is 0 or 2 ? (lastPlacement.Top - snapshot.Bounds.Top) / snapshot.DpiScale.DpiScaleY
             : (lastPlacement.Left - snapshot.Bounds.Left) / snapshot.DpiScale.DpiScaleX;
@@ -400,8 +451,8 @@ public sealed class TaskbarBatteryWindow : IDisposable
         if (!dragging && Math.Abs(delta) < (vertical ? SystemParameters.MinimumVerticalDragDistance : SystemParameters.MinimumHorizontalDragDistance)) return;
         dragging = true;
         var offset = (int)Math.Clamp(Math.Round(dragStartOffset + delta), 0, 32767);
-        if (settings.TaskbarLeftOffset == offset) return;
-        settings.TaskbarLeftOffset = offset;
+        if (Offset == offset) return;
+        Offset = offset;
         UpdatePlacement();
     }
 
@@ -417,9 +468,15 @@ public sealed class TaskbarBatteryWindow : IDisposable
         {
             var offset = snapshot.Edge is 0 or 2 ? (lastPlacement.Top - snapshot.Bounds.Top) / snapshot.DpiScale.DpiScaleY
                 : (lastPlacement.Left - snapshot.Bounds.Left) / snapshot.DpiScale.DpiScaleX;
-            settings.TaskbarLeftOffset = (int)Math.Clamp(Math.Round(offset), 0, 32767);
+            Offset = (int)Math.Clamp(Math.Round(offset), 0, 32767);
         }
-        if (settings.TaskbarLeftOffset != savedOffset) positionChanged?.Invoke();
+        if (Offset == savedOffset) return;
+        if (externalTarget is null) positionChanged?.Invoke();
+        else
+        {
+            try { externalTarget.SaveOffset(Offset); }
+            catch (Exception error) { LastError = error.Message; }
+        }
     }
 
     private IntPtr OnMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -430,6 +487,8 @@ public sealed class TaskbarBatteryWindow : IDisposable
         if (message is 0x007E or 0x02E0 or 0x001A or 0x031A)
         {
             theme = null; lastPlacement = Rect.Empty; occupied = null;
+            occupancyGeneration++;
+            ClosePluginPopup();
             surface.Dispatcher.BeginInvoke(new Action(UpdatePlacement));
         }
         return IntPtr.Zero;

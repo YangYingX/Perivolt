@@ -1,6 +1,6 @@
 # 本地插件
 
-电栖（Perivolt）提供本地 DLL 插件机制，可扩展主题、提醒规则和设备电量读取。1.0.8-preview.1 继续兼容 API 1，另提供 API 2 交互插件；正式 1.0.7 只支持 API 1。插件与主程序同进程运行，仅启用信任来源的插件。官方插件源码、可选插件及独立构建入口统一放在 [Extensions 插件目录](../Extensions/README.md)。
+电栖（Perivolt）提供本地 DLL 插件机制，可扩展主题、提醒规则和设备电量读取。1.0.8-preview.2 兼容 API 1/2，另提供 API 3 任务栏布局扩展；正式 1.0.7 只支持 API 1。插件与主程序同进程运行，仅启用信任来源的插件。官方插件源码、可选插件及独立构建入口统一放在 [Extensions 插件目录](../Extensions/README.md)。
 
 电栖默认离线，以普通用户权限运行，无进程注入或全局输入钩子。随包插件不联网；适配插件应只发送确认过的电量与连接状态查询，不进行固件、配对、灯光、DPI 或按键配置。宿主不会自动下载插件；主程序在用户操作或开启相应选项后，支持版本检查、更新下载及脱敏诊断上报，自动检查和自动上报默认关闭。用户手动加入的第三方 DLL 没有权限沙箱，不能把“本地加载”等同于对其行为的安全保证。
 
@@ -15,7 +15,7 @@
 
 各插件开关和选项独立保存。仅发现清单不会立即加载未启用的 DLL。设备插件按清单的 VID 范围过滤后调用，读取器内部仍必须继续检查精确 PID、集合和报告格式。
 
-任务栏增强及电量趋势作为独立可选插件开发，不加入上述随包插件，也不进入主程序安装包或便携包。首批功能需要 1.0.8-preview.1 的 API 2，尚未公开发布；源码和开发边界见 [Optional](../Extensions/Optional/README.md)。
+任务栏增强及电量趋势作为独立可选插件开发，不加入上述随包插件，也不进入主程序安装包或便携包。任务栏增强 1.1.0 需要 1.0.8-preview.2 的 API 3，电量趋势 1.0.0 继续使用 API 2，尚未公开发布；源码和开发边界见 [Optional](../Extensions/Optional/README.md)。
 
 免打扰时间使用本机时间，格式为 `HH:mm`，默认 `22:00` 至 `08:00`。免打扰时会同时暂停低电提醒和插件自定义通知。
 
@@ -81,6 +81,18 @@ API 1 的 `Kind` 支持 `utility`、`theme`、`device`。设备插件另需 `Ven
 数据目录位于用户设置目录的 `plugins/<插件ID>/`，与程序安装目录分开。宿主过滤为用户设置的设备名称后传入快照；插件应自行限制文件大小、保留期限与后台任务数量。停用、重载或出错时宿主关闭旧任务栏弹层，插件仍须清理自己的窗口。正常退出先停止新扫描，再尝试保存；保存超时后继续退出，强制结束进程或保存失败时不能保证最近批次落盘。
 
 所有同步交互回调应及时返回，长任务只能异步执行；同进程插件没有强制中断与权限沙箱。API 1 实用插件的后台 500 ms 结果等待规则不适用于 UI 回调。
+
+### API 3 任务栏布局
+
+清单设置 `"ApiVersion": 3`、`"Kind": "interactive"`，仍实现 `IInteractivePowerHubPlugin`。API 3 只用于需要下列新增能力的插件；原 API 2 清单、构造函数和回调保持兼容。
+
+- `PluginUiSnapshot.TaskbarEnabled` 与 `TaskbarDeviceId` 反映全局任务栏开关和设备选择。全局关闭时插件须停止布局跟踪并关闭副屏窗口。
+- `PluginUiContext.CreateTaskbarSurface(target)` 在 UI 线程创建宿主绘制的电量条，返回 `IPluginTaskbarSurface`。插件复用快照调用 `UpdateDevices()`，隐藏时 `Suspend()`，不再需要时 `Dispose()`。宿主在插件退休、出错或退出时兜底释放其创建的窗口。
+- `IPluginTaskbarTarget.ReadLayout()` 返回目标 HWND、物理像素边界、显示器边界、客户区原点、边缘及窗口 DPI；不可用、隐藏、部分滑出或目标身份失效时返回 `null`。此方法既会在 UI 线程调用，也会在后台 MTA 布局采样前后调用，须线程安全，不访问 WPF。
+- `LayoutChanged` 在 UI 线程通知位置、显示或隐藏变化；`InitialOffset` 与拖动结束时的 `SaveOffset()` 管理各屏位置，不逐帧写文件。宿主拒绝布局采样期间变化的结果，并在布局失效时收起窗口和弹层。
+- `PluginUiContext.RefreshTaskbar()` 请求主屏重新检查布局。API 2 上下文不提供新增工厂和刷新回调；旧宿主将 API 3 清单视为不兼容。
+
+任务栏增强只在插件及全局任务栏开关都启用时监听 Explorer 的窗口显示、隐藏和位置事件，使用进程限定的 WinEvent 通知和两秒拓扑恢复检查。监听不是全局输入钩子，不改变系统任务栏设置；Windows 没有创建副屏任务栏时不生成悬浮替代。原生事件约束见 [Microsoft SetWinEventHook 文档](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwineventhook)。
 
 主题资源沿用主程序的 `PageBackground`、`Surface`、`SurfaceAlt`、`Stroke`、`TextPrimary`、`TextSecondary`、`Accent`、`AccentSoft`、`AccentText`、`Warning`、`Danger`、`RingTrack`。启用插件只添加候选项，只有所选主题的调色板会应用。多主题存储为 `plugin:<插件ID>/<主题ID>`；单主题 ID 与插件 ID 相同的旧插件仍使用 `plugin:<插件ID>`。停用正在使用的插件后跟随系统。单插件最多 500 套，主题 ID 使用 ASCII 字母、数字、短横线或下划线，完整存储键不超过 87 字符。
 

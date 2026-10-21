@@ -51,7 +51,9 @@ public sealed class AppController : IDisposable
         UpdateInstallDirectory = preview ? null : UpdateInstaller.FindInstalledDirectory();
         themes = themeService;
         Plugins = new PluginHost(Program.PluginDirectory, Settings);
-        if (!previewMode) Plugins.ConfigureInteractive(dataDirectory, Dispatcher.CurrentDispatcher, SelectTaskbarDevice);
+        if (!previewMode) Plugins.ConfigureInteractive(dataDirectory, Dispatcher.CurrentDispatcher, SelectTaskbarDevice,
+            target => new TaskbarBatteryWindow(Settings, null, Plugins.CreateTaskbarPopups, Plugins.HandleTaskbarWheel, target),
+            () => { if (!IsExiting) { taskbar?.ClosePluginPopup(); taskbar?.UpdatePlacement(); } });
         Plugins.InteractiveChanged += OnInteractiveChanged;
         monitor = new BatteryMonitorService(Plugins);
         if (!previewMode) Settings.StartWithWindows = startupEnabled = StartupService.IsEnabled();

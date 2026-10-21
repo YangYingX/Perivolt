@@ -17,6 +17,7 @@ internal static class TaskbarNative
         snapshot = default;
         // Win32 geometry must use physical pixels even when the caller temporarily adopts Explorer's DPI context.
         var previousContext = SetThreadDpiAwarenessContext(new IntPtr(-4));
+        if (previousContext == IntPtr.Zero) return false;
         try
         {
             var handle = FindWindow("Shell_TrayWnd", null);
@@ -43,6 +44,7 @@ internal static class TaskbarNative
                 else
                     edge = Math.Abs(bounds.Top - screen.Top) <= Math.Abs(bounds.Bottom - screen.Bottom) ? 1u : 3u;
             }
+            if (!IsFullyVisible(bounds, screen, edge)) return false;
             var scale = GetDpiForWindow(handle) / 96d;
             if (scale <= 0) return false;
             snapshot = new Snapshot(handle, bounds, screen, new Point(origin.X, origin.Y), edge, new DpiScale(scale, scale));
@@ -56,14 +58,18 @@ internal static class TaskbarNative
 
     // UI Automation is synchronous: call only from a background MTA thread and allow at most one read in flight.
     // null means the shell did not expose enough information to safely place an embedded window.
-    internal static Rect[]? ReadOccupiedBounds(IntPtr handle)
+    internal static Rect[]? ReadOccupiedBounds(IntPtr handle) => ReadOccupiedBounds(handle, null, true);
+
+    internal static Rect[]? ReadOccupiedBounds(IntPtr handle, Func<Snapshot?>? readLayout, bool requireNotificationArea)
     {
-        if (!TryGetTaskbar(out var before) || before.Handle != handle) return null;
+        Snapshot? ReadLayout() => readLayout is not null ? readLayout() : TryGetTaskbar(out var snapshot) ? snapshot : null;
+        if (ReadLayout() is not { } before || before.Handle != handle) return null;
         var occupied = new List<Rect>();
         var taskLists = new List<(IntPtr Handle, Rect Bounds, bool Leaf)>();
         var modern = false;
         var foundTray = false;
         var previousContext = SetThreadDpiAwarenessContext(new IntPtr(-4));
+        if (previousContext == IntPtr.Zero) return null;
         try
         {
             EnumChildWindows(handle, (child, _) =>
@@ -78,7 +84,8 @@ internal static class TaskbarNative
                 var bounds = Rect.Intersect(ToRect(rectangle), before.Bounds);
                 if (bounds.IsEmpty) return true;
                 if (className is "MSTaskSwWClass" or "MSTaskListWClass") taskLists.Add((child, bounds, className == "MSTaskListWClass"));
-                else if (className is not ("ReBarWindow32" or "Windows.UI.Composition.DesktopWindowContentBridge" or
+                // WorkerW is the secondary taskbar's task-list container, like ReBarWindow32 on the primary.
+                else if (className is not ("ReBarWindow32" or "WorkerW" or "Windows.UI.Composition.DesktopWindowContentBridge" or
                     "Windows.UI.Input.InputSite.WindowClass"))
                 {
                     occupied.Add(bounds);
@@ -151,7 +158,7 @@ internal static class TaskbarNative
         }
         if (!reliableButtons)
         {
-            if (!foundTray || taskLists.Count == 0) return null;
+            if (requireNotificationArea && !foundTray || taskLists.Count == 0) return null;
             occupied = nativeOccupied.ToList();
             // Prefer the actual legacy list over its enclosing switcher, so a successful button read
             // is not masked by a second reservation of the enclosing full-width container.
@@ -165,15 +172,16 @@ internal static class TaskbarNative
                 }
                 var reserved = taskList.Bounds;
                 // Windows 11 can omit XAML buttons from UIA. Its native task switcher is the compact app group;
-                // reserve the adjacent Start/search/task-view area as well. A full-width legacy list stays reserved.
+                // reserve adjacent Start/search/task-view areas on both sides, including RTL layouts.
+                // A full-width legacy list stays reserved.
                 if (modern)
                 {
                     if (before.Edge is 1 or 3)
                         reserved = new Rect(taskList.Bounds.Left - 400 * before.DpiScale.DpiScaleX, taskList.Bounds.Top,
-                            taskList.Bounds.Width + 416 * before.DpiScale.DpiScaleX, taskList.Bounds.Height);
+                            taskList.Bounds.Width + 800 * before.DpiScale.DpiScaleX, taskList.Bounds.Height);
                     else
                         reserved = new Rect(taskList.Bounds.Left, taskList.Bounds.Top - 400 * before.DpiScale.DpiScaleY,
-                            taskList.Bounds.Width, taskList.Bounds.Height + 416 * before.DpiScale.DpiScaleY);
+                            taskList.Bounds.Width, taskList.Bounds.Height + 800 * before.DpiScale.DpiScaleY);
                 }
                 occupied.Add(Rect.Intersect(reserved, before.Bounds));
             }
@@ -196,8 +204,18 @@ internal static class TaskbarNative
                 }
             }
         }
-        if (!TryGetTaskbar(out var after) || before != after) return null;
+        if (ReadLayout() is not { } after || before != after) return null;
         return occupied.Where(rectangle => !rectangle.IsEmpty).Distinct().ToArray();
+    }
+
+    internal static bool IsFullyVisible(Rect bounds, Rect screen, uint edge)
+    {
+        if (bounds.IsEmpty || screen.IsEmpty || edge > 3) return false;
+        var visible = Rect.Intersect(bounds, screen);
+        if (visible.IsEmpty) return false;
+        // An auto-hiding taskbar can remain visible to Win32 while it slides offscreen.
+        // Allow a one-pixel border, but do not attach to a partially exposed bar.
+        return edge is 0 or 2 ? visible.Width >= bounds.Width - 1 : visible.Height >= bounds.Height - 1;
     }
 
     private static Rect[]? ReadLegacyButtons(IntPtr handle, Rect limit)

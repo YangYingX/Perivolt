@@ -50,8 +50,8 @@ public sealed class BatteryVisual : Control
     private static readonly Geometry BarChargingBolt = Frozen(Geometry.Parse(
         "M63,2 L57,11 L61,11 L58,18 L68,7 L63,7 Z"));
     private static readonly Geometry SandVessel = Frozen(Geometry.Parse(
-        "M24,13 L46,13 C46,23 43,28 37.5,33.8 C36.9,34.3 36.9,35.7 37.5,36.2 " +
-        "C43,42 46,47 46,57 L24,57 C24,47 27,42 32.5,36.2 C33.1,35.7 33.1,34.3 32.5,33.8 C27,28 24,23 24,13 Z"));
+        "M20,13 L50,13 C50,23 46,28 37.5,33.8 C36.9,34.3 36.9,35.7 37.5,36.2 " +
+        "C46,42 50,47 50,57 L20,57 C20,47 24,42 32.5,36.2 C33.1,35.7 33.1,34.3 32.5,33.8 C24,28 20,23 20,13 Z"));
     private static readonly Pen GlintPen = Frozen(new Pen(Brushes.White, .8));
     private static readonly Pen ChargingOutlinePen = Frozen(new Pen(Brushes.Black, 2) { LineJoin = PenLineJoin.Round });
     private Transform _layoutTransform = Transform.Identity;
@@ -274,20 +274,21 @@ public sealed class BatteryVisual : Control
         context.PushOpacity(.22);
         context.DrawGeometry(TrackBrush, null, SandVessel);
         context.Pop();
-        context.PushOpacity(.65);
+        context.PushOpacity(.4);
         context.DrawGeometry(null, _shapeOutlinePen, SandVessel);
-        context.DrawLine(_accentPen, new Point(20, 8), new Point(50, 8));
-        context.DrawLine(_accentPen, new Point(20, 62), new Point(50, 62));
+        context.DrawLine(_accentPen, new Point(17, 8), new Point(53, 8));
+        context.DrawLine(_accentPen, new Point(17, 62), new Point(53, 62));
         context.Pop();
         if (!HasPercent) { context.Pop(); return; }
         // Remaining charge occupies the upper chamber; spent charge collects beneath it.
-        var upperSurface = 13 + 20 * (1 - percent);
+        // The chamber narrows toward the waist, so height alone understates the remaining sand.
+        var upperSurface = 33 - 20 * Math.Sqrt(percent);
         var lowerSurface = 57 - 20 * (1 - percent);
         context.PushClip(SandVessel);
         context.PushOpacity(FillOpacity);
         if (percent > 0)
         {
-            context.PushClip(new RectangleGeometry(new Rect(23, 13, 24, 22)));
+            context.PushClip(new RectangleGeometry(new Rect(19, 13, 32, 22)));
             context.DrawGeometry(Foreground, null, Wave(upperSurface, _phase * .7,
                 AnimationsEnabled ? Math.Min(.6 * AnimationIntensity, 5 * Math.Min(percent, 1 - percent)) : 0));
             context.Pop();
@@ -295,9 +296,11 @@ public sealed class BatteryVisual : Control
         if (percent < 1)
         {
             var sway = AnimationsEnabled ? Math.Sin(_phase * .8) * .3 * AnimationIntensity : 0;
-            context.DrawGeometry(Foreground, null, Polygon(new Point(23, 58), new Point(47, 58),
-                new Point(45, Math.Min(57, lowerSurface + 5)), new Point(35 + sway, lowerSurface),
-                new Point(25, Math.Min(57, lowerSurface + 5))));
+            context.PushOpacity(.3);
+            context.DrawGeometry(Foreground, null, Polygon(new Point(19, 58), new Point(51, 58),
+                new Point(49, Math.Min(57, lowerSurface + 5)), new Point(35 + sway, lowerSurface),
+                new Point(21, Math.Min(57, lowerSurface + 5))));
+            context.Pop();
         }
         context.Pop();
         if (AnimationsEnabled && percent > .01 && lowerSurface > 37)
@@ -315,9 +318,9 @@ public sealed class BatteryVisual : Control
             }
             context.Pop();
         }
-        context.PushOpacity(.35);
-        context.DrawLine(GlintPen, new Point(27, 17), new Point(28.5, 23));
-        context.DrawLine(GlintPen, new Point(27, 52), new Point(28.5, 47));
+        context.PushOpacity(.2);
+        context.DrawLine(GlintPen, new Point(23, 17), new Point(25, 23));
+        context.DrawLine(GlintPen, new Point(23, 52), new Point(25, 47));
         context.Pop();
         context.Pop();
         context.Pop();

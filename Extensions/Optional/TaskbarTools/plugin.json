@@ -2,7 +2,7 @@
   "ApiVersion": 3,
   "Id": "taskbar-tools",
   "Name": "任务栏增强",
-  "Description": "多显示器任务栏电量、自动隐藏状态跟随、悬停设备概览和滚轮切换；从独立概览设置副屏显示。需要交互插件 API 3 开发版宿主。",
+  "Description": "多显示器任务栏电量、自动隐藏状态跟随、悬停设备概览和滚轮切换；从独立概览设置副屏显示。需要电栖 1.0.8 或兼容的 API 3 宿主。",
   "Version": "1.1.0",
   "Assembly": "Perivolt.TaskbarTools.dll",
   "EntryType": "Perivolt.TaskbarTools.TaskbarToolsPlugin",

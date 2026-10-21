@@ -1,0 +1,10 @@
+{
+  "ApiVersion": 2,
+  "Id": "taskbar-tools",
+  "Name": "任务栏增强",
+  "Description": "悬停查看多设备电量与读数状态，滚轮切换任务栏设备；可从插件页打开独立概览。需要支持交互插件 API 2 的开发版宿主。",
+  "Version": "1.0.0",
+  "Assembly": "Perivolt.TaskbarTools.dll",
+  "EntryType": "Perivolt.TaskbarTools.TaskbarToolsPlugin",
+  "Kind": "interactive"
+}

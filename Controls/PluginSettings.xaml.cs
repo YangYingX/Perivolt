@@ -65,6 +65,13 @@ public partial class PluginSettings : UserControl
             Change(host => host.SetEnabled(id, box.IsChecked == true), L.T("插件状态已更新，会自动保存。"));
     }
 
+    private void OnOpenPlugin(object sender, RoutedEventArgs e)
+    {
+        if (_controller is null || sender is not System.Windows.Controls.Button { Tag: string id }) return;
+        if (!_controller.Plugins.OpenInteractive(id)) StatusText.Text = L.T("插件尚不可用，请检查插件状态。");
+        Refresh();
+    }
+
     private void OnBrowseThemes(object sender, RoutedEventArgs e) => ThemeRequested?.Invoke();
 
     private void OnOptionLostFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -111,7 +118,7 @@ public partial class PluginSettings : UserControl
     private sealed record PluginCard(string Id, string Name, string Description, string Kind, string Version,
         bool IsEnabled, string Status, IReadOnlyList<OptionEditor> Options)
     {
-        public string KindLabel => L.F("{0} · v{1}", (Kind switch { "theme" => L.T("外观插件"), "device" => L.T("设备适配"), _ => L.T("实用插件") }), Version);
+        public string KindLabel => L.F("{0} · v{1}", (Kind switch { "theme" => L.T("外观插件"), "device" => L.T("设备适配"), "interactive" => L.T("交互插件"), _ => L.T("实用插件") }), Version);
         public string Icon => Kind switch { "theme" => "\uE790", "device" => "\uE772", _ => "\uE713" };
     }
 }

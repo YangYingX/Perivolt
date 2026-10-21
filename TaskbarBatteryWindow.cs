@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -24,6 +25,11 @@ public sealed class TaskbarBatteryWindow : IDisposable
 {
     private readonly AppSettings settings;
     private readonly Action? positionChanged;
+    private readonly Func<string?, IReadOnlyList<FrameworkElement>>? createPluginPopup;
+    private readonly Func<string?, int, bool>? handlePluginWheel;
+    private Popup? pluginPopup;
+    private DispatcherTimer? pluginCloseTimer;
+    private string? selectedDeviceId;
     private readonly Border surface = new() { BorderThickness = new Thickness(1), UseLayoutRounding = true, SnapsToDevicePixels = true, ClipToBounds = true };
     private readonly Grid content = new();
     private readonly Border iconSurface = new() { Width = 26, Height = 26, CornerRadius = new CornerRadius(6), VerticalAlignment = VerticalAlignment.Center };
@@ -56,10 +62,13 @@ public sealed class TaskbarBatteryWindow : IDisposable
     public string? LastError { get; private set; }
     public bool IsVisible => source is { IsDisposed: false } && IsWindowVisible(source.Handle);
 
-    public TaskbarBatteryWindow(AppSettings settings, Action? positionChanged = null)
+    public TaskbarBatteryWindow(AppSettings settings, Action? positionChanged = null,
+        Func<string?, IReadOnlyList<FrameworkElement>>? createPluginPopup = null, Func<string?, int, bool>? handlePluginWheel = null)
     {
         this.settings = settings;
         this.positionChanged = positionChanged;
+        this.createPluginPopup = createPluginPopup;
+        this.handlePluginWheel = handlePluginWheel;
         TextElement.SetFontFamily(surface, new System.Windows.Media.FontFamily("Segoe UI, Microsoft YaHei UI"));
         TextOptions.SetTextFormattingMode(surface, TextFormattingMode.Display);
         System.Windows.Documents.Typography.SetNumeralAlignment(battery, FontNumeralAlignment.Tabular);
@@ -74,6 +83,9 @@ public sealed class TaskbarBatteryWindow : IDisposable
         content.Children.Add(iconSurface); content.Children.Add(name); content.Children.Add(reading);
         progress.Children.Add(track); progress.Children.Add(fill); content.Children.Add(progress);
         surface.Child = content;
+        surface.MouseEnter += (_, _) => { pluginCloseTimer?.Stop(); OpenPluginPopup(); };
+        surface.MouseLeave += (_, _) => SchedulePopupClose();
+        surface.PreviewMouseWheel += (_, e) => { if (!pointerDown && handlePluginWheel?.Invoke(selectedDeviceId, e.Delta) == true) e.Handled = true; };
         surface.MouseLeftButtonDown += OnDragStart;
         surface.MouseMove += OnDragMove;
         surface.MouseLeftButtonUp += (_, e) => { FinishDrag(); e.Handled = true; };
@@ -89,6 +101,8 @@ public sealed class TaskbarBatteryWindow : IDisposable
         var online = devices.Where(device => device.ConnectionKnown && device.IsConnected && device.HasBattery);
         var selected = settings.TaskbarDeviceId is { } id ? online.FirstOrDefault(device => device.Id == id)
             : online.OrderByDescending(device => device.IsBatteryLow == true).ThenBy(device => device.BatteryPercent ?? 101).FirstOrDefault();
+        if (selectedDeviceId != selected?.Id) ClosePluginPopup();
+        selectedDeviceId = selected?.Id;
         if (!settings.TaskbarEnabled || selected is null) { Suspend(); return; }
         var appearance = new DeviceCard(selected, settings);
         name.Text = appearance.Name;
@@ -114,8 +128,55 @@ public sealed class TaskbarBatteryWindow : IDisposable
     public void Close() => Dispose();
     public void Dispose() { disposed = true; Suspend(); }
 
+    public void ClosePluginPopup()
+    {
+        pluginCloseTimer?.Stop();
+        var popup = pluginPopup;
+        pluginPopup = null;
+        if (popup is not null) { popup.IsOpen = false; popup.Child = null; }
+        ToolTipService.SetIsEnabled(surface, true);
+    }
+
+    private void OpenPluginPopup()
+    {
+        if (disposed || pointerDown || pluginPopup is not null || !IsVisible || createPluginPopup is null) return;
+        var views = createPluginPopup(selectedDeviceId);
+        if (views.Count == 0) return;
+        var stack = new StackPanel();
+        foreach (var view in views) stack.Children.Add(view);
+        var scroll = new ScrollViewer { Content = stack, MaxHeight = 480, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        var popup = new Popup { Child = scroll, PlacementTarget = surface, AllowsTransparency = true, StaysOpen = true,
+            Placement = layout?.Edge switch { 0 => PlacementMode.Right, 1 => PlacementMode.Bottom, 2 => PlacementMode.Left, _ => PlacementMode.Top },
+            VerticalOffset = layout?.Edge switch { 1 => 6, 3 => -6, _ => 0 },
+            HorizontalOffset = layout?.Edge switch { 0 => 6, 2 => -6, _ => 0 } };
+        scroll.MouseEnter += (_, _) => pluginCloseTimer?.Stop();
+        scroll.MouseLeave += (_, _) => SchedulePopupClose();
+        scroll.AddHandler(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, new RoutedEventHandler((_, _) => ClosePluginPopup()));
+        popup.Closed += (_, _) => { if (ReferenceEquals(pluginPopup, popup)) ClosePluginPopup(); };
+        pluginPopup = popup;
+        ToolTipService.SetIsEnabled(surface, false);
+        popup.IsOpen = true;
+    }
+
+    private void SchedulePopupClose()
+    {
+        if (pluginPopup is null) return;
+        if (pluginCloseTimer is null)
+        {
+            pluginCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(220) };
+            pluginCloseTimer.Tick += (_, _) =>
+            {
+                pluginCloseTimer.Stop();
+                if (!surface.IsMouseOver && pluginPopup?.Child?.IsMouseOver != true) ClosePluginPopup();
+            };
+        }
+        pluginCloseTimer.Start();
+    }
+
     private void Detach()
     {
+        ClosePluginPopup();
         pointerDown = dragging = false;
         dragTimer.Stop();
         surface.ReleaseMouseCapture();
@@ -186,6 +247,7 @@ public sealed class TaskbarBatteryWindow : IDisposable
             { Detach(); layout = null; occupied = null; LastError = L.T("任务栏暂不可用，等待恢复。"); return; }
             if (layout != snapshot)
             {
+                ClosePluginPopup();
                 FinishDrag();
                 layout = snapshot; occupied = null; lastPlacement = Rect.Empty;
             }
@@ -234,6 +296,7 @@ public sealed class TaskbarBatteryWindow : IDisposable
 
     private void HideStrip(string reason)
     {
+        ClosePluginPopup();
         FinishDrag();
         surface.Visibility = Visibility.Collapsed;
         if (source is { IsDisposed: false }) ShowWindow(source.Handle, 0);
@@ -309,6 +372,7 @@ public sealed class TaskbarBatteryWindow : IDisposable
     private void OnDragStart(object sender, MouseButtonEventArgs e)
     {
         if (layout is not { } snapshot || lastPlacement.IsEmpty || !GetPhysicalCursorPos(out var cursor)) return;
+        ClosePluginPopup();
         pointerDown = true;
         surface.CaptureMouse();
         dragging = false;
@@ -361,6 +425,8 @@ public sealed class TaskbarBatteryWindow : IDisposable
     private IntPtr OnMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (message == 0x0021) { handled = true; return new IntPtr(3); } // MA_NOACTIVATE.
+        if (message == 0x020A && !pointerDown && handlePluginWheel?.Invoke(selectedDeviceId, (short)(wParam.ToInt64() >> 16)) == true)
+        { handled = true; return IntPtr.Zero; }
         if (message is 0x007E or 0x02E0 or 0x001A or 0x031A)
         {
             theme = null; lastPlacement = Rect.Empty; occupied = null;

@@ -2,6 +2,8 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
+using System.Windows;
+using System.Windows.Threading;
 using PowerHub.Models;
 using PowerHub.Plugins;
 
@@ -12,9 +14,15 @@ public sealed class PluginHost : IDisposable
     private readonly object gate = new();
     private readonly AppSettings settings;
     private Dictionary<string, PluginState> states = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<PluginRuntime> pendingInteractiveDisposals = [];
+    private string? interactiveDataDirectory;
+    private Dispatcher? interactiveDispatcher;
+    private Action<string?>? selectTaskbarDevice;
     private bool disposed;
+    public event Action? InteractiveChanged;
     public string DirectoryPath { get; }
     public IReadOnlyList<PluginEntry> Entries { get { lock (gate) return states.Values.Select(state => state.Entry).ToArray(); } }
+    public bool HasInteractivePlugins { get { lock (gate) return !disposed && states.Values.Any(state => state.Entry.IsEnabled && !state.Faulted && state.Manifest.Kind == "interactive"); } }
     public IReadOnlyList<PluginThemeEntry> AvailableThemes
     {
         get
@@ -55,6 +63,7 @@ public sealed class PluginHost : IDisposable
                     if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0 || new FileInfo(file).Length > 65536) continue;
                     var manifest = JsonSerializer.Deserialize<PluginManifest>(File.ReadAllText(file), new JsonSerializerOptions { PropertyNameCaseInsensitive = true, MaxDepth = 16 });
                     if (manifest is null || string.IsNullOrWhiteSpace(manifest.Id) || manifest.Id.Length > 80) continue;
+                    if (manifest.Kind == "interactive" && !IsInteractiveId(manifest.Id)) continue;
                     // The reserved built-in ID cannot be claimed by a manifest in another directory.
                     if (manifest.Id.Equals("vendor-protocols", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(Path.GetFullPath(file), Path.Combine(DirectoryPath, "vendor-protocols", "plugin.json"), StringComparison.OrdinalIgnoreCase)) continue;
@@ -65,44 +74,50 @@ public sealed class PluginHost : IDisposable
                     {
                         Id = manifest.Id, Name = string.IsNullOrWhiteSpace(manifest.Name) ? manifest.Id : manifest.Name,
                         Description = manifest.Description, Kind = manifest.Kind, Version = manifest.Version,
-                        Status = manifest.ApiVersion == 1 ? "未启用" : "插件API版本不兼容"
+                        Status = IsCompatible(manifest) ? "未启用" : "插件API版本不兼容"
                     };
-                    if (manifest.Kind is not ("device" or "theme" or "utility")) entry.Status = "不支持的插件类型";
+                    if (manifest.Kind is not ("device" or "theme" or "utility" or "interactive")) entry.Status = "不支持的插件类型";
                     discovered.Add(entry.Id, new(manifest, directory, entry));
                 }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException) { }
             }
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        bool interactiveChanged;
         lock (gate)
         {
             if (disposed) return;
-            foreach (var state in states.Values) RetireLocked(state);
+            interactiveChanged = states.Values.Any(state => state.Manifest.Kind == "interactive");
+            foreach (var state in states.Values.ToArray()) RetireLocked(state);
             states = discovered;
             foreach (var state in states.Values)
             {
                 var builtin = state.Manifest.Id == "vendor-protocols" && state.Manifest.Assembly == "PowerHub.VendorProtocols.dll"
                     && state.Manifest.EntryType == "PowerHub.Extensions.VendorProtocolPlugin" && state.Manifest.Kind == "device";
-                state.Entry.IsEnabled = state.Manifest.ApiVersion == 1 && (state.Manifest.Kind is "device" or "theme" or "utility") &&
+                state.Entry.IsEnabled = IsCompatible(state.Manifest) &&
                     (settings.EnabledPlugins.TryGetValue(state.Entry.Id, out var enabled) ? enabled : builtin);
                 if (state.Entry.IsEnabled) state.Entry.Status = "已启用，按需加载";
                 UpdateOptionsLocked(state);
             }
         }
+        if (interactiveChanged) NotifyInteractiveChanged();
     }
 
     public void SetEnabled(string id, bool enabled)
     {
+        bool interactiveChanged;
         lock (gate)
         {
             if (disposed || !states.TryGetValue(id, out var state)) return;
-            if (enabled && (state.Manifest.ApiVersion != 1 || state.Manifest.Kind is not ("device" or "theme" or "utility"))) return;
+            if (enabled && !IsCompatible(state.Manifest)) return;
+            interactiveChanged = state.Manifest.Kind == "interactive";
             settings.EnabledPlugins[id] = enabled;
             state.Entry.IsEnabled = enabled;
             state.Faulted = false;
             RetireLocked(state);
             state.Entry.Status = enabled ? "已启用，按需加载" : "未启用";
         }
+        if (interactiveChanged) NotifyInteractiveChanged();
     }
 
     public void SetOption(string id, string key, string value)
@@ -115,6 +130,192 @@ public sealed class PluginHost : IDisposable
             UpdateOptionsLocked(state);
         }
     }
+
+    public void ConfigureInteractive(string dataDirectory, Dispatcher dispatcher, Action<string?> selectTaskbarDevice)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(selectTaskbarDevice);
+        dispatcher.VerifyAccess();
+        var directory = Path.GetFullPath(dataDirectory);
+        lock (gate)
+        {
+            if (disposed) return;
+            if (interactiveDispatcher is not null && (interactiveDispatcher != dispatcher ||
+                !string.Equals(interactiveDataDirectory, directory, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("交互插件的 UI 线程和数据目录不能在运行中更改");
+            if (interactiveDispatcher is null) dispatcher.ShutdownStarted += OnInteractiveDispatcherShutdown;
+            interactiveDispatcher = dispatcher;
+            interactiveDataDirectory = directory;
+            this.selectTaskbarDevice = selectTaskbarDevice;
+        }
+    }
+
+    public void UpdateInteractive(IReadOnlyList<DeviceStatus> devices, DateTimeOffset scannedAt)
+    {
+        if (!VerifyInteractiveAccess()) return;
+        var entries = Snapshot("interactive");
+        if (entries.Length == 0) return;
+        var snapshot = devices.ToArray();
+        foreach (var state in entries)
+        {
+            var runtime = AcquireInteractive(state);
+            if (runtime is null) continue;
+            try
+            {
+                IReadOnlyDictionary<string, string> options;
+                lock (gate) options = state.Entry.Options.ToDictionary(option => option.Key, option => option.Value, StringComparer.OrdinalIgnoreCase);
+                ((IInteractivePowerHubPlugin)runtime.Plugin).Update(new(snapshot, scannedAt, options));
+            }
+            catch (Exception error) { Fault(state, error); }
+            finally { Release(runtime); }
+        }
+    }
+
+    public IReadOnlyList<FrameworkElement> CreateTaskbarPopups(string? selectedDeviceId)
+    {
+        if (!VerifyInteractiveAccess()) return [];
+        var entries = Snapshot("interactive");
+        if (entries.Length == 0) return [];
+        var result = new List<(PluginState State, PluginRuntime Runtime, FrameworkElement Popup)>();
+        foreach (var state in entries)
+        {
+            var runtime = AcquireInteractive(state);
+            if (runtime is null) continue;
+            try
+            {
+                var popup = ((IInteractivePowerHubPlugin)runtime.Plugin).CreateTaskbarPopup(selectedDeviceId);
+                if (popup is null) continue;
+                if (popup.Dispatcher != interactiveDispatcher) throw new InvalidOperationException("插件弹层必须属于宿主 UI 线程");
+                if (popup is Window || popup.Parent is not null) throw new InvalidOperationException("插件弹层必须是尚未挂载的界面元素");
+                result.Add((state, runtime, popup));
+            }
+            catch (Exception error) { Fault(state, error); }
+            finally { Release(runtime); }
+        }
+        // A callback may disable or reload another plugin while the popup list is being built.
+        return result.Where(item => IsInteractiveActive(item.State, item.Runtime)).Select(item => item.Popup).ToArray();
+    }
+
+    public bool HandleTaskbarWheel(string? selectedDeviceId, int delta)
+    {
+        if (!VerifyInteractiveAccess()) return false;
+        foreach (var state in Snapshot("interactive"))
+        {
+            var runtime = AcquireInteractive(state);
+            if (runtime is null) continue;
+            try
+            {
+                if (((IInteractivePowerHubPlugin)runtime.Plugin).HandleTaskbarWheel(selectedDeviceId, delta)) return true;
+            }
+            catch (Exception error) { Fault(state, error); }
+            finally { Release(runtime); }
+        }
+        return false;
+    }
+
+    public bool OpenInteractive(string id)
+    {
+        if (!VerifyInteractiveAccess()) return false;
+        var state = Snapshot("interactive").FirstOrDefault(state => state.Entry.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (state is null) return false;
+        var runtime = AcquireInteractive(state);
+        if (runtime is null) return false;
+        try { ((IInteractivePowerHubPlugin)runtime.Plugin).Open(); return true; }
+        catch (Exception error) { Fault(state, error); return false; }
+        finally { Release(runtime); }
+    }
+
+    public async Task FlushInteractiveAsync(CancellationToken cancellationToken)
+    {
+        if (!VerifyInteractiveAccess()) return;
+        foreach (var state in Snapshot("interactive"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            PluginRuntime? runtime;
+            lock (gate)
+            {
+                // Exit must not instantiate a plugin that has never been used.
+                if (state.Runtime is not { Initialized: true }) continue;
+                runtime = Acquire(state);
+            }
+            if (runtime is null) continue;
+            try
+            {
+                await ((IInteractivePowerHubPlugin)runtime.Plugin).FlushAsync(cancellationToken).WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception error) { Fault(state, error); }
+            finally { Release(runtime); }
+        }
+    }
+
+    private bool VerifyInteractiveAccess()
+    {
+        if (disposed || interactiveDispatcher is null) return false;
+        interactiveDispatcher.VerifyAccess();
+        return true;
+    }
+
+    private bool IsInteractiveActive(PluginState state, PluginRuntime runtime)
+    {
+        lock (gate) return !disposed && state.Entry.IsEnabled && !state.Faulted && ReferenceEquals(state.Runtime, runtime);
+    }
+
+    private PluginRuntime? AcquireInteractive(PluginState state)
+    {
+        var runtime = Acquire(state);
+        if (runtime is null) return null;
+        if (runtime.Initializing) { Release(runtime); return null; }
+        try
+        {
+            if (!runtime.Initialized)
+            {
+                runtime.Initializing = true;
+                try
+                {
+                    var directory = Path.Combine(interactiveDataDirectory!, "plugins", state.Entry.Id);
+                    foreach (var path in new[] { Path.GetDirectoryName(directory)!, directory })
+                    {
+                        try
+                        {
+                            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                                throw new InvalidDataException("插件数据目录不能使用目录链接");
+                        }
+                        catch (FileNotFoundException) { }
+                        catch (DirectoryNotFoundException) { }
+                    }
+                    Directory.CreateDirectory(directory);
+                    ((IInteractivePowerHubPlugin)runtime.Plugin).Initialize(new(directory, selectedId =>
+                    {
+                        interactiveDispatcher!.VerifyAccess();
+                        if (!IsInteractiveActive(state, runtime)) return;
+                        selectTaskbarDevice!(selectedId);
+                    }));
+                    runtime.Initialized = true;
+                }
+                finally { runtime.Initializing = false; }
+            }
+            if (IsInteractiveActive(state, runtime)) return runtime;
+        }
+        catch (Exception error) { Fault(state, error); }
+        Release(runtime);
+        return null;
+    }
+
+    private void NotifyInteractiveChanged()
+    {
+        void Raise()
+        {
+            foreach (Action handler in InteractiveChanged?.GetInvocationList() ?? [])
+                try { handler(); } catch (Exception) { }
+        }
+        var dispatcher = interactiveDispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) Raise();
+        else if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+            dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(Raise));
+    }
+
+    private void OnInteractiveDispatcherShutdown(object? sender, EventArgs args) => Dispose();
 
     public PluginTheme? ActiveTheme
     {
@@ -211,9 +412,13 @@ public sealed class PluginHost : IDisposable
 
     private PluginRuntime? Acquire(PluginState state)
     {
+        PluginRuntime? runtime;
+        bool interactiveFailure = false;
         lock (gate)
         {
             if (disposed || !state.Entry.IsEnabled || state.Faulted || !states.TryGetValue(state.Entry.Id, out var current) || !ReferenceEquals(current, state)) return null;
+            var dispatcher = state.Manifest.Kind == "interactive" ? interactiveDispatcher : null;
+            if (state.Manifest.Kind == "interactive" && (dispatcher is null || !dispatcher.CheckAccess())) return null;
             if (state.Runtime is null)
             {
                 PluginLoadContext? context = null;
@@ -225,8 +430,10 @@ public sealed class PluginHost : IDisposable
                     var assembly = context.LoadFromAssemblyPath(file);
                     var type = assembly.GetType(state.Manifest.EntryType, throwOnError: true)!;
                     if (!typeof(IPowerHubPlugin).IsAssignableFrom(type)) throw new InvalidDataException("入口类型未实现IPowerHubPlugin");
+                    if (state.Manifest.Kind == "interactive" && !typeof(IInteractivePowerHubPlugin).IsAssignableFrom(type))
+                        throw new InvalidDataException("交互插件入口未实现IInteractivePowerHubPlugin");
                     var plugin = Activator.CreateInstance(type) as IPowerHubPlugin ?? throw new InvalidDataException("无法创建插件入口");
-                    state.Runtime = new(context, plugin);
+                    state.Runtime = new(context, plugin, dispatcher);
                     state.Entry.Status = "已加载";
                 }
                 catch (Exception error)
@@ -234,12 +441,14 @@ public sealed class PluginHost : IDisposable
                     context?.Unload();
                     state.Faulted = true;
                     state.Entry.Status = "加载失败：" + ErrorText(error);
-                    return null;
+                    interactiveFailure = state.Manifest.Kind == "interactive";
                 }
             }
-            state.Runtime.Users++;
-            return state.Runtime;
+            runtime = state.Runtime;
+            if (runtime is not null) runtime.Users++;
         }
+        if (interactiveFailure) NotifyInteractiveChanged();
+        return runtime;
     }
 
     private void Release(PluginRuntime runtime)
@@ -259,6 +468,7 @@ public sealed class PluginHost : IDisposable
             state.Entry.Status = "运行异常：" + ErrorText(error) + "；重新启用可重试";
             RetireLocked(state);
         }
+        if (state.Manifest.Kind == "interactive") NotifyInteractiveChanged();
     }
 
     private void RetireLocked(PluginState state)
@@ -269,15 +479,29 @@ public sealed class PluginHost : IDisposable
         QueueDisposalLocked(runtime);
     }
 
-    private static void QueueDisposalLocked(PluginRuntime runtime)
+    private void QueueDisposalLocked(PluginRuntime runtime)
     {
+        if (runtime.Dispatcher is not null) pendingInteractiveDisposals.Add(runtime);
         if (runtime.Users != 0 || runtime.DisposalQueued) return;
         runtime.DisposalQueued = true;
-        ThreadPool.QueueUserWorkItem(_ =>
+        if (runtime.Dispatcher is not { } dispatcher)
+            ThreadPool.QueueUserWorkItem(_ => DisposeRuntime(runtime));
+        else if (dispatcher.CheckAccess()) DisposeRuntime(runtime);
+        else if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+            dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() => DisposeRuntime(runtime)));
+    }
+
+    private void DisposeRuntime(PluginRuntime runtime)
+    {
+        runtime.Dispatcher?.VerifyAccess();
+        lock (gate)
         {
-            try { runtime.Plugin.Dispose(); } catch (Exception) { }
-            finally { try { runtime.Context.Unload(); } catch (Exception) { } }
-        });
+            if (runtime.Disposed || runtime.Users != 0) return;
+            runtime.Disposed = true;
+            pendingInteractiveDisposals.Remove(runtime);
+        }
+        try { runtime.Plugin.Dispose(); } catch (Exception) { }
+        finally { try { runtime.Context.Unload(); } catch (Exception) { } }
     }
 
     private void UpdateOptionsLocked(PluginState state)
@@ -300,17 +524,37 @@ public sealed class PluginHost : IDisposable
     }
 
     private static bool IsColor(string value) => value is { Length: 7 } && value[0] == '#' && value.AsSpan(1).IndexOfAnyExcept("0123456789abcdefABCDEF") < 0;
+    private static bool IsInteractiveId(string id) => id.Length > 0 && char.IsAsciiLetterOrDigit(id[0]) &&
+        id.All(character => char.IsAsciiLetterOrDigit(character) || character == '-');
+    private static bool IsCompatible(PluginManifest manifest) => manifest.Kind == "interactive"
+        ? manifest.ApiVersion == 2 && IsInteractiveId(manifest.Id)
+        : manifest.ApiVersion == 1 && manifest.Kind is "device" or "theme" or "utility";
     private static string ErrorText(Exception error) => (error is TargetInvocationException { InnerException: { } inner } ? inner.Message : error.Message).Replace('\r', ' ').Replace('\n', ' ');
 
     public void Dispose()
     {
+        var dispatcher = interactiveDispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess() && !dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+        {
+            // Marshal before taking gate: plugin callbacks may be waiting for that same UI thread.
+            dispatcher.Invoke(new Action(Dispose), DispatcherPriority.Send);
+            return;
+        }
+        PluginRuntime[] pending;
         lock (gate)
         {
             if (disposed) return;
             disposed = true;
-            foreach (var state in states.Values) RetireLocked(state);
+            foreach (var state in states.Values.ToArray()) RetireLocked(state);
             states.Clear();
+            pending = pendingInteractiveDisposals.ToArray();
         }
+        if (dispatcher?.CheckAccess() == true)
+        {
+            dispatcher.ShutdownStarted -= OnInteractiveDispatcherShutdown;
+            foreach (var runtime in pending) DisposeRuntime(runtime);
+        }
+        NotifyInteractiveChanged();
     }
 
     private sealed class PluginState(PluginManifest manifest, string directory, PluginEntry entry)
@@ -322,11 +566,15 @@ public sealed class PluginHost : IDisposable
         internal bool Faulted;
     }
 
-    private sealed class PluginRuntime(PluginLoadContext context, IPowerHubPlugin plugin)
+    private sealed class PluginRuntime(PluginLoadContext context, IPowerHubPlugin plugin, Dispatcher? dispatcher = null)
     {
         internal PluginLoadContext Context { get; } = context;
         internal IPowerHubPlugin Plugin { get; } = plugin;
+        internal Dispatcher? Dispatcher { get; } = dispatcher;
         internal int Users;
+        internal bool Initializing;
+        internal bool Initialized;
+        internal bool Disposed;
         internal bool Retired;
         internal bool DisposalQueued;
         internal IReadOnlyList<PluginThemeEntry>? Themes;

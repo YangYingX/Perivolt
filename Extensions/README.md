@@ -9,14 +9,16 @@
 | 插件 | 源码位置 | 当前状态 |
 | --- | --- | --- |
 | 群星映色 | [CharacterThemes](CharacterThemes) | 已实现，135 套配色主题，独立分发 |
-| 任务栏增强 | [Optional 开发约定](Optional) | 待开发：悬停多设备概览、滚轮切换、读数状态说明及多显示器增强 |
-| 用电趋势 | [Optional 开发约定](Optional) | 待开发：本地电量历史与趋势展示 |
+| 任务栏增强 | [TaskbarTools](Optional/TaskbarTools) | 开发预览：悬停多设备概览、滚轮切换、读数状态说明；多显示器增强待开发 |
+| 电量趋势 | [BatteryHistory](Optional/BatteryHistory) | 开发预览：本地百分比历史、24 小时 / 7 天曲线 |
 
-待开发条目尚无可安装的 DLL。新插件源码放在 `Optional/<插件项目名>/`；群星映色保留已有路径，避免影响现有构建引用。插件完成后在上表补充自己的 README、兼容版本和下载入口。
+两个交互插件需要 **1.0.8-preview.1 / API 2** 宿主，公开的 1.0.7 无法加载；预览包尚未公开发布。新插件源码放在 `Optional/<插件项目名>/`；群星映色保留已有路径，避免影响现有构建引用。独立打包示例：
 
 ```powershell
 # 在仓库根目录执行，只生成所选插件的独立 ZIP 和 SHA256
 .\scripts\Build-Plugin.ps1 -Project .\Extensions\CharacterThemes\CharacterThemes.csproj
+.\scripts\Build-Plugin.ps1 -Project .\Extensions\Optional\TaskbarTools\TaskbarTools.csproj
+.\scripts\Build-Plugin.ps1 -Project .\Extensions\Optional\BatteryHistory\BatteryHistory.csproj
 ```
 
 输出位于 `artifacts/plugins/`，不写入主程序的默认 `plugins` 输出目录。发布时将插件 ZIP 与同名 `.sha256` 作为独立附件上传到 GitHub Release，不放入主程序安装包或便携 ZIP。打包不会自动上传文件。安装方法与 API 见 [插件文档](../docs/plugins.md)。

@@ -1,4 +1,5 @@
 using PowerHub.Models;
+using System.Windows;
 
 namespace PowerHub.Plugins;
 
@@ -10,6 +11,19 @@ public interface IPowerHubPlugin : IDisposable
     HidPluginResult? ReadHid(HidDeviceContext device) => null;
     void IDisposable.Dispose() { }
 }
+
+public interface IInteractivePowerHubPlugin : IPowerHubPlugin
+{
+    void Initialize(PluginUiContext context);
+    void Update(PluginUiSnapshot snapshot);
+    FrameworkElement? CreateTaskbarPopup(string? selectedDeviceId) => null;
+    bool HandleTaskbarWheel(string? selectedDeviceId, int delta) => false;
+    void Open() { }
+    Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+public sealed record PluginUiContext(string DataDirectory, Action<string?> SelectTaskbarDevice);
+public sealed record PluginUiSnapshot(IReadOnlyList<DeviceStatus> Devices, DateTimeOffset ScannedAt, IReadOnlyDictionary<string, string> Options);
 
 public sealed record PluginContext(IReadOnlyList<DeviceStatus> Devices, DateTimeOffset Now, IReadOnlyDictionary<string, string> Options);
 public sealed record PluginOutput(bool SuppressLowBatteryAlerts = false, IReadOnlyList<PluginNotification>? Notifications = null);

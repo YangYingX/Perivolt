@@ -19,6 +19,7 @@ public sealed class AppController : IDisposable
     private DesktopWidgetWindow? widget;
     private TaskbarBatteryWindow? taskbar;
     private bool exiting;
+    private bool exitRequested;
     private bool installingUpdate;
     private Task<PowerHub.Plugins.PluginOutput>? pendingPluginEvaluation;
     public SettingsStore Store { get; }
@@ -35,7 +36,7 @@ public sealed class AppController : IDisposable
     public int ViewRevision { get; private set; }
     public List<string> Diagnostics { get; } = [];
     public bool IsScanning { get; private set; }
-    internal bool IsExiting => exiting;
+    internal bool IsExiting => exiting || exitRequested;
     public string StatusText { get; private set; } = L.T("正在准备设备监测…");
     public event Action? Changed;
 
@@ -50,6 +51,8 @@ public sealed class AppController : IDisposable
         UpdateInstallDirectory = preview ? null : UpdateInstaller.FindInstalledDirectory();
         themes = themeService;
         Plugins = new PluginHost(Program.PluginDirectory, Settings);
+        if (!previewMode) Plugins.ConfigureInteractive(dataDirectory, Dispatcher.CurrentDispatcher, SelectTaskbarDevice);
+        Plugins.InteractiveChanged += OnInteractiveChanged;
         monitor = new BatteryMonitorService(Plugins);
         if (!previewMode) Settings.StartWithWindows = startupEnabled = StartupService.IsEnabled();
         ApplyTheme();
@@ -68,7 +71,7 @@ public sealed class AppController : IDisposable
 
     public async Task StartAsync()
     {
-        if (exiting) return;
+        if (IsExiting) return;
         if (!previewMode)
         {
             timer.Start();
@@ -82,7 +85,7 @@ public sealed class AppController : IDisposable
 
     public async Task RefreshAsync()
     {
-        if (IsScanning || exiting) return;
+        if (IsScanning || IsExiting) return;
         IsScanning = true;
         StatusText = L.T("正在更新设备电量…");
         Changed?.Invoke();
@@ -90,7 +93,7 @@ public sealed class AppController : IDisposable
         try
         {
             var result = await monitor.ScanAsync(true, null, lifetime.Token);
-            if (exiting) return;
+            if (IsExiting) return;
             rawScan = result;
             if (!previewMode) DiagnosticReports.ObserveScan(result);
             foreach (var device in result.Devices)
@@ -104,21 +107,23 @@ public sealed class AppController : IDisposable
             Diagnostics.Clear();
             Diagnostics.AddRange(result.Diagnostics);
             StatusText = L.F("已更新 {0:HH:mm} · {1} 台在线", result.ScannedAt.ToLocalTime(), result.Devices.Count(x => x.IsConnected));
+            if (!previewMode && Plugins.HasInteractivePlugins) Plugins.UpdateInteractive(PluginDevices(result.Devices), result.ScannedAt);
             widget?.UpdateDevices(result.Devices);
             taskbar?.UpdateDevices(result.Devices);
             var effects = await EvaluatePluginsAsync(result.Devices);
-            if (exiting) return;
+            if (IsExiting) return;
             tray?.Update(result, startedAt, effects.SuppressLowBatteryAlerts);
             if (Settings.NotificationsEnabled && !effects.SuppressLowBatteryAlerts && effects.Notifications is not null)
                 foreach (var notification in effects.Notifications.Take(3)) tray?.ShowPluginNotification(notification.Title, notification.Message);
         }
-        catch (OperationCanceledException) when (exiting) { }
+        catch (OperationCanceledException) when (IsExiting) { }
         catch (Exception error)
         {
-            if (exiting) return;
+            if (IsExiting) return;
             LastScan = null;
             rawScan = null;
             ViewRevision++;
+            if (!previewMode && Plugins.HasInteractivePlugins) Plugins.UpdateInteractive([], DateTimeOffset.UtcNow);
             widget?.UpdateDevices([]);
             taskbar?.UpdateDevices([]);
             StatusText = L.T("本次更新未完成，可稍后重试");
@@ -127,7 +132,7 @@ public sealed class AppController : IDisposable
         finally
         {
             IsScanning = false;
-            if (!exiting) Changed?.Invoke();
+            if (!IsExiting) Changed?.Invoke();
         }
     }
 
@@ -135,20 +140,31 @@ public sealed class AppController : IDisposable
     {
         // A slow extension must not block the dispatcher or accumulate a new worker each scan.
         if (pendingPluginEvaluation is { IsCompleted: false }) return new();
-        var snapshot = devices.Select(device =>
-        {
-            var name = Settings.GetDeviceName(device);
-            return name != device.Name ? device with { Name = name } : device;
-        }).ToArray();
+        var snapshot = PluginDevices(devices);
         pendingPluginEvaluation = Task.Run(() => Plugins.Evaluate(snapshot, DateTimeOffset.Now));
         try { return await pendingPluginEvaluation.WaitAsync(TimeSpan.FromMilliseconds(500), lifetime.Token); }
         catch (TimeoutException) { Diagnostics.Add(L.T("实用插件计算超过 500 ms；本轮跳过结果，等待现有任务结束。")); return new(); }
         finally { if (pendingPluginEvaluation.IsCompleted) pendingPluginEvaluation = null; }
     }
 
+    private DeviceStatus[] PluginDevices(IReadOnlyList<DeviceStatus> devices) => devices.Select(device =>
+        {
+            var name = Settings.GetDeviceName(device);
+            return name != device.Name ? device with { Name = name } : device;
+        }).ToArray();
+
+    private void SelectTaskbarDevice(string? id)
+    {
+        if (IsExiting || id is not null && !Devices.Any(device => device.Id == id && device.ConnectionKnown && device.IsConnected && device.HasBattery)) return;
+        Settings.TaskbarDeviceId = id;
+        ApplySettings();
+    }
+
+    private void OnInteractiveChanged() => taskbar?.ClosePluginPopup();
+
     public MainWindow? ShowPanel(string page = "devices")
     {
-        if (exiting) return null;
+        if (IsExiting) return null;
         if (window is null)
         {
             window = new MainWindow(this);
@@ -185,7 +201,7 @@ public sealed class AppController : IDisposable
 
     public void ApplySettings(bool persist = true)
     {
-        if (exiting) return;
+        if (IsExiting) return;
         Settings.Normalize();
         var languageChanged = L.SetLanguage(Settings.Language);
         if (rawScan is not null) LastScan = DeviceIdentity.ApplyLinks(rawScan, Settings);
@@ -196,6 +212,7 @@ public sealed class AppController : IDisposable
         ApplyTheme();
         BatteryPalette.Apply(Settings);
         ViewRevision++;
+        if (!previewMode && Plugins.HasInteractivePlugins) Plugins.UpdateInteractive(PluginDevices(Devices), LastScan?.ScannedAt ?? DateTimeOffset.UtcNow);
         timer.Interval = TimeSpan.FromSeconds(Settings.PollIntervalSeconds);
         tray?.ApplySettings();
         if (!previewMode) Updates.Configure(Settings.AutoCheckUpdates);
@@ -227,7 +244,7 @@ public sealed class AppController : IDisposable
 
     private void OnSystemThemeChanged()
     {
-        if (exiting) return;
+        if (IsExiting) return;
         ViewRevision++;
         widget?.ApplySettings();
         widget?.UpdateDevices(Devices);
@@ -251,7 +268,7 @@ public sealed class AppController : IDisposable
     {
         if (previewMode) return;
         if (!Settings.TaskbarEnabled) { taskbar?.Suspend(); return; }
-        taskbar ??= new TaskbarBatteryWindow(Settings, () => ApplySettings());
+        taskbar ??= new TaskbarBatteryWindow(Settings, () => ApplySettings(), Plugins.CreateTaskbarPopups, Plugins.HandleTaskbarWheel);
         taskbar.UpdateDevices(Devices);
     }
 
@@ -269,12 +286,12 @@ public sealed class AppController : IDisposable
 
     public async Task DownloadAndInstallUpdateAsync()
     {
-        if (previewMode || exiting || installingUpdate) return;
+        if (previewMode || IsExiting || installingUpdate) return;
         installingUpdate = true;
         try
         {
             var installer = await Updates.DownloadInstallerAsync();
-            if (installer is null || exiting || !Updates.IsEnabled) return;
+            if (installer is null || IsExiting || !Updates.IsEnabled) return;
             try
             {
                 window?.FlushPendingEdits();
@@ -286,7 +303,7 @@ public sealed class AppController : IDisposable
                 Updates.InstallationFailed(true);
                 return;
             }
-            if (exiting || !Updates.IsEnabled) return;
+            if (IsExiting || !Updates.IsEnabled) return;
             try { UpdateInstaller.Start(installer, UpdateInstallDirectory, Path.GetDirectoryName(Store.FilePath)!); }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException or System.Security.SecurityException)
             {
@@ -307,11 +324,25 @@ public sealed class AppController : IDisposable
     public DiagnosticReport? CreateDiagnosticReport() => rawScan is null ? null :
         DiagnosticReportBuilder.Build(rawScan, UpdateService.DisplayVersion);
 
-    public void Exit()
+    public async void Exit()
     {
-        if (exiting) return;
-        try { Dispose(); }
-        finally { System.Windows.Application.Current.Shutdown(); }
+        if (IsExiting) return;
+        exitRequested = true;
+        timer.Stop();
+        saveTimer.Stop();
+        try
+        {
+            lifetime.Cancel();
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+            await Plugins.FlushInteractiveAsync(deadline.Token);
+        }
+        catch (OperationCanceledException) { Diagnostics.Add("插件保存超时，继续退出。"); }
+        catch (Exception error) { StartupDiagnostics.Write(error); }
+        finally
+        {
+            try { Dispose(); }
+            finally { System.Windows.Application.Current.Shutdown(); }
+        }
     }
 
     public void Dispose()
@@ -321,6 +352,7 @@ public sealed class AppController : IDisposable
         timer.Stop();
         saveTimer.Stop();
         themes.SystemThemeChanged -= OnSystemThemeChanged;
+        Plugins.InteractiveChanged -= OnInteractiveChanged;
         Cleanup(lifetime.Cancel);
         Cleanup(() => tray?.Dispose());
         Cleanup(() => window?.CloseImmediately());

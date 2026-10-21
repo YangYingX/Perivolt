@@ -1,0 +1,10 @@
+{
+  "ApiVersion": 2,
+  "Id": "battery-history",
+  "Name": "电量历史",
+  "Description": "在本机记录启用后的有效电量百分比，查看最近 24 小时或 7 天趋势。",
+  "Version": "1.0.0",
+  "Assembly": "Perivolt.BatteryHistory.dll",
+  "EntryType": "Perivolt.Extensions.BatteryHistory.BatteryHistoryPlugin",
+  "Kind": "interactive"
+}

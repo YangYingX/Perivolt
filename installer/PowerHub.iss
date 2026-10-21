@@ -49,7 +49,15 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Name: "startup"; Description: "登录 Windows 后自动启动电栖"; GroupDescription: "启动选项："; Flags: unchecked
 
 [Files]
-Source: "..\dist\PowerHub\*"; DestDir: "{app}"; Excludes: "PowerHub.exe,*.pdb,artifacts,artifacts\*,settings.json,settings.*.json,battery-*.jsonl,plugins\character-themes,plugins\character-themes\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\PowerHub\*"; DestDir: "{app}"; Excludes: "PowerHub.exe,*.pdb,artifacts,artifacts\*,settings.json,settings.*.json,battery-*.jsonl,plugins,plugins\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\PowerHub\plugins\aurora-theme\plugin.json"; DestDir: "{app}\plugins\aurora-theme"; Flags: ignoreversion
+Source: "..\dist\PowerHub\plugins\aurora-theme\PowerHub.Essentials.dll"; DestDir: "{app}\plugins\aurora-theme"; Flags: ignoreversion
+Source: "..\dist\PowerHub\plugins\full-charge\plugin.json"; DestDir: "{app}\plugins\full-charge"; Flags: ignoreversion
+Source: "..\dist\PowerHub\plugins\full-charge\PowerHub.Essentials.dll"; DestDir: "{app}\plugins\full-charge"; Flags: ignoreversion
+Source: "..\dist\PowerHub\plugins\quiet-hours\plugin.json"; DestDir: "{app}\plugins\quiet-hours"; Flags: ignoreversion
+Source: "..\dist\PowerHub\plugins\quiet-hours\PowerHub.Essentials.dll"; DestDir: "{app}\plugins\quiet-hours"; Flags: ignoreversion
+Source: "..\dist\PowerHub\plugins\vendor-protocols\plugin.json"; DestDir: "{app}\plugins\vendor-protocols"; Flags: ignoreversion
+Source: "..\dist\PowerHub\plugins\vendor-protocols\PowerHub.VendorProtocols.dll"; DestDir: "{app}\plugins\vendor-protocols"; Flags: ignoreversion
 
 [Icons]
 Name: "{userprograms}\电栖"; Filename: "{app}\Perivolt.exe"; Parameters: "{code:PostInstallParameters}"; WorkingDir: "{app}"; Check: not WizardNoIcons

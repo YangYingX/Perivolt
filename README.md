@@ -50,13 +50,15 @@
 
 ## 使用桌面卡片与插件
 
+官方插件源码与独立分发说明统一放在 [Extensions 插件目录](Extensions/README.md)。后续任务栏增强、用电趋势按可选插件开发，不加入默认插件包、安装包或便携包；用户自行安装并启用。当前这些增强仍处于规划阶段，进度见 [Optional](Extensions/Optional/README.md)。
+
 在设置的“桌面卡片”标签中，全部在线设备会直接列出，可逐台勾选显示在桌面；可拖动卡片标题栏调整位置。简洁、半透明背景、置顶和锁定控制整个桌面容器，半透明模式保留主题底色以便在复杂背景上阅读。点击“找回卡片”会启用并解锁卡片，将其移回主屏右上角；外观与置顶设置保留。显示器布局变化后，程序也会检查标题栏是否仍可拖动。
 
 “充电提醒”与“设备外观”页左上方可选择默认配置或某台在线设备；概览卡片的设置入口会直接选中对应设备，也可以重置为默认配置。顶部预览旁提供“显示百分比”开关，沙漏数字显示在图形右侧，避免遮住落沙。“桌面卡片”与“通用”作用于全局，不显示设备切换栏。名称编辑后按 Enter 或离开输入框保存，清空恢复设备原名；名称颜色选择“自动”时跟随主题。偏好按 Windows 设备身份保存；可靠硬件标识一致时自动合并。两种连接没有共同标识时，可在设备外观的“关联连接方式”中手动关联，共用所选设备的设置；不会仅凭名称或型号自动合并不同的实体设备。
 
 “插件”页默认仅开启**多品牌设备协议包**，极光主题、充满电提醒、定时免打扰分别默认关闭。从 1.0.3 起，群星映色角色主题包独立分发，主程序安装包与便携包不再附带。角色主题插件 1.1.1 提供 135 个独立选项：终末地 19、明日方舟 74、绝区零 26、少女前线2：追放 16，包含异格、职业升变与独立身份；每个选项分别保存配色、背景与透明度，按原角色名也能搜索对应形态。插件本身只含配色与原创几何装饰，角色背景通过独立本地文件夹匹配；开启后点击“选择主题”进入设置，选中才应用。安装本地插件、背景匹配方式和开发接口见 [插件文档](docs/plugins.md)及[角色主题包说明](Extensions/CharacterThemes/README.md)。
 
-插件 ZIP 只含 `plugin.json`、`PowerHub.CharacterThemes.dll`、`README.md` 三个文件。新版生成背景另存于 `Perivolt-CharacterBackgrounds-1.1.1-LocalOnly/artwork`；旧 `Perivolt-CharacterArtwork-LocalOnly` 用于原设身份参考。泥岩背景采用无头盔精二形象，沿用原 `arknights-mudrock` 选项。背景包仅在本地提供，与插件包分开使用。
+已发布的旧版角色主题 ZIP 包含 `plugin.json`、`PowerHub.CharacterThemes.dll`、`README.md` 三个文件；新独立构建另附许可与署名声明。新版生成背景另存于 `Perivolt-CharacterBackgrounds-1.1.1-LocalOnly/artwork`；旧 `Perivolt-CharacterArtwork-LocalOnly` 用于原设身份参考。泥岩背景采用无头盔精二形象，沿用原 `arknights-mudrock` 选项。背景包仅在本地提供，与插件包分开使用。
 
 ## 数据与隐私
 
@@ -78,6 +80,9 @@
 
 # 生成自带运行时的发布目录 dist\PowerHub
 .\scripts\Build.ps1 -Publish
+
+# 独立构建一个可选插件，不放进默认输出
+.\scripts\Build-Plugin.ps1 -Project .\Extensions\CharacterThemes\CharacterThemes.csproj
 
 # 使用本地 Inno Setup 编译器生成安装器
 .\scripts\Build-Installer.ps1

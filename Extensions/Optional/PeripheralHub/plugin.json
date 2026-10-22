@@ -1,0 +1,17 @@
+{
+  "ApiVersion": 2,
+  "Id": "peripheral-hub",
+  "Name": "外设快捷中枢",
+  "Description": "快捷键查看外设电量，调整系统音量、麦克风静音与默认音频输出。独立体验版。",
+  "Version": "1.0.0-preview.2",
+  "Assembly": "Perivolt.PeripheralHub.dll",
+  "EntryType": "Perivolt.Extensions.PeripheralHub.PeripheralHubPlugin",
+  "Kind": "interactive",
+  "Options": [
+    {
+      "Key": "hotkey",
+      "Label": "呼出快捷键（如 Ctrl+Alt+P；留空关闭）",
+      "DefaultValue": "Ctrl+Alt+P"
+    }
+  ]
+}

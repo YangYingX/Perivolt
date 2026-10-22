@@ -73,10 +73,10 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" Margin="0,0,7,0"/>
-                        <TextBlock Text="{loc:T '桌面电量'}" FontSize="12" FontWeight="SemiBold"/>
-                    </StackPanel>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="13"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="WidgetTitleText" Grid.Column="1" Text="{loc:T '桌面电量'}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    </Grid>
                     <TextBlock x:Name="SummaryText" Text="{loc:T '随时留意你的设备'}" Margin="13,4,0,0"
                                Foreground="{DynamicResource TextSecondary}" FontSize="10"/>
                 </StackPanel>

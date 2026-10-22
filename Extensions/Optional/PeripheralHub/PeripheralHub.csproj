@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>Perivolt.PeripheralHub</AssemblyName>
+    <RootNamespace>Perivolt.Extensions.PeripheralHub</RootNamespace>
+    <Version>1.0.0-preview.2</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../PowerHub.csproj" />
+  </ItemGroup>
+</Project>

@@ -16,7 +16,8 @@ public sealed class AppController : IDisposable
     private readonly TrayService? tray;
     private readonly bool previewMode;
     private MainWindow? window;
-    private DesktopWidgetWindow? widget;
+    private readonly DesktopWidgetManager widgets;
+    private readonly DeviceArrivalService? arrivals;
     private TaskbarBatteryWindow? taskbar;
     private bool exiting;
     private bool exitRequested;
@@ -29,6 +30,7 @@ public sealed class AppController : IDisposable
     public UpdateService Updates { get; } = new();
     public string? UpdateInstallDirectory { get; }
     public DiagnosticUploadService DiagnosticReports { get; }
+    public AutomationService Automation { get; }
     private bool startupEnabled;
     private ScanResult? rawScan;
     public ScanResult? LastScan { get; private set; }
@@ -44,6 +46,8 @@ public sealed class AppController : IDisposable
     {
         Store = new SettingsStore(dataDirectory);
         Settings = settings ?? Store.Load();
+        widgets = new DesktopWidgetManager(Settings, () => ApplySettings(), () => ShowPanel("widgets"));
+        if (!preview) arrivals = new DeviceArrivalService(Settings, id => ShowPanel("appearance")?.ShowDeviceSettings(id));
         L.SetLanguage(Settings.Language);
         DiagnosticReports = new DiagnosticUploadService(dataDirectory);
         StatusText = L.T("正在准备设备监测…");
@@ -61,7 +65,11 @@ public sealed class AppController : IDisposable
         BatteryPalette.Apply(Settings);
         themes.SystemThemeChanged += OnSystemThemeChanged;
         if (Store.LastError is { } error) Diagnostics.Add(error);
-        if (!previewMode) tray = new TrayService(() => ShowPanel(), () => _ = RefreshAsync(), Exit, () => ShowPanel("widgets"), () => ShowPanel("settings"), Settings, () => ApplySettings());
+        if (!previewMode) tray = new TrayService(() => ShowPanel(), () => _ = RefreshAsync(), Exit, () => ShowPanel("widgets"), () => ShowPanel("settings"), Settings, () => ApplySettings(), id => ApplyDesktopScene(id), () => ShowPanel("automation"));
+        Automation = new AutomationService(Settings, dataDirectory, ApplyAutomationDesktop, CaptureAutomationDesktop,
+            enabled => { Settings.NotificationsEnabled = enabled; ApplySettings(); },
+            message => tray?.ShowPluginNotification(L.T("外设自动化"), message), preview);
+        Automation.Changed += OnAutomationChanged;
         Updates.UpdateAvailable += version =>
         {
             if (Settings.NotificationsEnabled) tray?.ShowPluginNotification(L.T("PowerHub 有新版本"), L.F("v{0} 已发布，可在设置的通用选项中查看更新。", version));
@@ -82,6 +90,7 @@ public sealed class AppController : IDisposable
         }
         SyncWidget();
         SyncTaskbar();
+        Automation.Start();
         await RefreshAsync();
     }
 
@@ -110,7 +119,9 @@ public sealed class AppController : IDisposable
             Diagnostics.AddRange(result.Diagnostics);
             StatusText = L.F("已更新 {0:HH:mm} · {1} 台在线", result.ScannedAt.ToLocalTime(), result.Devices.Count(x => x.IsConnected));
             if (!previewMode && Plugins.HasInteractivePlugins) Plugins.UpdateInteractive(PluginDevices(result.Devices), result.ScannedAt);
-            widget?.UpdateDevices(result.Devices);
+            widgets.UpdateDevices(result.Devices);
+            arrivals?.Observe(result);
+            Automation.ObserveDevices(result);
             taskbar?.UpdateDevices(result.Devices);
             var effects = await EvaluatePluginsAsync(result.Devices);
             if (IsExiting) return;
@@ -126,7 +137,9 @@ public sealed class AppController : IDisposable
             rawScan = null;
             ViewRevision++;
             if (!previewMode && Plugins.HasInteractivePlugins) Plugins.UpdateInteractive([], DateTimeOffset.UtcNow);
-            widget?.UpdateDevices([]);
+            widgets.UpdateDevices([]);
+            arrivals?.ResetBaseline();
+            Automation.DeviceScanFailed();
             taskbar?.UpdateDevices([]);
             StatusText = L.T("本次更新未完成，可稍后重试");
             Diagnostics.Add(error.ToString());
@@ -217,6 +230,8 @@ public sealed class AppController : IDisposable
         if (!previewMode && Plugins.HasInteractivePlugins) Plugins.UpdateInteractive(PluginDevices(Devices), LastScan?.ScannedAt ?? DateTimeOffset.UtcNow);
         timer.Interval = TimeSpan.FromSeconds(Settings.PollIntervalSeconds);
         tray?.ApplySettings();
+        arrivals?.ApplySettings();
+        Automation.ApplySettings();
         if (!previewMode) Updates.Configure(Settings.AutoCheckUpdates);
         if (!previewMode) DiagnosticReports.Configure(Settings.AutoReportDiagnostics);
         SyncWidget();
@@ -248,22 +263,92 @@ public sealed class AppController : IDisposable
     {
         if (IsExiting) return;
         ViewRevision++;
-        widget?.ApplySettings();
-        widget?.UpdateDevices(Devices);
+        widgets.Apply(Devices);
         taskbar?.UpdateDevices(Devices);
         Changed?.Invoke();
     }
 
     private void SyncWidget()
     {
-        if (!Settings.WidgetEnabled) { widget?.Hide(); return; }
-        widget ??= new DesktopWidgetWindow(Settings, () => ApplySettings(), () => ShowPanel());
-        widget.ApplySettings();
-        widget.UpdateDevices(Devices);
-        if (!widget.IsVisible) widget.Show();
+        widgets.Apply(Devices);
     }
 
-    public DesktopWidgetWindow? Widget => widget;
+    public DesktopWidgetWindow? Widget => widgets.PreviewWindow;
+
+    private void OnAutomationChanged() { if (!IsExiting) Changed?.Invoke(); }
+    private DesktopScene CaptureAutomationDesktop()
+    {
+        widgets.FlushPositions();
+        return DesktopScene.Capture(Settings, "");
+    }
+    private void ApplyAutomationDesktop(DesktopScene scene)
+    {
+        window?.FlushPendingEdits();
+        widgets.FlushPositions();
+        scene.Apply(Settings);
+        if (!IsExiting) { ApplySettings(); widgets.RestorePositions(); }
+    }
+    public IReadOnlyList<string> SaveAutomationRule(AutomationRule rule)
+    {
+        if (IsExiting) return [L.T("自动化中心已停止。")];
+        var copy = rule.Clone(); copy.Normalize();
+        if (!Guid.TryParseExact(copy.Id, "N", out _)) return [L.T("规则标识无效，请重新创建规则。")];
+        var errors = Automation.Validate(copy);
+        if (errors.Count > 0) return errors;
+        var index = Settings.AutomationRules.FindIndex(existing => existing.Id == copy.Id);
+        if (index < 0 && Settings.AutomationRules.Count >= AutomationRule.MaximumCount) return [L.T("最多保存 32 条规则。")];
+        if (index < 0) Settings.AutomationRules.Add(copy); else Settings.AutomationRules[index] = copy;
+        ApplySettings(); return [];
+    }
+    public void DeleteAutomationRule(string id)
+    {
+        if (!IsExiting && Settings.AutomationRules.RemoveAll(rule => rule.Id == id) > 0) ApplySettings();
+    }
+    public void SetAutomationRuleEnabled(string id, bool enabled)
+    {
+        if (IsExiting || Settings.AutomationRules.FirstOrDefault(rule => rule.Id == id) is not { } rule) return;
+        rule.Enabled = enabled; ApplySettings();
+    }
+
+    public void RecoverWidgets()
+    {
+        Settings.WidgetEnabled = true;
+        Settings.WidgetLocked = false;
+        SyncWidget();
+        widgets.Recover();
+        ApplySettings();
+    }
+
+    public string? SaveDesktopScene(string name, string? replaceId = null)
+    {
+        if (IsExiting || string.IsNullOrWhiteSpace(name)) return null;
+        var index = replaceId is null ? -1 : Settings.DesktopScenes.FindIndex(scene => scene.Id == replaceId);
+        if (replaceId is not null && index < 0 || index < 0 && Settings.DesktopScenes.Count >= DesktopScene.MaximumCount) return null;
+        window?.FlushPendingEdits();
+        widgets.FlushPositions();
+        var scene = DesktopScene.Capture(Settings, name, replaceId);
+        scene.Normalize();
+        if (index < 0) Settings.DesktopScenes.Add(scene);
+        else Settings.DesktopScenes[index] = scene;
+        ApplySettings();
+        return scene.Id;
+    }
+
+    public bool ApplyDesktopScene(string id)
+    {
+        if (IsExiting || Settings.DesktopScenes.FirstOrDefault(scene => scene.Id == id) is not { } scene) return false;
+        window?.FlushPendingEdits();
+        widgets.FlushPositions();
+        scene.Apply(Settings);
+        ApplySettings();
+        widgets.RestorePositions();
+        return true;
+    }
+
+    public void DeleteDesktopScene(string id)
+    {
+        if (!IsExiting && Settings.DesktopScenes.RemoveAll(scene => scene.Id == id) > 0) ApplySettings();
+    }
     public string? TaskbarError => taskbar?.LastError;
 
     private void SyncTaskbar()
@@ -335,6 +420,12 @@ public sealed class AppController : IDisposable
         try
         {
             lifetime.Cancel();
+            using (var automationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+            {
+                try { await Automation.StopAsync(automationDeadline.Token); }
+                catch (OperationCanceledException) { Diagnostics.Add(L.T("退出时自动化恢复或记录保存未完成。")); }
+                catch (Exception error) { StartupDiagnostics.Write(error); }
+            }
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(1));
             await Plugins.FlushInteractiveAsync(deadline.Token);
         }
@@ -358,7 +449,10 @@ public sealed class AppController : IDisposable
         Cleanup(lifetime.Cancel);
         Cleanup(() => tray?.Dispose());
         Cleanup(() => window?.CloseImmediately());
-        Cleanup(() => widget?.CloseForExit());
+        Cleanup(widgets.Close);
+        Cleanup(() => arrivals?.Dispose());
+        Automation.Changed -= OnAutomationChanged;
+        Cleanup(Automation.Dispose);
         Cleanup(() => taskbar?.Close());
         Cleanup(Updates.Dispose);
         Cleanup(DiagnosticReports.Dispose);

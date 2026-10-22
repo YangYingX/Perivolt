@@ -10,6 +10,11 @@ public sealed class AppSettings : IJsonOnDeserializing
     public string? TaskbarDeviceId { get; set; }
     public int TaskbarLeftOffset { get; set; } = 64;
     public string Theme { get; set; } = "System";
+    public bool ThemeEffectsEnabled { get; set; } = true;
+    public List<DesktopScene> DesktopScenes { get; set; } = [];
+    public bool DeviceArrivalEnabled { get; set; } = true;
+    public bool AutomationEnabled { get; set; }
+    public List<AutomationRule> AutomationRules { get; set; } = [];
     public string? ThemeArtworkDirectory { get; set; }
     public Dictionary<string, ThemeArtworkPreference> ThemeArtwork { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string DisplayStyle { get; set; } = "Ring";
@@ -47,6 +52,9 @@ public sealed class AppSettings : IJsonOnDeserializing
     public bool WidgetLocked { get; set; }
     public bool WidgetCompact { get; set; }
     public bool WidgetTransparent { get; set; }
+    public string WidgetLayout { get; set; } = "Stack";
+    public bool WidgetSnapEnabled { get; set; } = true;
+    public Dictionary<string, WidgetPosition> WidgetPositions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public double? WidgetLeft { get; set; }
     public double? WidgetTop { get; set; }
     public bool HistoryEnabled { get; set; }
@@ -59,6 +67,15 @@ public sealed class AppSettings : IJsonOnDeserializing
     public void Normalize()
     {
         Language = PowerHub.Services.L.Normalize(Language);
+        AutomationRules = (AutomationRules ?? []).Where(rule => rule is not null && Guid.TryParseExact(rule.Id, "N", out _))
+            .DistinctBy(rule => rule.Id, StringComparer.OrdinalIgnoreCase).Take(AutomationRule.MaximumCount).ToList();
+        foreach (var rule in AutomationRules) rule.Normalize();
+        WidgetLayout = WidgetLayout == "Free" ? "Free" : "Stack";
+        WidgetPositions = DesktopScene.CopyPositions(WidgetPositions);
+        DesktopScenes = (DesktopScenes ?? []).Where(scene => scene is not null && Guid.TryParseExact(scene.Id, "N", out _))
+            .DistinctBy(scene => scene.Id, StringComparer.OrdinalIgnoreCase).Take(DesktopScene.MaximumCount).ToList();
+        foreach (var scene in DesktopScenes) scene.Normalize();
+        DesktopScenes.RemoveAll(scene => scene.Name.Length == 0);
         ThemeArtworkDirectory = string.IsNullOrWhiteSpace(ThemeArtworkDirectory) ? null : ThemeArtworkDirectory.Trim();
         ThemeArtwork = new((ThemeArtwork ?? []).Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value), StringComparer.OrdinalIgnoreCase);
         foreach (var artwork in ThemeArtwork.Values)
@@ -148,6 +165,12 @@ public sealed class AppSettings : IJsonOnDeserializing
         }
         DeviceOrder = DeviceOrder.Select(ResolveDeviceId).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (TaskbarDeviceId is { } taskbarId) TaskbarDeviceId = ResolveDeviceId(taskbarId);
+        WidgetPositions = DesktopScene.CopyPositions(WidgetPositions, ResolveDeviceId);
+        foreach (var rule in AutomationRules)
+        {
+            if (rule.DeviceId.Length > 0) rule.DeviceId = ResolveDeviceId(rule.DeviceId);
+            foreach (var condition in rule.Conditions.Where(condition => condition.DeviceId.Length > 0)) condition.DeviceId = ResolveDeviceId(condition.DeviceId);
+        }
     }
 
     public string ResolveDeviceId(string id)

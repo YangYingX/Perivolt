@@ -37,6 +37,17 @@ public partial class TrayMenu : ContextMenu
         NotificationsItem.IsChecked = settings.NotificationsEnabled;
         NotificationsDescription.Text = L.F("全局阈值 {0}% · {1}", settings.LowBatteryThreshold, (settings.NotificationsEnabled ? L.T("已开启") : L.T("已关闭")));
         AnimationsItem.IsChecked = settings.AnimationsEnabled;
+        ScenesItem.Items.Clear();
+        foreach (var scene in settings.DesktopScenes)
+        {
+            var item = new MenuItem { Header = new System.Windows.Controls.TextBlock { Text = scene.Name }, Tag = "scene:" + scene.Id };
+            item.Click += OnActionClick;
+            ScenesItem.Items.Add(item);
+        }
+        if (settings.DesktopScenes.Count > 0) ScenesItem.Items.Add(new System.Windows.Controls.Separator());
+        var manageScenes = new MenuItem { Header = L.T("管理桌面场景"), Tag = "widget-settings" };
+        manageScenes.Click += OnActionClick;
+        ScenesItem.Items.Add(manageScenes);
         SystemThemeItem.IsChecked = settings.Theme == "System";
         LightThemeItem.IsChecked = settings.Theme == "Light";
         DarkThemeItem.IsChecked = settings.Theme == "Dark";

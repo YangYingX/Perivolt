@@ -21,6 +21,10 @@ public partial class DesktopWidgetWindow : Window
     private readonly AppSettings _settings;
     private readonly Action _settingsChanged;
     private readonly Action _openDashboard;
+    private readonly string? _deviceId;
+    private readonly Func<IReadOnlyList<DesktopWidgetWindow>>? _snapPeers;
+    private int _placementIndex;
+    private int _positionRevision;
     private readonly DispatcherTimer _positionSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private bool _applyingSettings;
     private bool _closingForExit;
@@ -29,10 +33,17 @@ public partial class DesktopWidgetWindow : Window
     private WidgetUnlockWindow? _unlockWindow;
 
     public DesktopWidgetWindow(AppSettings settings, Action settingsChanged, Action openDashboard)
+        : this(settings, settingsChanged, openDashboard, null, null, 0) { }
+
+    public DesktopWidgetWindow(AppSettings settings, Action settingsChanged, Action openDashboard,
+        string? deviceId, Func<IReadOnlyList<DesktopWidgetWindow>>? snapPeers, int placementIndex)
     {
         _settings = settings;
         _settingsChanged = settingsChanged;
         _openDashboard = openDashboard;
+        _deviceId = deviceId;
+        _snapPeers = snapPeers;
+        _placementIndex = placementIndex;
         InitializeComponent();
         _positionSaveTimer.Tick += (_, _) => SavePosition();
         Loaded += (_, _) => ApplySettings();
@@ -52,7 +63,8 @@ public partial class DesktopWidgetWindow : Window
 
     public void UpdateDevices(IReadOnlyList<DeviceStatus> devices)
     {
-        var pinned = devices.Where(device => device.ConnectionKnown && device.IsConnected && _settings.IsPinned(device.Id))
+        var pinned = devices.Where(device => device.ConnectionKnown && device.IsConnected && _settings.IsPinned(device.Id) &&
+                (_deviceId is null || string.Equals(_settings.ResolveDeviceId(device.Id), _deviceId, StringComparison.OrdinalIgnoreCase)))
             .OrderBy(device => _settings.GetDeviceOrder(device.Id));
         var items = pinned.Select(device =>
         {
@@ -73,6 +85,7 @@ public partial class DesktopWidgetWindow : Window
                 appearance.NameBrush, appearance.BatteryBrush, device.IsCharging == true, appearance.IconGeometry);
         }).ToList();
         DeviceItems.ItemsSource = items;
+        WidgetTitleText.Text = _deviceId is null ? L.T("桌面电量") : items.FirstOrDefault()?.Name ?? L.T("桌面电量");
         EmptyState.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         var lowCount = items.Count(item => item.NeedsCharge);
         SummaryText.Text = items.Count == 0 ? L.T("连接固定的外设后显示电量") : lowCount > 0
@@ -119,8 +132,11 @@ public partial class DesktopWidgetWindow : Window
             if (IsLoaded && !_positionInitialized)
             {
                 _positionInitialized = true;
-                if (_settings.WidgetLeft is double left && double.IsFinite(left) &&
-                    _settings.WidgetTop is double top && double.IsFinite(top))
+                var saved = _deviceId is null ? null : _settings.WidgetPositions.GetValueOrDefault(_deviceId);
+                var savedLeft = _deviceId is null ? _settings.WidgetLeft : saved?.Left;
+                var savedTop = _deviceId is null ? _settings.WidgetTop : saved?.Top;
+                if (savedLeft is double left && double.IsFinite(left) &&
+                    savedTop is double top && double.IsFinite(top))
                 {
                     Left = left;
                     Top = top;
@@ -176,25 +192,43 @@ public partial class DesktopWidgetWindow : Window
         _dragging = true;
         try { DragMove(); }
         finally { _dragging = false; }
+        SnapPosition();
         EnsureVisiblePosition();
         SavePosition();
     }
 
-    public void ResetPosition()
+    public void RestorePosition()
+    {
+        _positionSaveTimer.Stop();
+        _positionRevision++;
+        _positionInitialized = false;
+        ApplySettings();
+    }
+
+    public void FlushPosition() => SavePosition(false);
+
+    public void ResetPosition() => ResetPosition(_placementIndex);
+
+    public void ResetPosition(int placementIndex)
     {
         if (!IsLoaded || _dragging || _closingForExit) return;
+        _placementIndex = placementIndex;
+        var revision = ++_positionRevision;
         var primary = System.Windows.Forms.Screen.PrimaryScreen;
         if (primary is null) return;
         var area = primary.WorkingArea;
         // Move onto the primary display first so WPF applies that display's DPI before choosing the margin.
-        MoveToPixels(new Point(area.Left, area.Top));
+        MoveWithoutSaving(new Point(area.Left, area.Top));
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            if (_closingForExit || _dragging || !IsVisible || !TryGetBounds(out var bounds)) return;
+            if (revision != _positionRevision || _closingForExit || _dragging || !IsVisible || !TryGetBounds(out var bounds)) return;
             var dpi = VisualTreeHelper.GetDpi(this);
-            MoveToPixels(new Point(Math.Max(area.Left, area.Right - bounds.Width - 20 * dpi.DpiScaleX),
-                Math.Min(area.Top + 20 * dpi.DpiScaleY, Math.Max(area.Top, area.Bottom - bounds.Height))));
-            SavePosition();
+            var gap = 12 * dpi.DpiScaleY;
+            var rows = Math.Max(1, (int)((area.Height - 40 * dpi.DpiScaleY + gap) / (bounds.Height + gap)));
+            var x = area.Right - bounds.Width - 20 * dpi.DpiScaleX - (_placementIndex / rows) * (bounds.Width + 12 * dpi.DpiScaleX);
+            var y = area.Top + 20 * dpi.DpiScaleY + (_placementIndex % rows) * (bounds.Height + gap);
+            MoveWithoutSaving(new Point(Math.Max(area.Left, x), Math.Min(y, Math.Max(area.Top, area.Bottom - bounds.Height))));
+            SavePosition(false);
         }), DispatcherPriority.Loaded);
     }
 
@@ -207,9 +241,52 @@ public partial class DesktopWidgetWindow : Window
             screen.WorkingArea.Left, screen.WorkingArea.Top, screen.WorkingArea.Width, screen.WorkingArea.Height)).ToArray();
         if (FindRecoveryPosition(bounds, header, areas, VisualTreeHelper.GetDpi(this)) is Point position)
         {
-            MoveToPixels(position);
-            SavePosition();
+            MoveWithoutSaving(position);
+            SavePosition(false);
         }
+    }
+
+    private void SnapPosition()
+    {
+        if (!_settings.WidgetSnapEnabled || !TryGetBounds(out var bounds)) return;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var areas = System.Windows.Forms.Screen.AllScreens.Select(screen => new Rect(screen.WorkingArea.Left,
+            screen.WorkingArea.Top, screen.WorkingArea.Width, screen.WorkingArea.Height)).ToArray();
+        var peers = (_snapPeers?.Invoke() ?? []).Where(window => window != this && window.IsVisible)
+            .Select(window => window.TryGetBounds(out var rectangle) ? rectangle : Rect.Empty).Where(rectangle => !rectangle.IsEmpty).ToArray();
+        var position = FindSnapPosition(bounds, areas, peers, dpi);
+        MoveWithoutSaving(position);
+    }
+
+    internal static Point FindSnapPosition(Rect bounds, IReadOnlyList<Rect> areas, IReadOnlyList<Rect> peers, DpiScale dpi)
+    {
+        var thresholdX = 16 * dpi.DpiScaleX;
+        var thresholdY = 16 * dpi.DpiScaleY;
+        var gapX = 12 * dpi.DpiScaleX;
+        var gapY = 12 * dpi.DpiScaleY;
+        var deltaX = double.PositiveInfinity;
+        var deltaY = double.PositiveInfinity;
+        void ConsiderX(double x) { var delta = x - bounds.Left; if (Math.Abs(delta) <= thresholdX && Math.Abs(delta) < Math.Abs(deltaX)) deltaX = delta; }
+        void ConsiderY(double y) { var delta = y - bounds.Top; if (Math.Abs(delta) <= thresholdY && Math.Abs(delta) < Math.Abs(deltaY)) deltaY = delta; }
+        foreach (var area in areas.Where(area => area.IntersectsWith(bounds)))
+        {
+            ConsiderX(area.Left + gapX); ConsiderX(area.Right - gapX - bounds.Width);
+            ConsiderY(area.Top + gapY); ConsiderY(area.Bottom - gapY - bounds.Height);
+        }
+        foreach (var peer in peers)
+        {
+            if (bounds.Top <= peer.Bottom + gapY + thresholdY && bounds.Bottom >= peer.Top - gapY - thresholdY)
+            {
+                ConsiderX(peer.Left); ConsiderX(peer.Right - bounds.Width);
+                ConsiderX(peer.Left - gapX - bounds.Width); ConsiderX(peer.Right + gapX);
+            }
+            if (bounds.Left <= peer.Right + gapX + thresholdX && bounds.Right >= peer.Left - gapX - thresholdX)
+            {
+                ConsiderY(peer.Top); ConsiderY(peer.Bottom - bounds.Height);
+                ConsiderY(peer.Top - gapY - bounds.Height); ConsiderY(peer.Bottom + gapY);
+            }
+        }
+        return new Point(bounds.Left + (double.IsFinite(deltaX) ? deltaX : 0), bounds.Top + (double.IsFinite(deltaY) ? deltaY : 0));
     }
 
     internal static Point? FindRecoveryPosition(Rect bounds, Rect header, IReadOnlyList<Rect> areas, DpiScale dpi)
@@ -250,6 +327,15 @@ public partial class DesktopWidgetWindow : Window
     private void MoveToPixels(Point position) => SetWindowPos(new WindowInteropHelper(this).Handle, IntPtr.Zero,
         (int)Math.Round(position.X), (int)Math.Round(position.Y), 0, 0, 0x0015); // NOSIZE | NOZORDER | NOACTIVATE
 
+    private void MoveWithoutSaving(Point position)
+    {
+        var applying = _applyingSettings;
+        _applyingSettings = true;
+        _positionSaveTimer.Stop();
+        try { MoveToPixels(position); }
+        finally { _applyingSettings = applying; }
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct NativeRect { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")]
@@ -259,13 +345,17 @@ public partial class DesktopWidgetWindow : Window
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
 
-    private void SavePosition()
+    private void SavePosition(bool notify = true)
     {
         _positionSaveTimer.Stop();
         if (!IsLoaded || _closingForExit) return;
-        _settings.WidgetLeft = Left;
-        _settings.WidgetTop = Top;
-        _settingsChanged();
+        if (_deviceId is null)
+        {
+            _settings.WidgetLeft = Left;
+            _settings.WidgetTop = Top;
+        }
+        else _settings.WidgetPositions[_deviceId] = new() { Left = Left, Top = Top };
+        if (notify) _settingsChanged();
     }
 
     private void OnContextMenuOpened(object sender, RoutedEventArgs e)
@@ -302,13 +392,16 @@ public partial class DesktopWidgetWindow : Window
     {
         if (_closingForExit) return;
         e.Cancel = true;
-        HideWidget();
+        // Let the canceled close finish before the manager removes this independent window.
+        Dispatcher.BeginInvoke(new Action(HideWidget), DispatcherPriority.ContextIdle);
     }
 
     private void HideWidget()
     {
-        SavePosition();
-        _settings.WidgetEnabled = false;
+        if (_closingForExit) return;
+        SavePosition(false);
+        if (_deviceId is null) _settings.WidgetEnabled = false;
+        else if (_settings.Devices.TryGetValue(_deviceId, out var preference)) preference.Pinned = false;
         Hide();
         _settingsChanged();
     }

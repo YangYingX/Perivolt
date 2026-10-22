@@ -156,6 +156,12 @@
         <MenuItem.Icon><TextBlock Text="&#xEA8F;" Style="{StaticResource MenuGlyph}"/></MenuItem.Icon>
         <MenuItem.Header><StackPanel><TextBlock Text="{loc:T '充电提醒'}"/><TextBlock x:Name="NotificationsDescription" Style="{StaticResource MenuDescription}"/></StackPanel></MenuItem.Header>
     </MenuItem>
+    <MenuItem x:Name="ScenesItem" Header="{loc:T '桌面场景'}" AutomationProperties.Name="{loc:T '桌面场景'}">
+        <MenuItem.Icon><TextBlock Text="&#xE8A9;" Style="{StaticResource MenuGlyph}"/></MenuItem.Icon>
+    </MenuItem>
+    <MenuItem Header="{loc:T '外设自动化'}" Tag="automation" Click="OnActionClick">
+        <MenuItem.Icon><TextBlock Text="&#xE945;" Style="{StaticResource MenuGlyph}"/></MenuItem.Icon>
+    </MenuItem>
     <Separator Style="{StaticResource MenuDivider}"/>
     <MenuItem AutomationProperties.Name="{loc:T '外观主题'}">
         <MenuItem.Icon><TextBlock Text="&#xE790;" Style="{StaticResource MenuGlyph}"/></MenuItem.Icon>

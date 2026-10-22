@@ -25,7 +25,7 @@ public sealed class TrayService : IDisposable
     private readonly FrameworkElement _menuTarget = new();
     private bool _disposed;
 
-    public TrayService(Action show, Action refresh, Action exit, Action openWidgetSettings, Action openSettings, AppSettings settings, Action settingsChanged)
+    public TrayService(Action show, Action refresh, Action exit, Action openWidgetSettings, Action openSettings, AppSettings settings, Action settingsChanged, Action<string>? applyScene = null, Action? openAutomation = null)
     {
         _settings = settings;
         _settingsChanged = settingsChanged;
@@ -38,6 +38,8 @@ public sealed class TrayService : IDisposable
                 case "settings": openSettings(); break;
                 case "refresh": refresh(); break;
                 case "exit": exit(); break;
+                case "automation": openAutomation?.Invoke(); break;
+                default: if (command.StartsWith("scene:", StringComparison.Ordinal)) applyScene?.Invoke(command[6..]); break;
             }
         };
         _menuOwner = new HwndSource(new HwndSourceParameters("Perivolt.TrayMenuOwner")

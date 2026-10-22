@@ -114,6 +114,9 @@
                             <Button x:Name="PluginsNav" Style="{StaticResource SidebarButton}" Click="OnPluginsNav">
                                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE8D7;" Style="{StaticResource SidebarIcon}"/><TextBlock Grid.Column="1" Text="{loc:T '插件'}" VerticalAlignment="Center"/></Grid>
                             </Button>
+                            <Button x:Name="AutomationNav" Style="{StaticResource SidebarButton}" Click="OnAutomationNav">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE945;" Style="{StaticResource SidebarIcon}"/><TextBlock Grid.Column="1" Text="{loc:T '自动化'}" VerticalAlignment="Center"/></Grid>
+                            </Button>
                         </StackPanel>
                         <TextBlock Grid.Row="4" Text="{loc:T '关闭面板后，&#10;充电提醒继续在托盘运行。'}" Foreground="{DynamicResource TextSecondary}" FontSize="10" LineHeight="18" Margin="14,0,10,0"/>
                     </Grid>
@@ -253,7 +256,15 @@
                                 </StackPanel>
                             </ScrollViewer>
                             <ScrollViewer x:Name="DesktopTab" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,5,0">
-                                <StackPanel><Border Style="{StaticResource SectionCard}"><StackPanel><Grid><StackPanel Margin="0,0,160,0"><TextBlock Text="{loc:T '任务栏电量条'}" Style="{StaticResource SectionTitle}"/><TextBlock Text="{loc:T '自动适配任务栏方向，避让系统按钮与应用。'}" Style="{StaticResource Caption}"/></StackPanel><CheckBox x:Name="TaskbarBox" Content="{loc:T '启用电量条'}" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnTaskbarClick"/></Grid><Grid Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="100"/><ColumnDefinition Width="74"/></Grid.ColumnDefinitions><ComboBox x:Name="TaskbarDeviceCombo" DisplayMemberPath="Label" SelectedValuePath="Id" SelectionChanged="OnTaskbarDeviceChanged" Margin="0,0,18,0" AutomationProperties.Name="{loc:T '电量条显示设备'}"/><TextBlock Grid.Column="1" Text="{loc:T '起始偏移'}" VerticalAlignment="Center"/><TextBox x:Name="TaskbarOffsetBox" Grid.Column="2" Style="{StaticResource CompactNumber}" LostFocus="OnTaskbarOffsetLostFocus" ToolTip="{loc:T '横向从左、竖向从上计算，单位 DIP。'}" AutomationProperties.Name="{loc:T '任务栏电量条起始偏移'}"/></Grid><TextBlock x:Name="TaskbarHintText" Text="{loc:T '按住电量条拖动调整位置；横向左右移动，竖向上下移动。'}" Style="{StaticResource Caption}" Margin="0,10,0,0"/></StackPanel></Border>
+                                <StackPanel>
+                                    <controls:DesktopScenes x:Name="ScenePanel"/>
+                                    <Border Style="{StaticResource SectionCard}"><StackPanel>
+                                        <TextBlock Text="{loc:T '卡片布局'}" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock Text="{loc:T '集中显示保留原有容器；自由摆放为每台固定设备创建独立卡片。'}" Style="{StaticResource Caption}" Margin="0,0,0,16"/>
+                                        <StackPanel Orientation="Horizontal"><RadioButton x:Name="StackLayoutButton" Content="{loc:T '集中显示'}" Foreground="{DynamicResource TextPrimary}" GroupName="WidgetLayout" Tag="Stack" Click="OnWidgetLayoutClick" Margin="0,0,24,0"/><RadioButton x:Name="FreeLayoutButton" Content="{loc:T '自由摆放'}" Foreground="{DynamicResource TextPrimary}" GroupName="WidgetLayout" Tag="Free" Click="OnWidgetLayoutClick"/></StackPanel>
+                                        <CheckBox x:Name="WidgetSnapBox" Content="{loc:T '拖动结束后吸附屏幕边缘与其他卡片'}" Click="OnWidgetSnapClick" Margin="0,16,0,0"/>
+                                    </StackPanel></Border>
+                                    <Border Style="{StaticResource SectionCard}"><StackPanel><Grid><StackPanel Margin="0,0,160,0"><TextBlock Text="{loc:T '任务栏电量条'}" Style="{StaticResource SectionTitle}"/><TextBlock Text="{loc:T '自动适配任务栏方向，避让系统按钮与应用。'}" Style="{StaticResource Caption}"/></StackPanel><CheckBox x:Name="TaskbarBox" Content="{loc:T '启用电量条'}" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnTaskbarClick"/></Grid><Grid Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="100"/><ColumnDefinition Width="74"/></Grid.ColumnDefinitions><ComboBox x:Name="TaskbarDeviceCombo" DisplayMemberPath="Label" SelectedValuePath="Id" SelectionChanged="OnTaskbarDeviceChanged" Margin="0,0,18,0" AutomationProperties.Name="{loc:T '电量条显示设备'}"/><TextBlock Grid.Column="1" Text="{loc:T '起始偏移'}" VerticalAlignment="Center"/><TextBox x:Name="TaskbarOffsetBox" Grid.Column="2" Style="{StaticResource CompactNumber}" LostFocus="OnTaskbarOffsetLostFocus" ToolTip="{loc:T '横向从左、竖向从上计算，单位 DIP。'}" AutomationProperties.Name="{loc:T '任务栏电量条起始偏移'}"/></Grid><TextBlock x:Name="TaskbarHintText" Text="{loc:T '按住电量条拖动调整位置；横向左右移动，竖向上下移动。'}" Style="{StaticResource Caption}" Margin="0,10,0,0"/></StackPanel></Border>
                                     <Border Style="{StaticResource SectionCard}"><StackPanel>
                                         <TextBlock Text="{loc:T '在桌面显示哪些设备'}" Style="{StaticResource SectionTitle}"/>
                                         <TextBlock Text="{loc:T '仅列出当前在线设备；离线自动隐藏，重新连接后保留选择。'}" Style="{StaticResource Caption}" Margin="0,0,0,12"/>
@@ -271,7 +282,7 @@
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="230"/></Grid.ColumnDefinitions>
                                     <StackPanel Margin="0,0,28,0">
                                         <TextBlock Text="{loc:T '桌面显示与位置'}" Style="{StaticResource SectionTitle}"/>
-                                        <TextBlock Text="{loc:T '以下选项作用于整个桌面卡片容器。'}" Style="{StaticResource Caption}"/>
+                                        <TextBlock Text="{loc:T '以下选项作用于所有桌面卡片。'}" Style="{StaticResource Caption}"/>
                                         <CheckBox x:Name="WidgetBox" Content="{loc:T '启用桌面卡片'}" Style="{StaticResource SettingSwitch}" Click="OnWidgetClick" Margin="0,19,0,0"/>
                                         <Border Height="1" Background="{DynamicResource Stroke}" Margin="0,22,0,18"/>
                                         <Grid Margin="0,0,0,18"><StackPanel Margin="0,0,55,0"><TextBlock Text="{loc:T '始终置顶'}" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="{loc:T '在其他窗口上方显示'}" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="TopmostBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnTopmostClick" AutomationProperties.Name="{loc:T '始终置顶'}"/></Grid>
@@ -303,10 +314,14 @@
                                     <RadioButton x:Name="SunsetTheme" GroupName="Theme" Style="{StaticResource ThemeChoice}" Tag="Sunset" Click="OnThemeClick" Margin="3,0"><StackPanel><Border Opacity="{DynamicResource ThemePreviewOpacity}" Height="43" Background="#FFF0E5" CornerRadius="5" Margin="0,0,0,12"><Border Background="#C77447" Height="5" Margin="10,0" VerticalAlignment="Center"/></Border><TextBlock Text="{loc:T '暖杏日落'}" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="{loc:T '浅色 &#183; 温暖杏调'}" Style="{StaticResource Caption}" FontSize="10" Margin="0,5,0,0"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="ForestTheme" GroupName="Theme" Style="{StaticResource ThemeChoice}" Tag="Forest" Click="OnThemeClick" Margin="6,0,0,0"><StackPanel><Border Opacity="{DynamicResource ThemePreviewOpacity}" Height="43" Background="#182D27" CornerRadius="5" Margin="0,0,0,12"><Border Background="#A6D491" Height="5" Margin="10,0" VerticalAlignment="Center"/></Border><TextBlock Text="{loc:T '森林绿'}" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="{loc:T '深色 &#183; 自然绿调'}" Style="{StaticResource Caption}" FontSize="10" Margin="0,5,0,0"/></StackPanel></RadioButton>
                                 </UniformGrid>
+                                <Border Height="1" Background="{DynamicResource Stroke}" Margin="0,22,0,18"/>
+                                <Grid><StackPanel Margin="0,0,55,0"><TextBlock Text="{loc:T '主题氛围'}" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="{loc:T '鼠标光晕与点击涟漪跟随主题色；关闭全局动效或系统动画时暂停。'}" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel><CheckBox x:Name="ThemeEffectsBox" Style="{StaticResource SettingSwitch}" HorizontalAlignment="Right" Click="OnThemeEffectsClick" AutomationProperties.Name="{loc:T '主题氛围'}"/></Grid>
                             </StackPanel></Border>
                             <Border x:Name="PluginThemeCard" Style="{StaticResource SectionCard}"><controls:ThemeCatalog x:Name="PluginThemePanel"/></Border>
                             <Border Style="{StaticResource SectionCard}"><StackPanel>
                                 <TextBlock Text="{loc:T '轻量运行'}" Style="{StaticResource SectionTitle}"/><TextBlock Text="{loc:T '按需更新，安静地待在托盘。'}" Style="{StaticResource Caption}" Margin="0,0,0,20"/>
+                                <CheckBox x:Name="DeviceArrivalBox" Content="{loc:T '外设连接时显示登场卡'}" Click="OnDeviceArrivalClick" Margin="0,0,0,8"/>
+                                <TextBlock Text="{loc:T '仅提示后续确认连接的设备，启动时不刷屏；随全局提醒开关暂停。'}" Style="{StaticResource Caption}" Margin="0,0,0,18"/>
                                 <Grid><StackPanel><TextBlock Text="{loc:T '电量扫描间隔'}" FontSize="12"/><TextBlock Text="{loc:T '较长间隔可以减少设备查询。'}" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel><ComboBox x:Name="PollCombo" DisplayMemberPath="Label" SelectedValuePath="Value" HorizontalAlignment="Right" VerticalAlignment="Center" SelectionChanged="OnPollChanged"/></Grid>
                                 <CheckBox x:Name="StartWithWindowsBox" Content="{loc:T '开机启动 PowerHub'}" Click="OnStartWithWindowsClick" Margin="0,22,0,0"/>
                                 <CheckBox x:Name="StartInTrayBox" Content="{loc:T '启动时仅显示托盘'}" Click="OnStartInTrayClick" Margin="0,14,0,0"/>
@@ -323,8 +338,12 @@
                     </Grid><ScrollViewer x:Name="PluginsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="32,28,30,28">
                         <controls:PluginSettings x:Name="PluginPanel"/>
                     </ScrollViewer>
+                    <ScrollViewer x:Name="AutomationPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="32,28,30,28">
+                        <controls:AutomationSettings x:Name="AutomationPanel"/>
+                    </ScrollViewer>
                 </Grid>
             </Grid>
+            <controls:ThemeAtmosphere x:Name="Atmosphere" Grid.RowSpan="2" AccentBrush="{DynamicResource Accent}"/>
         </Grid>
     </Border>
 </Window>

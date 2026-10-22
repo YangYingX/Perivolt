@@ -11,6 +11,7 @@
 | 群星映色 | [CharacterThemes](CharacterThemes) | 已实现，135 套配色主题，独立分发 |
 | 任务栏增强 1.1.0 | [TaskbarTools](Optional/TaskbarTools) | 首次独立发布：悬停多设备概览、滚轮切换、读数状态说明及多显示器任务栏；真实多屏、混合 DPI 与自动隐藏尚未充分实机覆盖 |
 | 电量趋势 1.0.0 | [BatteryHistory](Optional/BatteryHistory) | 首次独立发布：本地百分比历史、24 小时 / 7 天曲线 |
+| 外设快捷中枢 1.0.0-preview.2 | [PeripheralHub](Optional/PeripheralHub) | 本地体验版：快捷键查看电量、系统音量与静音、默认通信麦克风静音及默认输出切换；修正输出列表的 COM 接口标识；需电栖 1.0.8，独立打包 |
 
 稳定版 **电栖 1.0.8 支持 API 1/2/3**。任务栏增强 1.1.0 使用 API 3，电量趋势 1.0.0 使用 API 2；1.0.7 无法加载这两个交互插件。两款插件首次以独立 ZIP 附件随 [GitHub Release v1.0.8](https://github.com/YangYingX/Perivolt/releases/tag/v1.0.8) 公开发布，仍不随默认包安装。界面当前以中文为主，尚未完成四语翻译。新插件源码放在 `Optional/<插件项目名>/`；群星映色保留已有路径，避免影响现有构建引用。独立打包示例：
 
@@ -19,6 +20,7 @@
 .\scripts\Build-Plugin.ps1 -Project .\Extensions\CharacterThemes\CharacterThemes.csproj
 .\scripts\Build-Plugin.ps1 -Project .\Extensions\Optional\TaskbarTools\TaskbarTools.csproj
 .\scripts\Build-Plugin.ps1 -Project .\Extensions\Optional\BatteryHistory\BatteryHistory.csproj
+.\scripts\Build-Plugin.ps1 -Project .\Extensions\Optional\PeripheralHub\PeripheralHub.csproj
 ```
 
 输出位于 `artifacts/plugins/`，不写入主程序的默认 `plugins` 输出目录。发布时将插件 ZIP 与同名 `.sha256` 作为独立附件上传到 GitHub Release，不放入主程序安装包或便携 ZIP。打包不会自动上传文件。安装方法与 API 见 [插件文档](../docs/plugins.md)。

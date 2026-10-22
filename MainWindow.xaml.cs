@@ -57,6 +57,8 @@ public partial class MainWindow : Window
         UpdatePanel.Initialize(controller);
         PluginPanel.Initialize(controller);
         PluginThemePanel.Initialize(controller);
+        ScenePanel.Initialize(controller);
+        AutomationPanel.Initialize(controller);
         PluginPanel.ThemeRequested += () =>
         {
             Navigate("general");
@@ -173,11 +175,12 @@ public partial class MainWindow : Window
     public void Navigate(string page)
     {
         CommitPending();
-        var selected = page is "settings" or "widgets" or "appearance" or "general" ? "settings" : page == "plugins" ? "plugins" : "devices";
+        var selected = page is "settings" or "widgets" or "appearance" or "general" ? "settings" : page == "plugins" ? "plugins" : page == "automation" ? "automation" : "devices";
         DevicesPage.Visibility = selected == "devices" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPage.Visibility = selected == "settings" ? Visibility.Visible : Visibility.Collapsed;
         PluginsPage.Visibility = selected == "plugins" ? Visibility.Visible : Visibility.Collapsed;
-        foreach (var (button, target) in new[] { (DevicesNav, "devices"), (SettingsNav, "settings"), (PluginsNav, "plugins") })
+        AutomationPage.Visibility = selected == "automation" ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var (button, target) in new[] { (DevicesNav, "devices"), (SettingsNav, "settings"), (PluginsNav, "plugins"), (AutomationNav, "automation") })
         {
             button.SetResourceReference(BackgroundProperty, selected == target ? "AccentSoft" : "Surface");
             button.SetResourceReference(ForegroundProperty, selected == target ? "Accent" : "TextSecondary");
@@ -242,6 +245,7 @@ public partial class MainWindow : Window
             PluginPanel.Refresh();
             DiagnosticPanel.Refresh();
             UpdatePanel.Refresh();
+            AutomationPanel.Refresh();
         }
         finally { _updating = false; _refreshing = false; }
     }
@@ -331,8 +335,15 @@ public partial class MainWindow : Window
         LockedBox.IsChecked = settings.WidgetLocked;
         WidgetCompactBox.IsChecked = settings.WidgetCompact;
         WidgetTransparentBox.IsChecked = settings.WidgetTransparent;
+        StackLayoutButton.IsChecked = settings.WidgetLayout == "Stack";
+        FreeLayoutButton.IsChecked = settings.WidgetLayout == "Free";
+        WidgetSnapBox.IsChecked = settings.WidgetSnapEnabled;
+        ScenePanel.Refresh();
+        DeviceArrivalBox.IsChecked = settings.DeviceArrivalEnabled;
         DesktopDevicesEmptyText.Visibility = _cards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         PollCombo.SelectedValue = settings.PollIntervalSeconds;
+        ThemeEffectsBox.IsChecked = settings.ThemeEffectsEnabled;
+        Atmosphere.EffectsEnabled = settings.ThemeEffectsEnabled && settings.AnimationsEnabled;
         foreach (var (radio, theme) in new[] { (SystemTheme,"System"),(LightTheme,"Light"),(DarkTheme,"Dark"),(OceanTheme,"Ocean"),(LavenderTheme,"Lavender"),(SunsetTheme,"Sunset"),(ForestTheme,"Forest") }) radio.IsChecked = settings.Theme == theme;
         StartInTrayBox.IsChecked = settings.StartInTray;
         StartWithWindowsBox.IsChecked = settings.StartWithWindows;
@@ -429,6 +440,11 @@ public partial class MainWindow : Window
     private void OnDeviceSettings(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string id }) return;
+        ShowDeviceSettings(id);
+    }
+    public void ShowDeviceSettings(string id)
+    {
+        if (!_choices.Any(choice => choice.Id == id)) { Navigate("devices"); return; }
         Navigate("settings");
         SettingsDeviceSelector.SelectedItem = _choices.FirstOrDefault(choice => choice.Id == id) ?? _choices[0];
         SelectSettingsTab("appearance", true);
@@ -641,7 +657,10 @@ public partial class MainWindow : Window
     private void OnLockedClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetLocked = LockedBox.IsChecked == true);
     private void OnWidgetCompactClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetCompact = WidgetCompactBox.IsChecked == true);
     private void OnWidgetTransparentClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetTransparent = WidgetTransparentBox.IsChecked == true);
-    private void OnRecoverWidget(object sender, RoutedEventArgs e) { Apply(settings => { settings.WidgetEnabled = true; settings.WidgetLocked = false; }); _controller.Widget?.ResetPosition(); SettingsStatusText.Text = L.T("已找回卡片到主屏并解锁，外观与置顶设置已保留。"); }
+    private void OnRecoverWidget(object sender, RoutedEventArgs e) { _controller.RecoverWidgets(); SettingsStatusText.Text = L.T("已找回卡片到主屏并解锁，外观与置顶设置已保留。"); }
+    private void OnWidgetLayoutClick(object sender, RoutedEventArgs e) { if (sender is RadioButton { Tag: string layout }) Apply(settings => settings.WidgetLayout = layout); }
+    private void OnWidgetSnapClick(object sender, RoutedEventArgs e) => Apply(settings => settings.WidgetSnapEnabled = WidgetSnapBox.IsChecked == true);
+    private void OnDeviceArrivalClick(object sender, RoutedEventArgs e) => Apply(settings => settings.DeviceArrivalEnabled = DeviceArrivalBox.IsChecked == true);
     private void OnPollChanged(object sender, SelectionChangedEventArgs e) { if (PollCombo.SelectedValue is int value) Apply(settings => settings.PollIntervalSeconds = value); }
     private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -680,9 +699,11 @@ public partial class MainWindow : Window
     private void OnStartInTrayClick(object sender, RoutedEventArgs e) => Apply(settings => settings.StartInTray = StartInTrayBox.IsChecked == true);
     private void OnStartWithWindowsClick(object sender, RoutedEventArgs e) { var enabled = StartWithWindowsBox.IsChecked == true; Apply(settings => settings.StartWithWindows = enabled); if (_controller.Settings.StartWithWindows != enabled) SettingsStatusText.Text = _controller.StatusText; }
     private void OnThemeClick(object sender, RoutedEventArgs e) { if (sender is RadioButton { Tag: string theme }) Apply(settings => settings.Theme = theme); }
+    private void OnThemeEffectsClick(object sender, RoutedEventArgs e) => Apply(settings => settings.ThemeEffectsEnabled = ThemeEffectsBox.IsChecked == true);
     private void OnDevicesNav(object sender, RoutedEventArgs e) => Navigate("devices");
     private void OnSettingsNav(object sender, RoutedEventArgs e) => Navigate("settings");
     private void OnPluginsNav(object sender, RoutedEventArgs e) => Navigate("plugins");
+    private void OnAutomationNav(object sender, RoutedEventArgs e) => Navigate("automation");
     private void OnFilterChanged(object sender, RoutedEventArgs e) { if (!_updating) UpdateView(); }
     private void OnMinimize(object sender, RoutedEventArgs e) => Close();
     private void OnMaximize(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;

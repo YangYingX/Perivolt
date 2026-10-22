@@ -1,0 +1,24 @@
+<UserControl x:Class="PowerHub.Controls.DesktopScenes"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:PowerHub.Controls">
+    <Border Background="{DynamicResource ThemeCardSurface}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1" CornerRadius="16" Padding="24" Margin="0,0,0,18">
+        <StackPanel>
+            <TextBlock Text="{loc:T '桌面场景'}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <TextBlock Text="{loc:T '把主题、布局和显示设备保存为场景，从这里或托盘一键切换。'}" Foreground="{DynamicResource TextSecondary}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"/>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <ComboBox x:Name="SceneCombo" DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="OnSelectionChanged" AutomationProperties.Name="{loc:T '已保存的场景'}" Margin="0,0,12,0"/>
+                <Button x:Name="ApplyButton" Grid.Column="1" Content="{loc:T '切换场景'}" Click="OnApply" Margin="0,0,8,0"/>
+                <Button x:Name="DeleteButton" Grid.Column="2" Content="{loc:T '删除'}" Click="OnDelete"/>
+            </Grid>
+            <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBox x:Name="NameBox" MaxLength="40" Height="36" VerticalContentAlignment="Center" Padding="10,0" Margin="0,0,12,0" AutomationProperties.Name="{loc:T '场景名称'}" ToolTip="{loc:T '例如：工作、游戏、夜间；最多保存 12 个场景。'}"/>
+                <Button Grid.Column="1" Content="{loc:T '保存新场景'}" Click="OnSave" Margin="0,0,8,0"/>
+                <Button x:Name="UpdateButton" Grid.Column="2" Content="{loc:T '更新所选'}" Click="OnUpdate"/>
+            </Grid>
+            <TextBlock x:Name="StatusText" Text="{loc:T '先调整主题与桌面卡片，再命名保存。'}" Foreground="{DynamicResource TextSecondary}" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0"/>
+        </StackPanel>
+    </Border>
+</UserControl>

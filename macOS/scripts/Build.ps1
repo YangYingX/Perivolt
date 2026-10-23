@@ -186,7 +186,15 @@ foreach ($taskField in @{ CFBundleShortVersionString = $taskShortVersion; CFBund
 }
 $taskXmlSettings = [Xml.XmlWriterSettings]::new(); $taskXmlSettings.Indent = $true; $taskXmlSettings.Encoding = [Text.UTF8Encoding]::new($false)
 $taskXmlWriter = [Xml.XmlWriter]::Create((Join-Path $taskBundle 'Contents/Info.plist'), $taskXmlSettings)
-try { $taskPlist.Save($taskXmlWriter) } finally { $taskXmlWriter.Dispose() }
+try {
+    $taskXmlWriter.WriteStartDocument()
+    # XmlDocument.Save emits an empty DTD subset ([]) that Apple's plutil rejects.
+    # PowerShell's $null becomes an empty string here; pass a real null string.
+    $taskXmlWriter.WriteDocType('plist', $taskPlist.DocumentType.PublicId, $taskPlist.DocumentType.SystemId, [System.Management.Automation.Language.NullString]::Value)
+    $taskPlist.DocumentElement.WriteTo($taskXmlWriter)
+    $taskXmlWriter.WriteEndDocument()
+}
+finally { $taskXmlWriter.Dispose() }
 Write-Icns (Join-Path $taskWorkspace 'Assets') (Join-Path $taskResources 'Perivolt.icns')
 foreach ($taskNotice in @('LICENSE', 'NOTICE.md', 'AUTHORS.md', 'THIRD-PARTY-NOTICES.md')) {
     Copy-Item -LiteralPath (Join-Path $taskWorkspace $taskNotice) -Destination (Join-Path $taskResources $taskNotice) -Force

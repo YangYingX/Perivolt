@@ -136,9 +136,17 @@ public sealed class AppController : IDisposable
     public void ShowMain()
     {
         if (IsExiting) return;
-        window ??= new MainWindow(this);
+        if (window is null)
+        {
+            window = new MainWindow(this);
+            window.Closing += (_, _) =>
+            {
+                if (tray is null && !IsExiting) Dispatcher.UIThread.Post(Exit);
+            };
+        }
         desktop.MainWindow = window;
         if (Program.ArgumentValue(Program.Arguments, "--page") is { } page) window.Navigate(page);
+        if (window.WindowState == Avalonia.Controls.WindowState.Minimized) window.WindowState = Avalonia.Controls.WindowState.Normal;
         if (!window.IsVisible) window.Show();
         if (!Program.Arguments.Contains("--screenshot")) window.Activate();
     }
@@ -151,8 +159,8 @@ public sealed class AppController : IDisposable
         if (Application.Current is { } app)
             app.RequestedThemeVariant = Settings.Theme switch
             {
-                "Dark" or "Ocean" => ThemeVariant.Dark,
-                "Light" or "Lavender" or "Sunset" or "Forest" => ThemeVariant.Light,
+                "Dark" or "Ocean" or "Forest" => ThemeVariant.Dark,
+                "Light" or "Lavender" or "Sunset" => ThemeVariant.Light,
                 _ => ThemeVariant.Default
             };
         timer.Interval = TimeSpan.FromSeconds(Settings.PollIntervalSeconds);

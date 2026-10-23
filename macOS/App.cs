@@ -21,11 +21,23 @@ public sealed class App : Application
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             Controller = new AppController(desktop, Program.DataDirectory);
-            desktop.Exit += (_, _) => Controller.Dispose();
+            var activation = TryGetFeature(typeof(IActivatableLifetime)) as IActivatableLifetime;
+            if (activation is not null) activation.Activated += OnActivated;
+            desktop.ShutdownRequested += (_, _) => Controller.Dispose();
+            desktop.Exit += (_, _) =>
+            {
+                if (activation is not null) activation.Activated -= OnActivated;
+                Controller.Dispose();
+            };
             Controller.Start(Program.Arguments.Contains("--show"));
             if (Program.ArgumentValue(Program.Arguments, "--screenshot") is { } screenshot)
                 _ = Controller.CaptureAsync(screenshot);
         }
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void OnActivated(object? sender, ActivatedEventArgs args)
+    {
+        if (args.Kind == ActivationKind.Reopen) Controller?.ShowMain();
     }
 }

@@ -1,0 +1,89 @@
+name: macOS development preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: &mac-paths
+      - '.github/workflows/macos.yml'
+      - 'macOS/**'
+      - 'Models/**'
+      - 'Services/L.cs'
+      - 'Services/SettingsStore.cs'
+      - 'Services/ReminderPolicy.cs'
+      - 'Services/HistoryStore.cs'
+      - 'Locales/**'
+      - 'Assets/**'
+      - 'Directory.Build.props'
+      - 'LICENSE'
+      - 'LICENSES/**'
+      - '*NOTICE*'
+      - 'AUTHORS.md'
+  pull_request:
+    paths: *mac-paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Build and launch ${{ matrix.runtime }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            runtime: osx-arm64
+            architecture: arm64
+          - runner: macos-15-intel
+            runtime: osx-x64
+            architecture: x86_64
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+      AVALONIA_TELEMETRY_OPTOUT: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build self-contained app and ZIP
+        shell: pwsh
+        run: ./macOS/scripts/Build.ps1 -Runtime '${{ matrix.runtime }}'
+      - name: Verify and launch the extracted package
+        shell: bash
+        env:
+          MAC_RUNTIME: ${{ matrix.runtime }}
+          MAC_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "$MAC_ARCHITECTURE"
+          cd "artifacts/macOS-preview/$MAC_RUNTIME"
+          shasum -a 256 -c ./*.zip.sha256
+          verification_dir="$(mktemp -d "$RUNNER_TEMP/perivolt-package.XXXXXX")"
+          trap 'rm -rf -- "$verification_dir"' EXIT
+          ditto -x -k ./*.zip "$verification_dir"
+          app="$verification_dir/Perivolt.app"
+          plutil -lint "$app/Contents/Info.plist"
+          lipo -verify_arch "$MAC_ARCHITECTURE" "$app/Contents/MacOS/Perivolt"
+          test -x "$app/Contents/MacOS/Perivolt"
+          test -s "$app/Contents/Resources/Perivolt.icns"
+          test -s "$app/Contents/Resources/runtime-notices/DOTNET-THIRD-PARTY-NOTICES.txt"
+          "$app/Contents/MacOS/Perivolt" --self-check --data-dir "$verification_dir/check-data"
+      - name: Keep unsigned development packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Perivolt-development-${{ matrix.runtime }}
+          path: |
+            artifacts/macOS-preview/${{ matrix.runtime }}/*.zip
+            artifacts/macOS-preview/${{ matrix.runtime }}/*.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

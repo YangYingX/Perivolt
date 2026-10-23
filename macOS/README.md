@@ -65,4 +65,6 @@ dotnet run --project macOS/Perivolt.Mac.csproj -- --preview --screenshot artifac
 
 当前环境为 Windows。构建、自检、合成系统输出解析及样例界面验证不能替代 Mac 实机测试。真实 USB/蓝牙电量对照、菜单栏、通知权限、登录启动、睡眠唤醒、混合 DPI/多屏拖动、`.app` 启动、签名与公证均需进一步验证。
 
+双架构 CI、开发包下载方式及逐项实机验收步骤见 [macOS 适配准备](ADAPTATION.md)。
+
 项目署名与个人非商业许可继续沿用；依赖许可见 [macOS 第三方声明](THIRD-PARTY-NOTICES.macOS.md)及 [LICENSES](LICENSES/)。

@@ -53,9 +53,13 @@ dotnet run --project macOS/Perivolt.Mac.csproj -- --preview --screenshot artifac
 ```powershell
 ./macOS/scripts/Build.ps1 -Runtime osx-arm64
 ./macOS/scripts/Build.ps1 -Runtime osx-x64
+# 在 Mac 上同时生成可拖入“应用程序”的 DMG：
+./macOS/scripts/Build.ps1 -Runtime osx-arm64 -Dmg
 ```
 
-产物位于 `artifacts/macOS-preview/` 对应架构目录，包含自带运行时的 `Perivolt.app`、ZIP 和 SHA256。应用包结构参照 [Avalonia macOS 部署说明](https://docs.avaloniaui.net/docs/deployment/macos)。开发包不进行 Developer ID 签名或 Apple 公证，不作为已验证的公开安装包；正式分发前还需在 Mac 完成签名、公证和启动验证。
+产物位于 `artifacts/macOS-preview/` 对应架构目录，包含自带运行时的 `Perivolt.app`、ZIP 和 SHA256；Mac 上加 `-Dmg` 还会生成 DMG 与 SHA256。打开 DMG 后，把 `Perivolt.app` 拖到其中的 `Applications` 链接，推出磁盘，再从“应用程序”启动。CI 为两种芯片均生成 DMG，并验证挂载、复制安装、卸载镜像后运行应用自检。
+
+应用包结构参照 [Avalonia macOS 部署说明](https://docs.avaloniaui.net/docs/deployment/macos)，DMG 封装参照 [Apple 分发说明](https://developer.apple.com/library/archive/documentation/Porting/Conceptual/PortingUnix/distributing/distibuting.html)。开发包不进行 Developer ID 签名或 Apple 公证，系统可能拦截首次启动；正式分发前还需在 Mac 完成签名、公证和启动验证。
 
 ## 数据、权限和待验证项
 

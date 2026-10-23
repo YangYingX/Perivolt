@@ -1,5 +1,9 @@
-param([ValidateSet('osx-arm64', 'osx-x64')][string]$Runtime = 'osx-arm64')
+param(
+    [ValidateSet('osx-arm64', 'osx-x64')][string]$Runtime = 'osx-arm64',
+    [switch]$Dmg
+)
 $ErrorActionPreference = 'Stop'
+if ($Dmg -and -not $IsMacOS) { throw 'DMG creation requires macOS. Omit -Dmg to cross-publish the app and ZIP.' }
 
 function Assert-ControlledOutput([string]$Path) {
     $taskResolved = [IO.Path]::GetFullPath($Path)
@@ -212,4 +216,32 @@ $taskHash = (Get-FileHash -LiteralPath $taskZip -Algorithm SHA256).Hash.ToLowerI
 Assert-ControlledOutput ($taskZip + '.sha256')
 [IO.File]::WriteAllText($taskZip + '.sha256', "$taskHash  $([IO.Path]::GetFileName($taskZip))`n", [Text.UTF8Encoding]::new($false))
 Write-Output "Created $taskZip"
+if ($Dmg) {
+    $taskStaging = Join-Path $taskRidRoot ('dmg-stage-' + [Guid]::NewGuid().ToString('N'))
+    $taskDmg = Join-Path $taskRidRoot ("Perivolt-$taskVersion-$Runtime.dmg")
+    $taskDmgTemporary = Join-Path $taskRidRoot ([Guid]::NewGuid().ToString('N') + '.dmg')
+    foreach ($taskPath in @($taskStaging, $taskDmg, $taskDmgTemporary, $taskDmg + '.sha256')) { Assert-ControlledOutput $taskPath }
+    $taskApplicationsLink = Join-Path $taskStaging 'Applications'
+    try {
+        New-Item -ItemType Directory -Path $taskStaging | Out-Null
+        & /usr/bin/ditto $taskBundle (Join-Path $taskStaging 'Perivolt.app')
+        if ($LASTEXITCODE -ne 0) { throw 'Failed to stage the app for DMG creation' }
+        [IO.Directory]::CreateSymbolicLink($taskApplicationsLink, '/Applications') | Out-Null
+        & /usr/bin/hdiutil create -volname 'Perivolt' -srcfolder $taskStaging -fs HFS+ -format UDZO $taskDmgTemporary
+        if ($LASTEXITCODE -ne 0) { throw 'DMG creation failed' }
+        & /usr/bin/hdiutil verify $taskDmgTemporary
+        if ($LASTEXITCODE -ne 0) { throw 'DMG verification failed' }
+        [IO.File]::Move($taskDmgTemporary, $taskDmg, $true)
+        $taskDmgHash = (Get-FileHash -LiteralPath $taskDmg -Algorithm SHA256).Hash.ToLowerInvariant()
+        [IO.File]::WriteAllText($taskDmg + '.sha256', "$taskDmgHash  $([IO.Path]::GetFileName($taskDmg))`n", [Text.UTF8Encoding]::new($false))
+        Write-Output "Created $taskDmg"
+    }
+    finally {
+        # Unlink Applications first; never traverse the installation target during cleanup.
+        if (Test-Path -LiteralPath $taskApplicationsLink) { Remove-Item -LiteralPath $taskApplicationsLink -Force }
+        Assert-ControlledOutput $taskStaging
+        if (Test-Path -LiteralPath $taskStaging) { Remove-Item -LiteralPath $taskStaging -Recurse -Force }
+        if (Test-Path -LiteralPath $taskDmgTemporary) { Remove-Item -LiteralPath $taskDmgTemporary -Force }
+    }
+}
 Write-Output 'Unsigned development preview; no signing, notarization or release upload was performed.'

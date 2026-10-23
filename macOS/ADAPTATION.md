@@ -4,16 +4,16 @@
 
 ## 自动构建入口
 
-仓库的 [macOS development preview 工作流](../.github/workflows/macos.yml) 在相关 PR 和 `main` 更新时执行，也支持手动运行。两个原生 runner 分别生成自包含 `.app` 和 ZIP，验证 SHA256、plist、CPU 架构、解压后可执行权限，再直接运行**解压包里的应用**完成 `--self-check`。临时自检数据随任务删除。
+仓库的 [macOS development preview 工作流](../.github/workflows/macos.yml) 在相关 PR 和 `main` 更新时执行，也支持手动运行。两个原生 runner 分别生成自包含 `.app`、ZIP 和 DMG，验证 SHA256、plist、CPU 架构、解压后可执行权限，再直接运行**解压包里的应用**完成 `--self-check`。DMG 另外经过 `hdiutil verify`、只读挂载、Applications 链接核对和复制安装，推出镜像后运行副本自检。临时自检数据随任务删除，不会写入 runner 的 `/Applications`。
 
-工作流使用只读仓库权限，不需要证书或发布密钥。通过后保留 ZIP 与 SHA256 共 14 天，下载 Actions artifact 后再解开其中的 Perivolt ZIP。它是未签名的开发产物，不会创建 Release 或替换 Windows 安装包。ZIP 封装用于保留 Unix 可执行权限。
+工作流使用只读仓库权限，不需要证书或发布密钥。通过后保留 ZIP、DMG 与 SHA256 共 14 天，下载 Actions artifact 后即可取出 DMG；ZIP 供需要原始应用包的开发者使用。它是未签名的开发产物，不会创建 Release 或替换 Windows 安装包。ZIP 封装用于保留 Unix 可执行权限。
 
 runner 标签依据 [GitHub 官方列表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)：`macos-15` 用于 arm64，`macos-15-intel` 用于 x64。自动自检不覆盖图形界面、通知、登录启动或真实外设。
 
 ## 拿到 Mac 后的第一轮
 
-1. 记录 macOS 版本、芯片、显示缩放及应用版本，选取对应架构的 ZIP。
-2. 在终端切换到下载的 ZIP 所在目录，执行 `shasum -a 256 -c Perivolt-*.zip.sha256`，然后解压。将应用放入最终使用位置，再验证登录启动。
+1. 记录 macOS 版本、芯片、显示缩放及应用版本，选取对应架构的 DMG。
+2. 在终端切换到下载的 DMG 所在目录，执行 `shasum -a 256 -c Perivolt-*.dmg.sha256`。打开 DMG，把应用拖到 `Applications`，推出镜像，再从“应用程序”启动。将应用放入最终使用位置，再验证登录启动。
 3. 验证启动入口和本地设置，不接触现有应用数据：
 
    ```sh

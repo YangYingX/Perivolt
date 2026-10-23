@@ -55,9 +55,9 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '10.0.x'
-      - name: Build self-contained app and ZIP
+      - name: Build self-contained app, ZIP and DMG
         shell: pwsh
-        run: ./macOS/scripts/Build.ps1 -Runtime '${{ matrix.runtime }}'
+        run: ./macOS/scripts/Build.ps1 -Runtime '${{ matrix.runtime }}' -Dmg
       - name: Verify and launch the extracted package
         shell: bash
         env:
@@ -78,6 +78,36 @@ jobs:
           test -s "$app/Contents/Resources/Perivolt.icns"
           test -s "$app/Contents/Resources/runtime-notices/DOTNET-THIRD-PARTY-NOTICES.txt"
           "$app/Contents/MacOS/Perivolt" --self-check --data-dir "$verification_dir/check-data"
+      - name: Verify DMG drag installation
+        shell: bash
+        env:
+          MAC_RUNTIME: ${{ matrix.runtime }}
+          MAC_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          set -euo pipefail
+          cd "artifacts/macOS-preview/$MAC_RUNTIME"
+          shasum -a 256 -c ./*.dmg.sha256
+          verification_dir="$(mktemp -d "$RUNNER_TEMP/perivolt-dmg.XXXXXX")"
+          mounted=false
+          cleanup() {
+            if [ "$mounted" = true ]; then
+              hdiutil detach "$verification_dir/mounted" || return
+            fi
+            rm -rf -- "$verification_dir"
+          }
+          trap cleanup EXIT
+          mkdir "$verification_dir/mounted"
+          hdiutil attach ./*.dmg -readonly -nobrowse -mountpoint "$verification_dir/mounted"
+          mounted=true
+          test "$(readlink "$verification_dir/mounted/Applications")" = /Applications
+          ditto "$verification_dir/mounted/Perivolt.app" "$verification_dir/installed/Perivolt.app"
+          hdiutil detach "$verification_dir/mounted"
+          mounted=false
+          app="$verification_dir/installed/Perivolt.app"
+          plutil -lint "$app/Contents/Info.plist"
+          lipo "$app/Contents/MacOS/Perivolt" -verify_arch "$MAC_ARCHITECTURE"
+          test -x "$app/Contents/MacOS/Perivolt"
+          "$app/Contents/MacOS/Perivolt" --self-check --data-dir "$verification_dir/check-data"
       - name: Keep unsigned development packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -85,5 +115,7 @@ jobs:
           path: |
             artifacts/macOS-preview/${{ matrix.runtime }}/*.zip
             artifacts/macOS-preview/${{ matrix.runtime }}/*.zip.sha256
+            artifacts/macOS-preview/${{ matrix.runtime }}/*.dmg
+            artifacts/macOS-preview/${{ matrix.runtime }}/*.dmg.sha256
           if-no-files-found: error
           retention-days: 14

@@ -3,7 +3,7 @@
   "Id": "vendor-protocols",
   "Name": "多品牌设备协议包",
   "Description": "内置罗技 HID++、雷蛇、VGN/Weisheng、Akko 鼠标、Compx、AULA、迈从耳机、狼途键盘、赛睿 Nova 7、海盗船 VOID、HyperX Cloud、PS5 和 Steam 电量协议。按协议族与硬件接口匹配，关闭后仍保留系统、BLE 和标准 HID 读取。",
-  "Version": "1.0.5",
+  "Version": "1.0.6",
   "Assembly": "PowerHub.VendorProtocols.dll",
   "EntryType": "PowerHub.Extensions.VendorProtocolPlugin",
   "Kind": "device",

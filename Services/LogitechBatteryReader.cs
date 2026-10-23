@@ -14,7 +14,7 @@ internal static class LogitechBatteryReader
     // https://github.com/JKWTCN/BatteryMonitor/blob/master/src/providers/hid/LogitechHidProvider.cpp
     // Only feature discovery, capabilities, battery status and device-name reads are sent.
     private sealed record ReceiverProfile(int Interface, int Slots);
-    private sealed record InputCollection(string Path, int Length);
+    private sealed record InputCollection(string Path, int Length, int OutputLength);
     internal readonly record struct BatteryReading(int? Percent, string? Level, bool? Charging, string Message);
 
     private static ReceiverProfile? Profile(int? product) => product switch
@@ -52,6 +52,8 @@ internal static class LogitechBatteryReader
             using var writerHandle = CreateFileW(path, 0x40000000, 3, IntPtr.Zero, 3, 0x40000000, IntPtr.Zero);
             using var shortReaderHandle = CreateFileW(path, 0x80000000, 3, IntPtr.Zero, 3, 0x40000000, IntPtr.Zero);
             using var readerHandle = CreateFileW(input.Path, 0x80000000, 3, IntPtr.Zero, 3, 0x40000000, IntPtr.Zero);
+            using var longWriterHandle = input.OutputLength >= 20
+                ? CreateFileW(input.Path, 0x40000000, 3, IntPtr.Zero, 3, 0x40000000, IntPtr.Zero) : null;
             if (writerHandle.IsInvalid || shortReaderHandle.IsInvalid || readerHandle.IsInvalid)
             {
                 detail = $"{prefix}; 厂商集合打开失败，Windows 错误 {Marshal.GetLastWin32Error()}";
@@ -60,15 +62,31 @@ internal static class LogitechBatteryReader
             using var writer = new FileStream(writerHandle, FileAccess.Write, 1, isAsync: true);
             using var shortReader = new FileStream(shortReaderHandle, FileAccess.Read, 1, isAsync: true);
             using var reader = new FileStream(readerHandle, FileAccess.Read, 1, isAsync: true);
+            using var longWriter = longWriterHandle is { IsInvalid: false }
+                ? new FileStream(longWriterHandle, FileAccess.Write, 1, isAsync: true) : null;
             byte softwareId = 12;
             var captureBatteryQueries = true;
+            var longReportSlots = new HashSet<byte>();
+            var slotUnavailable = false;
             byte[]? Query(byte slot, byte feature, byte function, byte p0 = 0, byte p1 = 0)
             {
                 softwareId = (byte)(softwareId % 15 + 1);
                 var command = (byte)((function << 4) | softwareId);
-                var response = Exchange(writer, shortReader, reader, caps.OutputReportByteLength, caps.InputReportByteLength, input.Length, slot, feature,
-                    command, p0, p1, budget.Token);
+                var useLongReport = longReportSlots.Contains(slot);
+                var response = Exchange(useLongReport ? longWriter! : writer, shortReader, reader,
+                    useLongReport ? input.OutputLength : caps.OutputReportByteLength,
+                    caps.InputReportByteLength, input.Length, slot, feature, command, p0, p1, useLongReport, budget.Token);
+                // HID++ FAP can require a 0x11 request even when a 0x10 collection is exposed.
+                // Retry only a silent read, on this receiver's descriptor-verified long collection.
+                // A receiver error is an answer and must not trigger another transport or slot probe.
+                if (response is null && !useLongReport && longWriter is not null && !budget.IsCancellationRequested)
+                {
+                    response = Exchange(longWriter, shortReader, reader, input.OutputLength,
+                        caps.InputReportByteLength, input.Length, slot, feature, command, p0, p1, true, budget.Token);
+                    if (response is not null) longReportSlots.Add(slot);
+                }
                 var error = response is not null && IsErrorResponse(response, slot, feature, command);
+                if (response is not null && IsUnknownDeviceResponse(response, slot, feature, command)) slotUnavailable = true;
                 if (captureBatteryQueries)
                     batteryQueries.Add($"slot={slot} feature={feature:X2} fn={function:X1} args={p0:X2}{p1:X2}: " +
                         (response is null ? "无匹配响应" : error ? $"设备错误 {response[5]:X2} ({Convert.ToHexString(response.AsSpan(0, 7))})" : Convert.ToHexString(response.AsSpan(0, 7))));
@@ -77,8 +95,14 @@ internal static class LogitechBatteryReader
 
             for (byte slot = 1; slot <= profile.Slots && !budget.IsCancellationRequested; slot++)
             {
+                slotUnavailable = false;
                 BatteryReading? battery = null;
                 var unified = Query(slot, 0, 0, 0x10, 0x04);
+                if (slotUnavailable)
+                {
+                    batteryQueries.Add($"slot={slot}: 接收器可达，但该槽位没有可访问的已连接设备（HID++ 1.0 UNKNOWN_DEVICE）");
+                    continue;
+                }
                 if (unified is not null && unified[4] is > 0 and < 0xFF)
                 {
                     var capabilities = Query(slot, unified[4], 0);
@@ -89,7 +113,7 @@ internal static class LogitechBatteryReader
                         else batteryQueries.Add($"slot={slot}: 0x1004 响应字段未通过校验");
                     }
                 }
-                if (battery is null && !budget.IsCancellationRequested)
+                if (battery is null && !slotUnavailable && !budget.IsCancellationRequested)
                 {
                     var legacy = Query(slot, 0, 0, 0x10, 0x00);
                     if (legacy is not null && legacy[4] is > 0 and < 0xFF)
@@ -151,20 +175,20 @@ internal static class LogitechBatteryReader
         return devices;
     }
 
-    private static byte[]? Exchange(FileStream writer, FileStream shortReader, FileStream longReader,
+    private static byte[]? Exchange(Stream writer, Stream shortReader, Stream longReader,
         int outputLength, int shortInputLength, int longInputLength,
-        byte slot, byte feature, byte function, byte p0, byte p1, CancellationToken budget)
+        byte slot, byte feature, byte function, byte p0, byte p1, bool longReport, CancellationToken budget)
         => ExchangeAsync(writer, shortReader, longReader, outputLength, shortInputLength, longInputLength,
-            slot, feature, function, p0, p1, budget).GetAwaiter().GetResult();
+            slot, feature, function, p0, p1, longReport, budget).GetAwaiter().GetResult();
 
-    private static async Task<byte[]?> ExchangeAsync(FileStream writer, FileStream shortReader, FileStream longReader,
+    internal static async Task<byte[]?> ExchangeAsync(Stream writer, Stream shortReader, Stream longReader,
         int outputLength, int shortInputLength, int longInputLength,
-        byte slot, byte feature, byte function, byte p0, byte p1, CancellationToken budget)
+        byte slot, byte feature, byte function, byte p0, byte p1, bool longReport, CancellationToken budget)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(budget);
         timeout.CancelAfter(85);
         var request = new byte[outputLength];
-        request[0] = 0x10; request[1] = slot; request[2] = feature; request[3] = function;
+        request[0] = longReport ? (byte)0x11 : (byte)0x10; request[1] = slot; request[2] = feature; request[3] = function;
         request[4] = p0; request[5] = p1;
         // Firmware may return short replies on usage 1 or long replies on usage 2.
         // Both are vendor collections; neither is the normal keyboard/mouse input stream.
@@ -187,7 +211,7 @@ internal static class LogitechBatteryReader
         return null;
     }
 
-    private static async Task<byte[]?> ReadMatchingAsync(FileStream reader, int inputLength,
+    private static async Task<byte[]?> ReadMatchingAsync(Stream reader, int inputLength,
         byte slot, byte feature, byte function, CancellationToken cancellation)
     {
         var response = new byte[inputLength];
@@ -215,6 +239,9 @@ internal static class LogitechBatteryReader
         report.Length >= 7 && report[1] == slot &&
         (report[0] == 0x10 && report[2] == 0x8F || report[0] == 0x11 && report.Length >= 20 && report[2] == 0xFF) &&
         report[3] == feature && report[4] == function;
+
+    internal static bool IsUnknownDeviceResponse(ReadOnlySpan<byte> report, byte slot, byte feature, byte function) =>
+        IsErrorResponse(report, slot, feature, function) && report[0] == 0x10 && report[5] == 0x08;
 
     internal static bool TryParseUnified(ReadOnlySpan<byte> capabilities, ReadOnlySpan<byte> status, out BatteryReading reading)
     {
@@ -275,7 +302,10 @@ internal static class LogitechBatteryReader
                     try
                     {
                         if (HidP_GetCaps(data, out var caps) == Success && caps.UsagePage == 0xFF00 && caps.Usage == 2 &&
-                            caps.InputReportByteLength is >= 20 and <= 64) return new(path, caps.InputReportByteLength);
+                            caps.InputReportByteLength is >= 20 and <= 64)
+                            return new(path, caps.InputReportByteLength,
+                                caps.OutputReportByteLength is >= 20 and <= 64 && HasLongOutputReport(data, caps)
+                                    ? caps.OutputReportByteLength : 0);
                     }
                     finally { HidD_FreePreparsedData(data); }
                 }
@@ -284,5 +314,22 @@ internal static class LogitechBatteryReader
         }
         finally { SetupDiDestroyDeviceInfoList(set); }
         return null;
+    }
+
+    private static bool HasLongOutputReport(IntPtr data, Caps caps)
+    {
+        if (caps.NumberOutputValueCaps is > 0 and <= 256)
+        {
+            var count = caps.NumberOutputValueCaps;
+            var values = new ValueCaps[count];
+            if (HidP_GetValueCaps(1, values, ref count, data) == Success && values.Take(count).Any(value => value.ReportId == 0x11)) return true;
+        }
+        if (caps.NumberOutputButtonCaps is > 0 and <= 256)
+        {
+            var count = caps.NumberOutputButtonCaps;
+            var buttons = new ButtonCaps[count];
+            if (HidP_GetButtonCaps(1, buttons, ref count, data) == Success && buttons.Take(count).Any(button => button.ReportId == 0x11)) return true;
+        }
+        return false;
     }
 }

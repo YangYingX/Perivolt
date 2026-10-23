@@ -46,9 +46,10 @@ async function jwt(env) {
 }
 
 async function githubRequest(path, authorization, body) {
-  // No redirects: an upstream redirect must never receive the installation credential.
+  // Workers supports manual redirects; callers reject every non-success status.
+  // Never follow an upstream redirect with the installation credential.
   return fetch(API + path, {
-    method: "POST", redirect: "error", signal: AbortSignal.timeout(10000),
+    method: "POST", redirect: "manual", signal: AbortSignal.timeout(10000),
     headers: {
       Accept: "application/vnd.github+json", Authorization: `Bearer ${authorization}`,
       "Content-Type": "application/json", "User-Agent": "Perivolt-Diagnostics",
@@ -87,21 +88,31 @@ export class GitHubIssues {
 
   async installationToken() {
     if (this.token && Date.now() < this.tokenExpires) return this.token;
+    let stage = "token_jwt";
+    let httpStatus = null;
     try {
+      const authorization = await jwt(this.env);
+      stage = "token_request";
       const response = await githubRequest(`/app/installations/${this.env.GITHUB_INSTALLATION_ID}/access_tokens`,
-        await jwt(this.env), { repositories: ["Perivolt"], permissions: { issues: "write" } });
+        authorization, { repositories: ["Perivolt"], permissions: { issues: "write" } });
+      httpStatus = response.status;
       if (!response.ok) {
         await response.body?.cancel();
         throw new RequestError(502, "github_unavailable");
       }
+      stage = "token_response";
       const data = await responseJson(response, 16384);
       const expires = Date.parse(data.expires_at);
-      if (typeof data.token !== "string" || !/^[A-Za-z0-9_]{20,512}$/.test(data.token) ||
+      // Installation tokens are opaque and can change format or length. Only reject
+      // empty/header-unsafe values; responseJson already bounds the response size.
+      if (typeof data.token !== "string" || !/^[\x21-\x7E]+$/.test(data.token) ||
           !Number.isFinite(expires) || expires < Date.now() + 60000) throw new RequestError(502, "github_unavailable");
       this.token = data.token;
       this.tokenExpires = expires - 60000;
       return this.token;
     } catch {
+      // Fixed stages and numeric status only; never log credentials or upstream bodies.
+      console.warn("diagnostic_github_failure", JSON.stringify({ stage, httpStatus }));
       this.token = undefined;
       this.tokenExpires = 0;
       throw new RequestError(502, "github_unavailable");
@@ -109,9 +120,12 @@ export class GitHubIssues {
   }
 
   async create(report, hash) {
+    const token = await this.installationToken();
+    let stage = "issue_request";
+    let httpStatus = null;
     try {
-      const token = await this.installationToken();
       const response = await githubRequest(`/repos/${REPOSITORY}/issues`, token, issueContent(report, hash));
+      httpStatus = response.status;
       if (response.status !== 201) {
         if (response.status === 401 || response.status === 403) {
           this.token = undefined;
@@ -120,10 +134,12 @@ export class GitHubIssues {
         await response.body?.cancel();
         throw new RequestError(502, "github_unavailable");
       }
+      stage = "issue_response";
       const issue = await responseJson(response, 131072);
       if (!Number.isSafeInteger(issue.number) || issue.number < 1) throw new RequestError(502, "github_unavailable");
       return `https://github.com/${REPOSITORY}/issues/${issue.number}`;
     } catch {
+      console.warn("diagnostic_github_failure", JSON.stringify({ stage, httpStatus }));
       throw new RequestError(502, "github_unavailable");
     }
   }

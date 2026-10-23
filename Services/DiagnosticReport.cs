@@ -26,7 +26,8 @@ public static class DiagnosticReportBuilder
             || Status(device.Message) == "offline") return false;
         // A generic wired HID without a battery is not a read failure. Names are only
         // local hints for otherwise unadapted receivers and never enter the report.
-        return device.HasProtocolConnectionState || Connection(device.Connection) is "bluetooth" or "receiver"
+        return device.HasProtocolConnectionState || device.Source == "HID 描述符"
+            || Connection(device.Connection) is "bluetooth" or "receiver"
             || device.Name.Contains("receiver", StringComparison.OrdinalIgnoreCase)
             || device.Name.Contains("dongle", StringComparison.OrdinalIgnoreCase)
             || device.Name.Contains("接收器", StringComparison.Ordinal);
@@ -141,6 +142,9 @@ public static class DiagnosticReportBuilder
     private static int? Error(string line) => int.TryParse(Field(line, @"(?:Windows 错误 |打开失败 |描述符读取失败 )(\d{1,5})(?!\d)"), out var code) ? code : null;
     private static string Connection(string value) => value.StartsWith("蓝牙", StringComparison.Ordinal) || value.StartsWith("Bluetooth", StringComparison.OrdinalIgnoreCase)
         || value.StartsWith("BLE", StringComparison.OrdinalIgnoreCase) ? "bluetooth"
+        // Older scans called every removable USB node "USB / 接收器". It is an
+        // ambiguous USB transport label, not evidence of a wireless receiver.
+        : value == "USB / 接收器" ? "usb"
         : value.Contains("2.4G", StringComparison.OrdinalIgnoreCase) || value.Contains("接收器", StringComparison.Ordinal)
             || value.Contains("receiver", StringComparison.OrdinalIgnoreCase) ? "receiver"
         : value.Contains("USB", StringComparison.OrdinalIgnoreCase) ? "usb" : "unknown";

@@ -30,7 +30,7 @@ public sealed class BatteryMonitorService(PluginHost plugins)
             var devices = MergeDevices(pnpResult.Devices.Concat(hidResult.Devices).Concat(bluetoothDevices).Concat(controllerDevices))
                 .Where(device => device.ConnectionKnown && device.IsConnected).ToArray();
             diagnostics.Add($"当前已连接 {devices.Length} 台外设，{devices.Count(x => x.HasBattery)} 台读到电量；已过滤断开、内置及虚拟设备。");
-            diagnostics.Add("USB / 接收器：Windows 通常不能直接区分有线外设与 2.4G 接收器，需型号协议确认。");
+            diagnostics.Add("USB：仅确认 USB 节点存在；有线外设与 2.4G 接收器的区分及无线连接状态需型号协议确认。");
             return new ScanResult(devices, diagnostics, DateTimeOffset.Now);
         }
         finally { scanLock.Release(); }
@@ -82,15 +82,18 @@ public sealed class BatteryMonitorService(PluginHost plugins)
             var charging = members.Where(x => x.IsCharging.HasValue).OrderByDescending(BatteryPriority).FirstOrDefault();
             var protocol = members.FirstOrDefault(x => x.HasProtocolConnectionState);
             var hardware = members.FirstOrDefault(x => x.VendorId.HasValue) ?? named;
+            // BlackWidow V3 exposes mouse-emulation collections but is a wired keyboard.
+            // PID reference: https://github.com/openrazer/openrazer/blob/master/driver/razerkbd_driver.h
+            var wiredKeyboard = hardware.VendorId == 0x1532 && hardware.ProductId == 0x024E;
             var stableId = members.Select(x => x.BluetoothAddress).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) is { } address
                 ? $"bluetooth:{address}" : members.Select(x => x.ContainerId).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) is { } container
                 ? $"container:{container}" : members[0].Id;
             return named with
             {
                 Id = stableId,
-                Category = named.Category != "外设" ? named.Category : members.FirstOrDefault(x => x.Category != "外设")?.Category ?? "外设",
+                Category = wiredKeyboard ? "键盘" : named.Category != "外设" ? named.Category : members.FirstOrDefault(x => x.Category != "外设")?.Category ?? "外设",
                 Manufacturer = members.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Manufacturer))?.Manufacturer ?? "",
-                Connection = connection.Connection,
+                Connection = wiredKeyboard ? "USB 有线" : connection.Connection,
                 IsConnected = connection.IsConnected,
                 ConnectionKnown = connection.ConnectionKnown,
                 HasProtocolConnectionState = connection.HasProtocolConnectionState,

@@ -117,7 +117,9 @@ public sealed class WindowsPnpProvider
                 uint length = 4;
                 var removable = CM_Get_DevNode_PropertyW(devInst, ref key, out _, bytes, ref length, 0) == 0
                     && length == 4 && (BitConverter.ToUInt32(bytes) & 0x04) != 0; // CM_DEVCAP_REMOVABLE
-                return removable ? ("USB / 接收器", connected, null) : default;
+                // Removable describes the USB node, not a wireless link. Vendor protocols
+                // and explicit receiver names supply that distinction after enumeration.
+                return removable ? ("USB", connected, null) : default;
             }
             if (id.StartsWith("ACPI\\", StringComparison.OrdinalIgnoreCase) || id.StartsWith("ROOT\\", StringComparison.OrdinalIgnoreCase)
                 || id.StartsWith("SWD\\", StringComparison.OrdinalIgnoreCase)) break;

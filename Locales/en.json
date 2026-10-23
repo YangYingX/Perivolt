@@ -692,5 +692,19 @@
   "部分恢复": "Partly restored",
   "退出时自动化恢复或记录保存未完成。": "Automation restoration or history saving did not finish before exit.",
   "部分设置暂未恢复，恢复点已保留，可稍后重试。": "Some settings could not be restored yet. The restore point is kept so you can retry later.",
-  "无法读取当前音频状态，请稍后重试恢复。": "The current audio state could not be read. Try restoring again later."
+  "无法读取当前音频状态，请稍后重试恢复。": "The current audio state could not be read. Try restoring again later.",
+  "诊断上报未完成：{0}（HTTP {1}）": "Diagnostic upload did not complete: {0} (HTTP {1})",
+  "诊断上报未完成：{0}": "Diagnostic upload did not complete: {0}",
+  "诊断报告未通过接收服务校验，请更新软件后重试": "The report failed service validation. Update the app and retry",
+  "诊断报告过大，无法发送": "The diagnostic report is too large to send",
+  "诊断上报次数过多，请稍后重试": "Too many diagnostic uploads. Try again later",
+  "诊断接收服务尚未完成配置，请联系开发者": "The diagnostic service is not configured. Contact the developer",
+  "接收服务暂时无法提交到 GitHub，请稍后重试": "The service could not submit to GitHub. Try again later",
+  "诊断接收服务暂时不可用，请稍后重试": "The diagnostic service is temporarily unavailable. Try again later",
+  "诊断接收服务响应超时，请稍后重试": "The diagnostic service timed out. Try again later",
+  "接收服务无法确认连接来源，请稍后重试": "The service could not verify the connection source. Try again later",
+  "诊断请求与接收服务不兼容，请更新软件后重试": "The request is incompatible with the service. Update the app and retry",
+  "诊断接收服务拒绝了请求，请稍后重试": "The diagnostic service rejected the request. Try again later",
+  "诊断接收服务返回无效响应，请稍后重试": "The diagnostic service returned an invalid response. Try again later",
+  "无法连接诊断接收服务，请检查网络或代理": "Cannot connect to the diagnostic service. Check the network or proxy"
 }

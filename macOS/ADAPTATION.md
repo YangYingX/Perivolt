@@ -1,0 +1,70 @@
+# macOS 适配与实机验收
+
+当前目标为 macOS 15+，分别验证 Apple Silicon（`osx-arm64`）与 Intel（`osx-x64`）。版本为 `1.1.0-alpha.2`；通过开发检查后仍需实机验收，才进入 Developer ID 签名、公证和公开发行。
+
+## 自动构建入口
+
+仓库的 [macOS development preview 工作流](../.github/workflows/macos.yml) 在相关 PR 和 `main` 更新时执行，也支持手动运行。两个原生 runner 分别生成自包含 `.app`、ZIP 和 DMG，验证 SHA256、plist、CPU 架构、解压后可执行权限，再直接运行**解压包里的应用**完成 `--self-check`。DMG 另外经过 `hdiutil verify`、只读挂载、Applications 链接核对和复制安装，推出镜像后运行副本自检。临时自检数据随任务删除，不会写入 runner 的 `/Applications`。
+
+工作流使用只读仓库权限，不需要证书或发布密钥。通过后保留 ZIP、DMG 与 SHA256 共 14 天，下载 Actions artifact 后即可取出 DMG；ZIP 供需要原始应用包的开发者使用。它是尚未完成 Developer ID 签名和公证的开发产物，不会创建 Release 或替换 Windows 安装包。ZIP 封装用于保留 Unix 可执行权限。
+
+runner 标签依据 [GitHub 官方列表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)：`macos-15` 用于 arm64，`macos-15-intel` 用于 x64。自动自检不覆盖图形界面、通知、登录启动或真实外设。
+
+Mac 构建会以 ad-hoc 开发签名封装 `.app`；镜像本身没有 Developer ID 签名或公证。CI 单独保存 `distribution-assessment.json` 的实际 Gatekeeper 返回值；不能将程序自检或镜像挂载成功作为 Finder 分发验证。ZIP 解压及 DMG 复制后的应用签名均检查，临时篡改资源的负例必须被拒绝。
+
+遇到“已损坏”时先记录提示中的完整名称、系统版本及下载副本的 SHA256。在 Mac 上用以下只读命令区分镜像损坏、应用签名失败和分发信任拒绝（路径按实际安装位置替换）：
+
+```sh
+shasum -a 256 ~/Downloads/Perivolt-1.1.0-alpha.2-osx-arm64.dmg
+hdiutil verify ~/Downloads/Perivolt-1.1.0-alpha.2-osx-arm64.dmg
+spctl --assess --type open --context context:primary-signature --verbose=4 ~/Downloads/Perivolt-1.1.0-alpha.2-osx-arm64.dmg
+codesign --verify --deep --strict --verbose=2 /Applications/Perivolt.app
+spctl --assess --type execute --verbose=4 /Applications/Perivolt.app
+```
+
+这些命令不移除隔离属性、不修改系统安全设置。`hdiutil` 校验失败不能仅归因于没有公证；`codesign` 通过也不表示 `spctl` 会接受。镜像评估参数依据 [Apple TN2206](https://developer.apple.com/library/archive/technotes/tn2206/)。
+
+## 拿到 Mac 后的第一轮
+
+1. 记录 macOS 版本、芯片、显示缩放及应用版本，选取对应架构的 DMG。
+2. 在终端切换到下载的 DMG 所在目录，执行 `shasum -a 256 -c Perivolt-*.dmg.sha256`。打开 DMG，把应用拖到 `Applications`，推出镜像，再从“应用程序”启动。将应用放入最终使用位置，再验证登录启动。
+3. 验证启动入口和本地设置，不接触现有应用数据：
+
+   ```sh
+   /Applications/Perivolt.app/Contents/MacOS/Perivolt --self-check
+   ```
+
+   该命令创建独立临时目录，完成设置读写、零电量提醒、充电抑制及多语言资源自检后自行删除。
+4. 通过 Finder 打开 `.app`。记录系统信任提示的原始内容；未签名包可能被 Gatekeeper 拦截，应由开发者在 Mac 上处理签名，避免通过关闭系统保护来完成验收。
+5. 按以下项目逐项记录结果；未验证项保持未验证。
+
+| 项目 | 操作与通过条件 |
+| --- | --- |
+| 首次启动 | 自动显示主面板；关闭后菜单栏入口仍可打开；再次启动恢复现有实例，不产生两份常驻进程。 |
+| 设置持久化 | 修改语言、阈值、设备别名与主题；正常退出再启动，设置仍保留。 |
+| 系统主题 | 在面板和卡片显示时切换系统明暗模式，文字和背景同步，输入中的设置不丢失。 |
+| 设备读数 | 将系统设置/设备本身显示值与应用对照；USB、蓝牙各测至少一台；没有读数时显示未知。 |
+| 连接变化 | 连接、断开、关机和重连后刷新；离线或缓存的节点不误报为在线，不出现重复设备。 |
+| 耳机分项 | 有对应设备时核对左右耳与充电盒分别显示；缺少某项读数时保持未知。 |
+| 提醒 | 开启系统通知权限；低于阈值时提醒，重复间隔生效；充电、离线、未知电量不触发低电提醒。 |
+| 登录启动 | 在最终安装位置打开开关；退出并重新登录后常驻；关闭开关后再次登录不启动。检查仅管理本应用 LaunchAgent。 |
+| 卡片与显示器 | 固定设备、拖动、锁定、关闭和重新显示；切换缩放或拔掉外接屏后卡片可找回；置顶及半透明可用。 |
+| 睡眠唤醒 | 休眠后唤醒，能恢复扫描；反复手动刷新不会并发启动多个系统查询。 |
+| 正常退出 | 菜单栏退出或 Cmd+Q/系统退出后进程和卡片结束，保留卡片启用设置，下一次启动正常。 |
+
+需要排查真实读数时再手动采样：
+
+```sh
+/Applications/Perivolt.app/Contents/MacOS/Perivolt --scan --output ./perivolt-mac-scan.json
+```
+
+输出包含设备名称和标识，仅保存在指定位置。分享前删除不必要的标识；排查结束后删除临时采样文件。复现记录至少包括芯片/系统版本、应用版本、操作步骤、期望/实际结果和是否能够再次复现。
+
+## 公开发行前仍需完成
+
+- 两种芯片完成上述实机验收，并记录 macOS 15 这一最低目标上的结果。
+- 在 Mac 上对应用及嵌套原生库完成 Developer ID 签名、运行时权限核对、Apple 公证和 stapling，随后重新打包及计算 SHA256；签名后的文件不能沿用开发 ZIP 的散列。
+- 对最终分发包检查 `codesign --verify --deep --strict`、`spctl --assess --type execute` 与公证票据，并在干净用户环境用 Finder 启动。
+- 安装/替换应用、移动安装位置后的登录启动，以及更新服务选择对应架构的最终包均需复核。
+
+当前不会为通知、USB 或蓝牙系统查询盲目添加 entitlement；只有实机证据证明需要时，才加入对应权限和用途说明。签名或上传公证需要开发者自己的 Apple 账号和证书，仓库不保存这些凭据。

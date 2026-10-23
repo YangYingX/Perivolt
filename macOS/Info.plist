@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>CFBundleIdentifier</key>
+    <string>io.github.yangyingx.perivolt</string>
+    <key>CFBundleName</key>
+    <string>Perivolt</string>
+    <key>CFBundleDisplayName</key>
+    <string>电栖 · Perivolt</string>
+    <key>CFBundleExecutable</key>
+    <string>Perivolt</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>Perivolt.icns</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1.1.0</string>
+    <key>CFBundleGetInfoString</key>
+    <string>电栖 · Perivolt 1.1.0-alpha.2</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>15.0</string>
+    <key>LSUIElement</key>
+    <true />
+    <key>NSHighResolutionCapable</key>
+    <true />
+  </dict>
+</plist>

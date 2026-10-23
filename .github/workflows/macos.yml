@@ -1,0 +1,153 @@
+name: macOS development preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: &mac-paths
+      - '.github/workflows/macos.yml'
+      - 'macOS/**'
+      - 'Models/**'
+      - 'Services/L.cs'
+      - 'Services/SettingsStore.cs'
+      - 'Services/ReminderPolicy.cs'
+      - 'Services/HistoryStore.cs'
+      - 'Locales/**'
+      - 'Assets/**'
+      - 'Directory.Build.props'
+      - 'LICENSE'
+      - 'LICENSES/**'
+      - '*NOTICE*'
+      - 'AUTHORS.md'
+  pull_request:
+    paths: *mac-paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Build and launch ${{ matrix.runtime }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            runtime: osx-arm64
+            architecture: arm64
+          - runner: macos-15-intel
+            runtime: osx-x64
+            architecture: x86_64
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+      AVALONIA_TELEMETRY_OPTOUT: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build self-contained app, ZIP and DMG
+        shell: pwsh
+        run: ./macOS/scripts/Build.ps1 -Runtime '${{ matrix.runtime }}' -Dmg
+      - name: Verify and launch the extracted package
+        shell: bash
+        env:
+          MAC_RUNTIME: ${{ matrix.runtime }}
+          MAC_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "$MAC_ARCHITECTURE"
+          cd "artifacts/macOS-preview/$MAC_RUNTIME"
+          shasum -a 256 -c ./*.zip.sha256
+          verification_dir="$(mktemp -d "$RUNNER_TEMP/perivolt-package.XXXXXX")"
+          trap 'rm -rf -- "$verification_dir"' EXIT
+          ditto -x -k ./*.zip "$verification_dir"
+          app="$verification_dir/Perivolt.app"
+          plutil -lint "$app/Contents/Info.plist"
+          lipo "$app/Contents/MacOS/Perivolt" -verify_arch "$MAC_ARCHITECTURE"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          test -x "$app/Contents/MacOS/Perivolt"
+          test -s "$app/Contents/Resources/Perivolt.icns"
+          test -s "$app/Contents/Resources/runtime-notices/DOTNET-THIRD-PARTY-NOTICES.txt"
+          "$app/Contents/MacOS/Perivolt" --self-check --data-dir "$verification_dir/check-data"
+          printf '\nSignature regression check\n' >> "$app/Contents/Resources/NOTICE.md"
+          if codesign --verify --deep --strict "$app"; then
+            echo 'Modified bundle resources incorrectly passed signature verification.' >&2
+            exit 1
+          fi
+      - name: Verify DMG drag installation
+        shell: bash
+        env:
+          MAC_RUNTIME: ${{ matrix.runtime }}
+          MAC_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          set -euo pipefail
+          cd "artifacts/macOS-preview/$MAC_RUNTIME"
+          shasum -a 256 -c ./*.dmg.sha256
+          verification_dir="$(mktemp -d "$RUNNER_TEMP/perivolt-dmg.XXXXXX")"
+          mounted=false
+          cleanup() {
+            if [ "$mounted" = true ]; then
+              hdiutil detach "$verification_dir/mounted" || return
+            fi
+            rm -rf -- "$verification_dir"
+          }
+          trap cleanup EXIT
+          mkdir "$verification_dir/mounted"
+          hdiutil attach ./*.dmg -readonly -nobrowse -mountpoint "$verification_dir/mounted"
+          mounted=true
+          test "$(readlink "$verification_dir/mounted/Applications")" = /Applications
+          ditto "$verification_dir/mounted/Perivolt.app" "$verification_dir/installed/Perivolt.app"
+          hdiutil detach "$verification_dir/mounted"
+          mounted=false
+          app="$verification_dir/installed/Perivolt.app"
+          plutil -lint "$app/Contents/Info.plist"
+          lipo "$app/Contents/MacOS/Perivolt" -verify_arch "$MAC_ARCHITECTURE"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          test -x "$app/Contents/MacOS/Perivolt"
+          "$app/Contents/MacOS/Perivolt" --self-check --data-dir "$verification_dir/check-data"
+      - name: Record Gatekeeper distribution assessment
+        shell: bash
+        env:
+          MAC_RUNTIME: ${{ matrix.runtime }}
+        run: |
+          python3 - <<'PY'
+          import glob, json, os, pathlib, subprocess
+          folder = pathlib.Path('artifacts/macOS-preview') / os.environ['MAC_RUNTIME']
+          app = folder / 'Perivolt.app'
+          image = glob.glob(str(folder / '*.dmg'))
+          assert len(image) == 1
+          targets = [
+              ('app', ['spctl', '--assess', '--type', 'execute', '--verbose=4', str(app)]),
+              ('dmg', ['spctl', '--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose=4', image[0]])]
+          assessments = []
+          for kind, command in targets:
+              result = subprocess.run(command, text=True, capture_output=True, timeout=90)
+              assessments.append(dict(target=kind, exitCode=result.returncode, accepted=result.returncode == 0,
+                                      stdout=result.stdout, stderr=result.stderr))
+              print(f'Gatekeeper {kind}: exit {result.returncode}; accepted={result.returncode == 0}')
+          report = dict(bundleSigning='ad-hoc', developerIdSigned=False, notarized=False, assessments=assessments,
+                        scope='Build/integrity checks passing does not mean Finder or Gatekeeper accepts this development package.')
+          (folder / 'distribution-assessment.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+          PY
+      - name: Keep development packages and distribution assessment
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Perivolt-development-${{ matrix.runtime }}
+          path: |
+            artifacts/macOS-preview/${{ matrix.runtime }}/*.zip
+            artifacts/macOS-preview/${{ matrix.runtime }}/*.zip.sha256
+            artifacts/macOS-preview/${{ matrix.runtime }}/*.dmg
+            artifacts/macOS-preview/${{ matrix.runtime }}/*.dmg.sha256
+            artifacts/macOS-preview/${{ matrix.runtime }}/distribution-assessment.json
+          if-no-files-found: error
+          retention-days: 14

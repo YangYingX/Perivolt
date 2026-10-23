@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Perivolt</AssemblyName>
+    <RootNamespace>PowerHub</RootNamespace>
+    <Version>1.1.0-alpha.2</Version>
+    <Description>电栖 · Perivolt for macOS</Description>
+    <Product>电栖 · Perivolt</Product>
+    <ApplicationIcon>../Assets/powerhub.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.21" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.21" />
+    <Compile Remove="Extensions/**/*.cs" />
+    <Compile Include="../Models/AppSettings.cs;../Models/DeviceStatus.cs;../Models/ThemeArtworkPreference.cs;../Models/DesktopScene.cs;../Models/WidgetPosition.cs;../Models/AutomationRule.cs" Link="Models/%(Filename)%(Extension)" />
+    <Compile Include="../Services/L.cs;../Services/SettingsStore.cs;../Services/ReminderPolicy.cs;../Services/HistoryStore.cs" Link="Shared/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../Locales/*.json" Link="Locales/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../Assets/powerhub-32.png" LogicalName="PowerHub.TrayIcon.png" />
+    <None Update="THIRD-PARTY-NOTICES.macOS.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="LICENSES/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../LICENSE;../NOTICE.md;../AUTHORS.md;../THIRD-PARTY-NOTICES.md" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../LICENSES/MIT-legacy.txt" Link="LICENSES/MIT-legacy.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

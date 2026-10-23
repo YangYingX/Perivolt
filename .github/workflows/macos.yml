@@ -73,7 +73,7 @@ jobs:
           ditto -x -k ./*.zip "$verification_dir"
           app="$verification_dir/Perivolt.app"
           plutil -lint "$app/Contents/Info.plist"
-          lipo -verify_arch "$MAC_ARCHITECTURE" "$app/Contents/MacOS/Perivolt"
+          lipo "$app/Contents/MacOS/Perivolt" -verify_arch "$MAC_ARCHITECTURE"
           test -x "$app/Contents/MacOS/Perivolt"
           test -s "$app/Contents/Resources/Perivolt.icns"
           test -s "$app/Contents/Resources/runtime-notices/DOTNET-THIRD-PARTY-NOTICES.txt"

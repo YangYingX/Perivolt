@@ -198,13 +198,15 @@ $env:DOTNET_CLI_HOME = Join-Path $taskWorkspace '.tools/cli'
 $env:NUGET_PACKAGES = Join-Path $taskWorkspace '.tools/nuget'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
-& $taskDotnet publish $taskProject -c Release -r $Runtime --self-contained true -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -o $taskMacOs
+& $taskDotnet publish $taskProject -c Release -r $Runtime --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o $taskMacOs
 if ($LASTEXITCODE -ne 0) { throw "macOS publish failed ($LASTEXITCODE)" }
 $taskAppHost = Join-Path $taskMacOs 'Perivolt'
 $taskHostBytes = [IO.File]::ReadAllBytes($taskAppHost)
 $taskCpu = if ($Runtime -eq 'osx-arm64') { 0x0100000c } else { 0x01000007 }
 if ($taskHostBytes.Length -lt 32 -or [BitConverter]::ToUInt32($taskHostBytes, 0) -ne 0xfeedfacfL -or [BitConverter]::ToUInt32($taskHostBytes, 4) -ne $taskCpu) { throw 'Published apphost is not the expected Mach-O architecture' }
-$taskDeps = Get-Content -LiteralPath (Join-Path $taskMacOs 'Perivolt.deps.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+# Single-file publishing embeds the dependency manifest; use the build manifest for the exact runtime license version.
+$taskDepsPath = Join-Path $taskWorkspace "macOS/bin/Release/net10.0/$Runtime/Perivolt.deps.json"
+$taskDeps = Get-Content -LiteralPath $taskDepsPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $taskRuntimeLibraries = @($taskDeps.libraries.PSObject.Properties.Name | Where-Object { $_.StartsWith("runtimepack.Microsoft.NETCore.App.Runtime.$Runtime/", [StringComparison]::OrdinalIgnoreCase) })
 if ($taskRuntimeLibraries.Count -eq 1) {
     $taskRuntimeVersion = $taskRuntimeLibraries[0].Split('/')[1]
@@ -249,6 +251,16 @@ Get-ChildItem -LiteralPath (Join-Path $taskWorkspace 'macOS/LICENSES') -File | C
 $taskNotices = Join-Path $taskResources 'runtime-notices'; New-Item -ItemType Directory -Path $taskNotices -Force | Out-Null
 Copy-Item -LiteralPath $taskRuntimeLicense -Destination (Join-Path $taskNotices 'DOTNET-LICENSE.txt') -Force
 Copy-Item -LiteralPath $taskRuntimeNotices -Destination (Join-Path $taskNotices 'DOTNET-THIRD-PARTY-NOTICES.txt') -Force
+# The same notices are already preserved in Resources. Contents/MacOS must contain native code, not duplicate data files.
+foreach ($taskPublishedNotice in @('LICENSE', 'NOTICE.md', 'AUTHORS.md', 'THIRD-PARTY-NOTICES.md', 'THIRD-PARTY-NOTICES.macOS.md', 'LICENSES')) {
+    $taskPublishedPath = Join-Path $taskMacOs $taskPublishedNotice
+    Assert-ControlledOutput $taskPublishedPath
+    if (Test-Path -LiteralPath $taskPublishedPath) {
+        if (Get-ChildItem -LiteralPath $taskPublishedPath -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'Published notices cannot contain directory links' }
+        Remove-Item -LiteralPath $taskPublishedPath -Recurse -Force
+    }
+}
+if (Get-ChildItem -LiteralPath $taskMacOs -Recurse -Force | Where-Object { -not $_.PSIsContainer -and -not (Test-MachOFile $_.FullName) }) { throw 'Single-file output still contains non-native files in Contents/MacOS' }
 if ($IsMacOS) { Set-AdHocBundleSignature $taskBundle }
 else { Write-Output 'Final .app bundle signing was skipped on this host; the cross-published ZIP still requires macOS signature validation.' }
 $taskZip = Join-Path $taskRidRoot ("Perivolt-$taskVersion-$Runtime.zip")

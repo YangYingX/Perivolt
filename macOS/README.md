@@ -59,7 +59,7 @@ dotnet run --project macOS/Perivolt.Mac.csproj -- --preview --screenshot artifac
 
 产物位于 `artifacts/macOS-preview/` 对应架构目录，包含自带运行时的 `Perivolt.app`、ZIP 和 SHA256；Mac 上加 `-Dmg` 还会生成 DMG 与 SHA256。打开 DMG 后，把 `Perivolt.app` 拖到其中的 `Applications` 链接，推出磁盘，再从“应用程序”启动。CI 为两种芯片均生成 DMG，并验证挂载、复制安装、卸载镜像后运行应用自检。
 
-在 Mac 构建时，先对嵌套原生代码签名，再以 ad-hoc 开发签名封装完整 `.app`，最后生成归档。ZIP 解压及 DMG 复制后的应用均执行严格签名验证；CI 还检查篡改资源会被拒绝。Windows 跨编译的 ZIP 不进行此 Mac 签名步骤。
+托管程序集以 single-file 方式嵌入主程序，法律声明统一保留在 `Contents/Resources`，`Contents/MacOS` 仅保留 Mach-O 可执行代码。在 Mac 构建时，先对嵌套原生代码签名，再以 ad-hoc 开发签名封装完整 `.app`，最后生成归档。ZIP 解压及 DMG 复制后的应用均执行严格签名验证；CI 还检查篡改资源会被拒绝。Windows 跨编译的 ZIP 不进行此 Mac 签名步骤。
 
 应用包结构参照 [Avalonia macOS 部署说明](https://docs.avaloniaui.net/docs/deployment/macos)，DMG 封装参照 [Apple 分发说明](https://developer.apple.com/library/archive/documentation/Porting/Conceptual/PortingUnix/distributing/distibuting.html)。ad-hoc 只验证开发包的代码与资源完整性，不提供 Developer ID 身份或 Apple 公证；DMG 本身仍未签名。CI 将应用与镜像的 Gatekeeper 评估单独保存在 `distribution-assessment.json`，构建通过不表示 Gatekeeper 接受。正式分发仍需 Developer ID 签名、公证和 Finder 首次打开验收。
 

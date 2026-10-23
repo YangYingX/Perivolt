@@ -220,7 +220,7 @@ if ($Dmg) {
     $taskStaging = Join-Path $taskRidRoot ('dmg-stage-' + [Guid]::NewGuid().ToString('N'))
     $taskDmg = Join-Path $taskRidRoot ("Perivolt-$taskVersion-$Runtime.dmg")
     $taskDmgTemporary = Join-Path $taskRidRoot ([Guid]::NewGuid().ToString('N') + '.dmg')
-    foreach ($taskPath in @($taskStaging, $taskDmg, $taskDmgTemporary, $taskDmg + '.sha256')) { Assert-ControlledOutput $taskPath }
+    foreach ($taskPath in @($taskStaging, $taskDmg, $taskDmgTemporary, ($taskDmg + '.sha256'))) { Assert-ControlledOutput $taskPath }
     $taskApplicationsLink = Join-Path $taskStaging 'Applications'
     try {
         New-Item -ItemType Directory -Path $taskStaging | Out-Null

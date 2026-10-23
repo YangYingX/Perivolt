@@ -1,14 +1,28 @@
 # macOS 适配与实机验收
 
-当前目标为 macOS 15+，分别验证 Apple Silicon（`osx-arm64`）与 Intel（`osx-x64`）。版本保持 `1.1.0-alpha.1`；通过开发检查后仍需实机验收，才进入签名、公证和公开发行。
+当前目标为 macOS 15+，分别验证 Apple Silicon（`osx-arm64`）与 Intel（`osx-x64`）。版本为 `1.1.0-alpha.2`；通过开发检查后仍需实机验收，才进入 Developer ID 签名、公证和公开发行。
 
 ## 自动构建入口
 
 仓库的 [macOS development preview 工作流](../.github/workflows/macos.yml) 在相关 PR 和 `main` 更新时执行，也支持手动运行。两个原生 runner 分别生成自包含 `.app`、ZIP 和 DMG，验证 SHA256、plist、CPU 架构、解压后可执行权限，再直接运行**解压包里的应用**完成 `--self-check`。DMG 另外经过 `hdiutil verify`、只读挂载、Applications 链接核对和复制安装，推出镜像后运行副本自检。临时自检数据随任务删除，不会写入 runner 的 `/Applications`。
 
-工作流使用只读仓库权限，不需要证书或发布密钥。通过后保留 ZIP、DMG 与 SHA256 共 14 天，下载 Actions artifact 后即可取出 DMG；ZIP 供需要原始应用包的开发者使用。它是未签名的开发产物，不会创建 Release 或替换 Windows 安装包。ZIP 封装用于保留 Unix 可执行权限。
+工作流使用只读仓库权限，不需要证书或发布密钥。通过后保留 ZIP、DMG 与 SHA256 共 14 天，下载 Actions artifact 后即可取出 DMG；ZIP 供需要原始应用包的开发者使用。它是尚未完成 Developer ID 签名和公证的开发产物，不会创建 Release 或替换 Windows 安装包。ZIP 封装用于保留 Unix 可执行权限。
 
 runner 标签依据 [GitHub 官方列表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)：`macos-15` 用于 arm64，`macos-15-intel` 用于 x64。自动自检不覆盖图形界面、通知、登录启动或真实外设。
+
+Mac 构建会以 ad-hoc 开发签名封装 `.app`；镜像本身没有 Developer ID 签名或公证。CI 单独保存 `distribution-assessment.json` 的实际 Gatekeeper 返回值；不能将程序自检或镜像挂载成功作为 Finder 分发验证。ZIP 解压及 DMG 复制后的应用签名均检查，临时篡改资源的负例必须被拒绝。
+
+遇到“已损坏”时先记录提示中的完整名称、系统版本及下载副本的 SHA256。在 Mac 上用以下只读命令区分镜像损坏、应用签名失败和分发信任拒绝（路径按实际安装位置替换）：
+
+```sh
+shasum -a 256 ~/Downloads/Perivolt-1.1.0-alpha.2-osx-arm64.dmg
+hdiutil verify ~/Downloads/Perivolt-1.1.0-alpha.2-osx-arm64.dmg
+spctl --assess --type open --context context:primary-signature --verbose=4 ~/Downloads/Perivolt-1.1.0-alpha.2-osx-arm64.dmg
+codesign --verify --deep --strict --verbose=2 /Applications/Perivolt.app
+spctl --assess --type execute --verbose=4 /Applications/Perivolt.app
+```
+
+这些命令不移除隔离属性、不修改系统安全设置。`hdiutil` 校验失败不能仅归因于没有公证；`codesign` 通过也不表示 `spctl` 会接受。镜像评估参数依据 [Apple TN2206](https://developer.apple.com/library/archive/technotes/tn2206/)。
 
 ## 拿到 Mac 后的第一轮
 

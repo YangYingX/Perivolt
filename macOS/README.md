@@ -1,6 +1,6 @@
 # 电栖 · Perivolt for macOS
 
-当前为 **1.1.0-alpha.1 开发预览**，尚未公开发行。Windows 正式版 [1.1.0](https://github.com/YangYingX/Perivolt/releases/tag/v1.1.0) 已发布；本目录是独立 Avalonia 桌面应用，不加载 Windows WPF 插件。
+当前为 **1.1.0-alpha.2 开发预览**，尚未公开发行。Windows 正式版 [1.1.0](https://github.com/YangYingX/Perivolt/releases/tag/v1.1.0) 已发布；本目录是独立 Avalonia 桌面应用，不加载 Windows WPF 插件。
 
 首版面向 macOS 15 及以上的 Apple Silicon 和 Intel 电脑，使用 .NET 10 与 Avalonia 11.3.21。最低系统目标参照 [.NET 10 当前支持列表](https://github.com/dotnet/core/blob/main/release-notes/10.0/supported-os.md)，实际兼容性仍需 Mac 实机确认。
 
@@ -59,7 +59,9 @@ dotnet run --project macOS/Perivolt.Mac.csproj -- --preview --screenshot artifac
 
 产物位于 `artifacts/macOS-preview/` 对应架构目录，包含自带运行时的 `Perivolt.app`、ZIP 和 SHA256；Mac 上加 `-Dmg` 还会生成 DMG 与 SHA256。打开 DMG 后，把 `Perivolt.app` 拖到其中的 `Applications` 链接，推出磁盘，再从“应用程序”启动。CI 为两种芯片均生成 DMG，并验证挂载、复制安装、卸载镜像后运行应用自检。
 
-应用包结构参照 [Avalonia macOS 部署说明](https://docs.avaloniaui.net/docs/deployment/macos)，DMG 封装参照 [Apple 分发说明](https://developer.apple.com/library/archive/documentation/Porting/Conceptual/PortingUnix/distributing/distibuting.html)。开发包不进行 Developer ID 签名或 Apple 公证，系统可能拦截首次启动；正式分发前还需在 Mac 完成签名、公证和启动验证。
+在 Mac 构建时，先对嵌套原生代码签名，再以 ad-hoc 开发签名封装完整 `.app`，最后生成归档。ZIP 解压及 DMG 复制后的应用均执行严格签名验证；CI 还检查篡改资源会被拒绝。Windows 跨编译的 ZIP 不进行此 Mac 签名步骤。
+
+应用包结构参照 [Avalonia macOS 部署说明](https://docs.avaloniaui.net/docs/deployment/macos)，DMG 封装参照 [Apple 分发说明](https://developer.apple.com/library/archive/documentation/Porting/Conceptual/PortingUnix/distributing/distibuting.html)。ad-hoc 只验证开发包的代码与资源完整性，不提供 Developer ID 身份或 Apple 公证；DMG 本身仍未签名。CI 将应用与镜像的 Gatekeeper 评估单独保存在 `distribution-assessment.json`，构建通过不表示 Gatekeeper 接受。正式分发仍需 Developer ID 签名、公证和 Finder 首次打开验收。
 
 ## 数据、权限和待验证项
 

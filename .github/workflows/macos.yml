@@ -74,10 +74,16 @@ jobs:
           app="$verification_dir/Perivolt.app"
           plutil -lint "$app/Contents/Info.plist"
           lipo "$app/Contents/MacOS/Perivolt" -verify_arch "$MAC_ARCHITECTURE"
+          codesign --verify --deep --strict --verbose=2 "$app"
           test -x "$app/Contents/MacOS/Perivolt"
           test -s "$app/Contents/Resources/Perivolt.icns"
           test -s "$app/Contents/Resources/runtime-notices/DOTNET-THIRD-PARTY-NOTICES.txt"
           "$app/Contents/MacOS/Perivolt" --self-check --data-dir "$verification_dir/check-data"
+          printf '\nSignature regression check\n' >> "$app/Contents/Resources/NOTICE.md"
+          if codesign --verify --deep --strict "$app"; then
+            echo 'Modified bundle resources incorrectly passed signature verification.' >&2
+            exit 1
+          fi
       - name: Verify DMG drag installation
         shell: bash
         env:
@@ -106,9 +112,34 @@ jobs:
           app="$verification_dir/installed/Perivolt.app"
           plutil -lint "$app/Contents/Info.plist"
           lipo "$app/Contents/MacOS/Perivolt" -verify_arch "$MAC_ARCHITECTURE"
+          codesign --verify --deep --strict --verbose=2 "$app"
           test -x "$app/Contents/MacOS/Perivolt"
           "$app/Contents/MacOS/Perivolt" --self-check --data-dir "$verification_dir/check-data"
-      - name: Keep unsigned development packages
+      - name: Record Gatekeeper distribution assessment
+        shell: bash
+        env:
+          MAC_RUNTIME: ${{ matrix.runtime }}
+        run: |
+          python3 - <<'PY'
+          import glob, json, os, pathlib, subprocess
+          folder = pathlib.Path('artifacts/macOS-preview') / os.environ['MAC_RUNTIME']
+          app = folder / 'Perivolt.app'
+          image = glob.glob(str(folder / '*.dmg'))
+          assert len(image) == 1
+          targets = [
+              ('app', ['spctl', '--assess', '--type', 'execute', '--verbose=4', str(app)]),
+              ('dmg', ['spctl', '--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose=4', image[0]])]
+          assessments = []
+          for kind, command in targets:
+              result = subprocess.run(command, text=True, capture_output=True, timeout=90)
+              assessments.append(dict(target=kind, exitCode=result.returncode, accepted=result.returncode == 0,
+                                      stdout=result.stdout, stderr=result.stderr))
+              print(f'Gatekeeper {kind}: exit {result.returncode}; accepted={result.returncode == 0}')
+          report = dict(bundleSigning='ad-hoc', developerIdSigned=False, notarized=False, assessments=assessments,
+                        scope='Build/integrity checks passing does not mean Finder or Gatekeeper accepts this development package.')
+          (folder / 'distribution-assessment.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+          PY
+      - name: Keep development packages and distribution assessment
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Perivolt-development-${{ matrix.runtime }}
@@ -117,5 +148,6 @@ jobs:
             artifacts/macOS-preview/${{ matrix.runtime }}/*.zip.sha256
             artifacts/macOS-preview/${{ matrix.runtime }}/*.dmg
             artifacts/macOS-preview/${{ matrix.runtime }}/*.dmg.sha256
+            artifacts/macOS-preview/${{ matrix.runtime }}/distribution-assessment.json
           if-no-files-found: error
           retention-days: 14

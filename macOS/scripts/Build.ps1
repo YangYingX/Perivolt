@@ -127,6 +127,45 @@ function New-MacZip([string]$Bundle, [string]$Destination) {
     finally { if (Test-Path -LiteralPath $taskTemporary) { Remove-Item -LiteralPath $taskTemporary -Force } }
 }
 
+function Test-MachOFile([string]$Path) {
+    $taskStream = [IO.File]::OpenRead($Path)
+    try {
+        if ($taskStream.Length -lt 4) { return $false }
+        $taskHeader = [byte[]]::new(4)
+        $taskStream.ReadExactly($taskHeader, 0, 4)
+        return [BitConverter]::ToUInt32($taskHeader, 0) -in @(
+            0xfeedfaceL, 0xfeedfacfL, 0xcefaedfeL, 0xcffaedfeL,
+            0xcafebabeL, 0xbebafecaL, 0xcafebabfL, 0xbfbafecaL
+        )
+    }
+    finally { $taskStream.Dispose() }
+}
+
+function Set-AdHocBundleSignature([string]$Bundle) {
+    Assert-ControlledOutput $Bundle
+    $taskItems = @(Get-ChildItem -LiteralPath $Bundle -Recurse -Force)
+    if ($taskItems | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'Cannot sign a bundle containing directory links' }
+    # Inspect the old envelope without treating the expected native nonzero status as a PowerShell failure.
+    $PSNativeCommandUseErrorActionPreference = $false
+    $taskBeforeOutput = & /usr/bin/codesign --verify --deep --strict --verbose=2 $Bundle 2>&1
+    $taskBeforeExit = $LASTEXITCODE
+    Write-Output "Pre-sign bundle validation exit code: $taskBeforeExit"
+    foreach ($taskMessage in @($taskBeforeOutput)) { Write-Output "  $taskMessage" }
+    $taskNativeFiles = @($taskItems | Where-Object { -not $_.PSIsContainer -and (Test-MachOFile $_.FullName) } | Sort-Object { $_.FullName.Length } -Descending)
+    if ($taskNativeFiles.Count -eq 0) { throw 'No Mach-O executable was found in the app bundle' }
+    foreach ($taskNative in $taskNativeFiles) {
+        Assert-ControlledOutput $taskNative.FullName
+        & /usr/bin/codesign --force --sign '-' --timestamp=none $taskNative.FullName
+        if ($LASTEXITCODE -ne 0) { throw "Ad-hoc signing failed: $($taskNative.FullName) ($LASTEXITCODE)" }
+    }
+    & /usr/bin/codesign --force --sign '-' --timestamp=none $Bundle
+    if ($LASTEXITCODE -ne 0) { throw "Ad-hoc bundle signing failed ($LASTEXITCODE)" }
+    & /usr/bin/codesign --verify --deep --strict --verbose=2 $Bundle
+    if ($LASTEXITCODE -ne 0) { throw "Final app bundle signature validation failed ($LASTEXITCODE)" }
+    Write-Output "Ad-hoc integrity signatures verified for $($taskNativeFiles.Count) Mach-O files and the completed .app."
+    Write-Output 'Ad-hoc signing provides no Developer ID identity or notarization trust and does not establish Gatekeeper acceptance.'
+}
+
 $taskWorkspace = [IO.Path]::GetFullPath((Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
 $taskOutputRoot = Join-Path $taskWorkspace 'artifacts/macOS-preview'
 $taskOutputPrefix = [IO.Path]::GetFullPath($taskOutputRoot).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
@@ -210,6 +249,8 @@ Get-ChildItem -LiteralPath (Join-Path $taskWorkspace 'macOS/LICENSES') -File | C
 $taskNotices = Join-Path $taskResources 'runtime-notices'; New-Item -ItemType Directory -Path $taskNotices -Force | Out-Null
 Copy-Item -LiteralPath $taskRuntimeLicense -Destination (Join-Path $taskNotices 'DOTNET-LICENSE.txt') -Force
 Copy-Item -LiteralPath $taskRuntimeNotices -Destination (Join-Path $taskNotices 'DOTNET-THIRD-PARTY-NOTICES.txt') -Force
+if ($IsMacOS) { Set-AdHocBundleSignature $taskBundle }
+else { Write-Output 'Final .app bundle signing was skipped on this host; the cross-published ZIP still requires macOS signature validation.' }
 $taskZip = Join-Path $taskRidRoot ("Perivolt-$taskVersion-$Runtime.zip")
 New-MacZip $taskBundle $taskZip
 $taskHash = (Get-FileHash -LiteralPath $taskZip -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -244,4 +285,4 @@ if ($Dmg) {
         if (Test-Path -LiteralPath $taskDmgTemporary) { Remove-Item -LiteralPath $taskDmgTemporary -Force }
     }
 }
-Write-Output 'Unsigned development preview; no signing, notarization or release upload was performed.'
+Write-Output 'Development preview; no Developer ID signing, notarization or release upload was performed. The DMG is not ad-hoc signed.'
